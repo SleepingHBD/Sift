@@ -47,11 +47,11 @@ The production build is written to `out/`.
 
 The GitHub Pages build stores client-created projects, monitors, collected Radar records, research, inspiration, notes, saves, and evidence links in browser storage on the current device. This lets a completed connector run remain usable immediately and offline on that device.
 
-Connector runs also write projects, monitor definitions, run audits, sources, normalized mentions, sentiment, keywords, topics, and mention-topic links to Supabase. Anonymous Supabase Auth is used until a permanent sign-in interface is added. If cloud persistence fails after collection, Radar labels the condition and keeps the retrieved records on the current device.
+Connector runs also write projects, monitor definitions, run audits, sources, normalized mentions, sentiment, keywords, topics, and mention-topic links to Supabase. The account interface supports GitHub OAuth and upgrades an existing anonymous session through identity linking so its Sift user ID can be preserved. Anonymous sign-in remains a temporary migration path until the current workspace is linked. If cloud persistence fails after collection, Radar labels the condition and keeps the retrieved records on the current device.
 
 ## Supabase setup
 
-1. Create a Supabase project and enable **Anonymous Sign-Ins** under Authentication. For a public deployment, configure CAPTCHA or Turnstile abuse protection as recommended by Supabase.
+1. Create a Supabase project. Enable **Manual Linking** while an existing anonymous workspace is being upgraded to GitHub, and keep **Anonymous Sign-Ins** enabled only for that migration window. For public anonymous access, configure CAPTCHA or Turnstile abuse protection as recommended by Supabase.
 2. Link the repository and apply the migrations:
 
    ```bash
@@ -74,7 +74,9 @@ Connector runs also write projects, monitor definitions, run audits, sources, no
 
 5. Copy `.env.example` to `.env.local` and add the Supabase project URL and publishable key. Keep Row Level Security enabled. Never expose the service-role key or YouTube key through a `NEXT_PUBLIC_` variable.
 
-6. For GitHub Pages, create repository variables named `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. The deployment workflow passes them into the static build.
+6. Configure a GitHub OAuth App with the Supabase callback URL, enable the GitHub provider in Supabase, and allow both the production and local `/account/` return URLs. Set `NEXT_PUBLIC_GITHUB_AUTH_ENABLED=true` only after the provider is genuinely active.
+
+7. For GitHub Pages, create repository variables named `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, and `NEXT_PUBLIC_GITHUB_AUTH_ENABLED`. The deployment workflow passes them into the static build. Until GitHub OAuth is ready, use `NEXT_PUBLIC_GITHUB_AUTH_ENABLED=false` so the interface accurately labels the unavailable action.
 
 ## Radar and connector policy
 
@@ -98,4 +100,4 @@ The workflow deploys pushes to `main`:
 
 The build applies the repository subpath to routes and assets automatically.
 
-See [docs/architecture.md](docs/architecture.md) and [docs/radar.md](docs/radar.md) for implementation boundaries.
+See [docs/architecture.md](docs/architecture.md), [docs/radar.md](docs/radar.md), [docs/development-roadmap.md](docs/development-roadmap.md), and [docs/phase-0-audit.md](docs/phase-0-audit.md) for implementation boundaries, the evidence-first development sequence, and current backend findings.

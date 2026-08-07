@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { Bell, ChevronDown, Menu, Moon, Search, Sun } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
 import { useApp } from "@/components/app-provider";
 
 export function Topbar() {
+  const { status, user } = useAuth();
   const {
     theme,
     toggleTheme,
@@ -14,6 +17,9 @@ export function Topbar() {
     projects,
   } = useApp();
   const activeProject = projects.find((project) => project.id === activeProjectId);
+  const accountInitials = status === "authenticated"
+    ? String(user?.user_metadata?.user_name || user?.email || "GH").slice(0, 2).toUpperCase()
+    : status === "anonymous" ? "?" : "SI";
 
   return (
     <header className="topbar">
@@ -44,7 +50,7 @@ export function Topbar() {
           <Bell size={18} />
           <span />
         </button>
-        <button className="user-avatar" aria-label="Account menu">DH</button>
+        <Link className="user-avatar" href="/account" aria-label={status === "authenticated" ? "Open account" : "Sign in to Sift"}>{accountInitials}</Link>
       </div>
     </header>
   );

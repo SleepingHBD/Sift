@@ -1,0 +1,352 @@
+# Phase 0 architecture and data-safety audit
+
+Audit date: 7 August 2026
+
+Status: Audit, live hardening, controlled cross-user RLS verification, and the permanent sign-in decision are complete. CLI migration-history synchronization remains before Phase 0 is closed.
+
+## Scope
+
+This audit covers the current Sift repository, browser persistence, connected Supabase project, authentication configuration, Data API exposure, database migrations, Edge Function boundary, Storage state, advisors, and visible product actions.
+
+No user-created records were deleted or rewritten. No website deployment was performed.
+
+## Executive findings
+
+1. The live Supabase project is healthy. Its four earlier repository migrations remain recorded; the Phase 0 hardening SQL is applied live and preserved in the repository, but still needs to be registered in the CLI-managed migration history.
+2. The database contains one project, one monitor, one monitor run, one source, 92 mentions, four topics, and 92 mention-topic relationships. These records must be preserved.
+3. The application is still device-first: projects, research, inspiration, monitor definitions, notes, saves, important flags, connector settings, and Radar display state are read primarily from `localStorage`.
+4. Connector runs persist genuine records to Supabase, but normal application hydration does not read the workspace back from Supabase.
+5. GitHub OAuth is the selected permanent sign-in method. The GitHub OAuth App, account interface, manual identity-linking setting, Site URL, and redirect allow list are prepared. The live GitHub provider remains disabled until GitHub password confirmation releases the client secret.
+6. There are approximately ten anonymous authentication users from browser sessions. Anonymous users cannot recover access after clearing browser data or changing device.
+7. All 32 public tables have RLS enabled. The `anon` Postgres role has no table SELECT privilege. The `authenticated` role has SELECT, INSERT, UPDATE, and DELETE grants on all 32 public tables, with RLS providing row authorization.
+8. The Data API settings report both configured schemas exposed, explicit table exposure at 0 of 32, and automatic exposure of new tables disabled. Phase 1 must test each intended client table explicitly rather than infer access from grants alone.
+9. Before hardening, the Security Advisor reported zero errors and 38 warnings. After hardening and a fresh lint run it reports zero errors and 33 warnings; the remaining warnings are caused by the intentionally enabled anonymous sign-in setting.
+10. Before hardening, the Performance Advisor reported zero errors, 11 warnings, and 39 suggestions. After hardening and a fresh lint run it reports zero errors, zero warnings, and 39 informational suggestions.
+11. Supabase Storage has no buckets. File and screenshot capture cannot be considered implemented.
+12. The `radar-connectors` Edge Function is deployed. Its handler requires `auth: "user"`, derives ownership from verified user claims, and keeps connector credentials server-side. The repository currently disables the platform JWT gate, so this boundary should be tested against the current Supabase authentication guidance before Phase 1.
+13. The project has no scheduled Supabase backup on the current plan. A logical export is required before the hardening migration is applied.
+14. A pre-migration logical export was saved locally under the git-ignored `work/backups` directory before the live change. It contains the seven populated domain tables plus export metadata.
+
+## Live backend snapshot
+
+### Project
+
+- Supabase project: Signal
+- Project reference: `mgghyjffxovanmaoudsv`
+- Region: Southeast Asia, Singapore
+- Status during audit: Healthy
+- Database migration history: four repository migrations applied
+- Edge Functions: one deployed function, `radar-connectors`
+- Storage buckets: none
+- Scheduled backups: none shown
+
+### Applied migrations
+
+| Version | Name |
+| --- | --- |
+| `202608070001` | `initial_schema` |
+| `202608070002` | `radar_core` |
+| `202608070003` | `connector_runtime` |
+| `20260807112919` | `data_api_grants` |
+
+The Phase 0 migration `20260807145944_phase_0_security_foundation.sql` was applied through the signed-in Supabase SQL Editor on 7 August 2026. The SQL is replay-safe, but the dashboard execution does not create a CLI migration-history entry. The official CLI could not repair the history without a personal access token or database password, so history synchronization remains explicit follow-up work rather than creating or exposing a new credential automatically.
+
+### Existing domain data
+
+The dashboard table estimates showed:
+
+| Table | Estimated rows |
+| --- | ---: |
+| `projects` | 1 |
+| `monitoring_queries` | 1 |
+| `monitor_runs` | 1 |
+| `sources` | 1 |
+| `mentions` | 92 |
+| `topics` | 4 |
+| `mention_topics` | 92 |
+| All other Sift domain tables | 0 |
+
+These are existing records, not seed data. Any migration or repository change must preserve them.
+
+Post-migration verification returned the same counts: one project, one monitor, one monitor run, one source, 92 mentions, four topics, and 92 mention-topic relationships.
+
+## Browser storage to database map
+
+| Browser key | Current contents | Intended durable location | Migration handling |
+| --- | --- | --- | --- |
+| `sift-theme` | Light/dark preference | Browser preference; optional future profile field | Keep local |
+| `sift-active-project-personal` | Active project client ID | Browser preference or profile preference | Keep local initially; remap to cloud UUID |
+| `sift-user-projects-v1` | Projects and local counters | `projects`, `brands`, `competitors` | Idempotent import, then remove domain payload |
+| `sift-user-inspiration-v1` | Inspiration items | `inspiration_items`, tags and assets | Idempotent import, then remove |
+| `sift-user-research-v1` | Research items | `research_items`, tags and assets | Idempotent import, then remove |
+| `sift-saved-items-personal` | Saved entity IDs | `saved_items` | Remap client IDs and import |
+| `sift-radar-monitors-v2` | Monitor definitions | `monitoring_queries` | Match on project and `client_ref` |
+| `sift-radar-mentions-v1` | Collected normalized mentions by monitor | `mentions` | Prefer existing cloud rows; import only missing genuine records |
+| `sift-radar-runs-v1` | Recent run summaries | `monitor_runs` | Prefer cloud runs; import only auditable compatible records |
+| `sift-radar-connector-settings-v1` | RSS URLs, manual URLs, YouTube toggle | `connector_configs` or encrypted server configuration | Migrate non-secret settings only |
+| `sift-radar-evidence-personal-v1` | Mention destination links | `saved_items`, `insight_sources`, `brief_sources` | Resolve destination IDs before import |
+| `sift-radar-notes-personal-v1` | Mention notes | `mention_notes` | Resolve mention UUIDs and import |
+| `sift-radar-important-personal-v1` | Important mention IDs | `mentions.is_important` or user-specific saved state | Decide single-user versus future per-user semantics before import |
+
+## Current data flow
+
+```text
+Browser form
+  -> React state
+  -> localStorage
+
+Radar run
+  -> authenticated Edge Function
+  -> permitted connector
+  -> normalized mention processing
+  -> Supabase project / monitor / source / mention / topic / run rows
+  -> response copied into localStorage for application display
+```
+
+The missing flow is the reverse cloud read:
+
+```text
+Supabase rows
+  -> authenticated repository
+  -> paginated project state
+  -> application UI
+```
+
+Phase 1 should implement that reverse flow and then remove domain records from browser storage.
+
+## Authentication audit
+
+### Current configuration
+
+- New user signups: enabled
+- Anonymous sign-ins: enabled
+- Email authentication: enabled
+- Email confirmation: enabled
+- Manual identity linking: enabled for the anonymous-to-GitHub migration
+- GitHub OAuth: selected and locally implemented; live provider activation pending its client secret
+- Other OAuth providers: disabled
+- CAPTCHA/Turnstile: not verified as enabled; the dashboard recommends it for anonymous sign-in
+
+### Risk
+
+Anonymous users receive the `authenticated` Postgres role. RLS still isolates rows by `auth.uid()`, but the identity is not recoverable after sign-out, browser-data deletion, or movement to another device. Anonymous account creation can also be abused without bot protection.
+
+### Phase 1 decision
+
+Sift will use GitHub OAuth as its permanent sign-in method. When an anonymous session already owns workspace data, the account page calls `linkIdentity()` rather than creating a separate user, preserving the Sift user ID and its RLS ownership. A signed-out browser uses ordinary GitHub OAuth. Anonymous sign-ins remain enabled only until the existing workspace has been linked and verified.
+
+## Database security audit
+
+### Confirmed controls
+
+- RLS is enabled on all 32 public tables.
+- `anon` has no SELECT privilege on the Sift tables.
+- Project ownership is derived from the authenticated user rather than accepted from connector request payloads.
+- The static bundle contains only public Supabase values.
+- The YouTube key remains in Edge Function secrets.
+- No service-role key was found in the client repository or public environment names.
+- New Data API table auto-exposure is disabled in the dashboard.
+
+### Findings to fix
+
+#### P0-SEC-01: exposed authorization helper
+
+`public.can_access_project(uuid)` is `SECURITY DEFINER`, uses `search_path = public`, and has default function privileges. It is required to avoid recursive RLS checks, but it should not be a privileged function in the exposed schema.
+
+Planned fix: move the privileged lookup to `private.can_access_project`, use an explicit empty search path and caller identity, restrict execution, and retain a non-privileged public compatibility wrapper for existing policies.
+
+#### P0-SEC-02: directly executable RLS event helper
+
+`public.rls_auto_enable()` is a hosted Supabase event-trigger helper with a safe `pg_catalog` search path, but default privileges make it appear directly executable to client roles.
+
+Planned fix: preserve the event trigger and revoke direct execution from client roles. The migration guards this statement so local environments without the hosted helper still work.
+
+#### P0-SEC-03: mutable trigger search path
+
+`public.set_updated_at()` has no explicit `search_path`.
+
+Planned fix: use an empty search path, schema-qualify time functions, and remove unnecessary client execution.
+
+#### P0-SEC-04: implicit PUBLIC policy roles
+
+All 36 public-table policies were created without a `TO` clause, so their policy role is `PUBLIC`. The `anon` role currently lacks table grants, but the intent should still be explicit.
+
+Planned fix: move current policies to `TO authenticated`. Anonymous Auth continues to work temporarily because anonymous users assume the authenticated database role.
+
+#### P0-SEC-05: broad authenticated table grants
+
+The authenticated role has full CRUD grants on all 32 public tables. RLS remains authoritative, but Phase 1 should grant only the operations each repository actually needs and explicitly expose only required Data API tables.
+
+This tightening is deferred until the repository access matrix is complete; prematurely removing grants would break connector deletion fallback and future cloud reads.
+
+#### P0-SEC-06: backup gap
+
+The dashboard shows no scheduled backups. A logical export of existing Sift tables is required before applying the prepared hardening migration.
+
+## Database performance audit
+
+### RLS initialization warnings
+
+Six policy definitions call `auth.uid()` directly rather than using a statement-initialized subquery. These occur on user profiles, project ownership, project membership, and mention notes.
+
+Planned fix: use `(select auth.uid())` in direct policy predicates and in the private authorization helper.
+
+### Overlapping membership policies
+
+`project_members` has a SELECT policy plus an owner `FOR ALL` policy. This causes multiple permissive policies to run for the same action.
+
+Planned fix: retain the membership SELECT policy and split owner management into INSERT, UPDATE, and DELETE policies.
+
+### Missing foreign-key indexes
+
+The live query found 28 unindexed foreign-key columns:
+
+- `ai_conversations.project_id`
+- `ai_conversations.user_id`
+- `ai_messages.conversation_id`
+- `brands.project_id`
+- `briefs.created_by`
+- `briefs.project_id`
+- `competitor_groups.project_id`
+- `competitors.brand_id`
+- `competitors.project_id`
+- `creative_territories.insight_id`
+- `creative_territories.project_id`
+- `creative_territories.strategy_session_id`
+- `insights.created_by`
+- `insights.project_id`
+- `inspiration_items.created_by`
+- `inspiration_items.project_id`
+- `item_tags.project_id`
+- `mention_notes.project_id`
+- `monitor_runs.connector_config_id`
+- `monitor_runs.project_id`
+- `monitoring_queries.brand_id`
+- `research_items.created_by`
+- `research_items.project_id`
+- `sources.connector_config_id`
+- `strategy_sessions.created_by`
+- `strategy_sessions.project_id`
+- `trends.project_id`
+- `trends.topic_id`
+
+The prepared migration adds covering indexes for all 28 findings.
+
+## Edge Function audit
+
+### Strengths
+
+- Connector execution happens server-side.
+- Only RSS, manual public URLs, and official YouTube are registered.
+- Request sources are allow-listed.
+- Input lengths and URL counts are bounded.
+- Manual URLs reject credentials, unsafe protocols, private hosts, nonstandard ports, oversized responses, and excessive redirects.
+- Ownership is taken from verified user claims.
+- One connector can fail without replacing valid results from another.
+- Connector secrets are not returned to the client.
+
+### Follow-up findings
+
+- The function uses `context.supabaseAdmin` for persistence. Ownership checks are performed in code, so this boundary requires dedicated cross-user tests.
+- `verify_jwt = false` is configured while the handler uses `withSupabase({ auth: "user" })`. Current Supabase guidance supports handler-level authentication but generally recommends the platform JWT gate for the user mode. Test the deployed function with missing, invalid, anonymous-user, and permanent-user tokens before changing the setting.
+- Scheduled execution, quota tracking, overlapping-run prevention, and cursor resumption are not implemented yet and remain Phase 4 work.
+
+## Functional action inventory
+
+### Functional today
+
+- Sidebar navigation, collapse, responsive menu, theme toggle, and global search.
+- Project creation and local project switching.
+- Research and inspiration creation and local search.
+- Monitor creation, source configuration, manual runs, monitor deletion, analytics drill-down, mention filters, notes, saves, important marks, and evidence linking.
+- RSS/Atom, manual public URL, and official YouTube collection when configured.
+- Opening original source links when a real URL exists.
+
+### Clearly unavailable or deferred
+
+- Notifications.
+- Research file upload.
+- Inspiration advanced filters.
+- Database, Authentication, and AI/Privacy settings panels.
+- Reddit, Instagram, and TikTok collection.
+- Strategy AI model calls.
+- Brief generation and export.
+
+### Misleading or incomplete actions to correct in later phases
+
+- The account avatar looks interactive but has no account menu.
+- Settings detects the connector backend but still labels the Supabase service `Not configured`.
+- Connector-row buttons are disabled even for implemented sources; configuration is only available through Radar.
+- Project cards link to Home rather than a true project workspace.
+- Competitor and brand actions reopen the general project form rather than manage dedicated records.
+- Home and Strategy question submission show static framing rather than a real AI response; the labelling is honest, but the interaction should remain clearly non-AI until Phase 6.
+
+## Data retention and deletion expectations
+
+These expectations guide Phase 1 implementation:
+
+- Project deletion must require confirmation and disclose the records that will cascade.
+- Archiving should be the default reversible action for projects, insights, briefs, and strategies.
+- Permanent deletion must remove database records and associated private Storage objects.
+- Monitor deletion may delete collected mentions only after showing the count and downstream evidence relationships.
+- Evidence used by an insight, strategy, or brief must show those relationships before deletion.
+- Connector run logs should retain status and counts even when source records are archived, unless the whole project is permanently deleted.
+- Original evidence text must never be overwritten by generated summaries or user interpretation.
+- Users need a complete project export before any irreversible deletion.
+- Local migration records should be removed only after verified cloud persistence and a downloadable backup.
+
+## Applied hardening migration
+
+The Supabase CLI created:
+
+`supabase/migrations/20260807145944_phase_0_security_foundation.sql`
+
+It implements:
+
+- private authorization helper plus safe compatibility wrapper
+- fixed trigger-function search path
+- revoked direct execution on internal helpers
+- explicit authenticated policy roles
+- statement-initialized `auth.uid()` checks
+- non-overlapping project membership policies
+- 28 foreign-key indexes
+- safer default function privileges
+
+The migration was reviewed, made replay-safe, and applied to the connected project after a logical export. Live verification confirmed:
+
+- all 32 public tables retain RLS
+- the public compatibility helper is no longer `SECURITY DEFINER`
+- the privileged lookup is isolated in the private schema
+- no public-table policy targets the broad `PUBLIC` role
+- all 28 planned foreign-key indexes exist
+- all pre-existing record counts are unchanged
+- Performance Advisor warnings fell from 11 to zero
+- an authenticated owner context could read its project, while a different authenticated identity context could read zero projects and update or delete zero rows for the same project ID
+
+The local backup is `work/backups/sift-pre-phase0-20260807.csv` (141,357 bytes, SHA-256 `364079128A499D08B57D6856189ED4B29DBCBA3F5451EF1A74F49B50AB5AE953`). The entire `work` directory is git-ignored and the backup must not be committed or uploaded.
+
+## Phase 0 completion checklist
+
+- [x] Inventory browser storage and map it to database entities.
+- [x] Inventory visible product actions and unavailable states.
+- [x] Verify live migration history.
+- [x] Verify live table counts and preserve existing records.
+- [x] Audit RLS coverage, grants, functions, Auth configuration, Storage, and Edge Function boundary.
+- [x] Run and record current Security and Performance Advisor findings.
+- [x] Define retention and deletion expectations.
+- [x] Prepare an additive hardening migration.
+- [x] Export a logical backup of current Sift data.
+- [x] Apply and verify the hardening migration.
+- [x] Run controlled cross-user RLS checks for project select, update, and delete behavior.
+- [ ] Register the dashboard-applied migration in CLI-managed migration history using an explicitly supplied Supabase credential.
+- [x] Decide the Phase 1 permanent sign-in method and anonymous-account migration behavior.
+
+Phase 0 remains in progress until the remaining CLI migration-history item is resolved.
+
+## Current official guidance considered
+
+- Supabase Securing your API: <https://supabase.com/docs/guides/api/securing-your-api>
+- Supabase Row Level Security: <https://supabase.com/docs/guides/database/postgres/row-level-security>
+- Supabase Anonymous Sign-Ins: <https://supabase.com/docs/guides/auth/auth-anonymous>
+- Supabase Securing Edge Functions: <https://supabase.com/docs/guides/functions/auth>
+- Supabase database migration workflow: <https://supabase.com/docs/guides/deployment/database-migrations>

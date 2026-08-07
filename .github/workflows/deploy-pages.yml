@@ -35,6 +35,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_RADAR_FUNCTION_NAME: radar-connectors
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_GITHUB_AUTH_ENABLED: ${{ vars.NEXT_PUBLIC_GITHUB_AUTH_ENABLED }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./out

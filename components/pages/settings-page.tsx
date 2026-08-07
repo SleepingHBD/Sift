@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CircleDashed, Database, KeyRound, Plug, Radio, ShieldCheck } from "lucide-react";
 import { Badge, Button, Card, PageIntro, SectionHeader } from "@/components/ui/primitives";
 import { isRadarConnectorBackendConfigured } from "@/lib/radar/connector-service";
@@ -22,7 +23,7 @@ export function SettingsPage() {
         <nav className="settings-nav">
           <button className="active"><Plug size={16} />Data connectors</button>
           <button disabled title="This settings section is not available yet"><Database size={16} />Database</button>
-          <button disabled title="This settings section is not available yet"><KeyRound size={16} />Authentication</button>
+          <Link href="/account"><KeyRound size={16} />Authentication</Link>
           <button disabled title="This settings section is not available yet"><ShieldCheck size={16} />AI & privacy</button>
         </nav>
         <div className="settings-content">
