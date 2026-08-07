@@ -1,4 +1,4 @@
 project_id = "sift"
 
 [functions.radar-connectors]
-verify_jwt = true
+verify_jwt = false
