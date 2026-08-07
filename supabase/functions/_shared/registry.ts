@@ -1,0 +1,67 @@
+import { collectManualUrls } from "./manual.ts";
+import { collectRssFeeds } from "./rss.ts";
+import type { ConnectorSource, MonitorInput, NormalizedMention, RunRequest, SourceRunResult } from "./types.ts";
+import { collectYouTube } from "./youtube.ts";
+
+export interface RuntimeConnector {
+  readonly source: ConnectorSource;
+  collect(): Promise<{ mentions: NormalizedMention[]; result: SourceRunResult }>;
+}
+
+export function createConnectorRegistry(input: RunRequest, secrets: { youtubeApiKey: string }) {
+  const connectors: RuntimeConnector[] = [
+    createRssConnector(input.monitor, input.connectorConfig.rssFeedUrls),
+    createManualConnector(input.monitor, input.connectorConfig.manualUrls),
+    createYouTubeConnector(input.monitor, input.connectorConfig.youtubeEnabled, secrets.youtubeApiKey),
+  ];
+  return new Map(connectors.map((connector) => [connector.source, connector]));
+}
+
+function createRssConnector(monitor: MonitorInput, urls: string[]): RuntimeConnector {
+  return {
+    source: "rss",
+    async collect() {
+      if (!urls.length) throw new Error("Add at least one RSS or Atom feed URL.");
+      const collected = await collectRssFeeds(urls, monitor);
+      return {
+        mentions: collected.mentions,
+        result: {
+          source: "rss",
+          status: collected.failures.length && !collected.mentions.length ? "failed" : "completed",
+          count: collected.mentions.length,
+          message: collected.failures.length ? `${collected.failures.length} feed${collected.failures.length === 1 ? "" : "s"} could not be retrieved.` : undefined,
+        },
+      };
+    },
+  };
+}
+
+function createManualConnector(monitor: MonitorInput, urls: string[]): RuntimeConnector {
+  return {
+    source: "manual",
+    async collect() {
+      if (!urls.length) throw new Error("Add at least one public URL.");
+      const collected = await collectManualUrls(urls, monitor);
+      return {
+        mentions: collected.mentions,
+        result: {
+          source: "manual",
+          status: collected.failures.length && !collected.mentions.length ? "failed" : "completed",
+          count: collected.mentions.length,
+          message: collected.failures.length ? `${collected.failures.length} URL${collected.failures.length === 1 ? "" : "s"} could not be imported.` : undefined,
+        },
+      };
+    },
+  };
+}
+
+function createYouTubeConnector(monitor: MonitorInput, enabled: boolean, apiKey: string): RuntimeConnector {
+  return {
+    source: "youtube",
+    async collect() {
+      if (!enabled) throw new Error("YouTube is not enabled in source settings.");
+      const mentions = await collectYouTube(monitor, apiKey);
+      return { mentions, result: { source: "youtube", status: "completed", count: mentions.length } };
+    },
+  };
+}
