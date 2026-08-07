@@ -15,7 +15,7 @@ import {
   Shapes,
   TrendingUp,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { EvidenceDialog } from "@/components/radar/evidence-dialog";
 import { MentionDetailDrawer } from "@/components/radar/mention-detail-drawer";
@@ -62,6 +62,15 @@ export function RadarPage() {
   const [evidenceMention, setEvidenceMention] = useState<RadarMention | null>(null);
   const [runState, setRunState] = useState<"idle" | "running">("idle");
   const [runNotice, setRunNotice] = useState<{ tone: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    if (window.location.hash !== "#new-monitor") return;
+    const openFromLink = window.setTimeout(() => {
+      setMonitorDialogOpen(true);
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    }, 0);
+    return () => window.clearTimeout(openFromLink);
+  }, []);
 
   const activeMonitor = monitors.find((monitor) => monitor.id === activeMonitorId) ?? monitors[0];
   const allMentions = useMemo(() => activeMonitor ? mentionsByMonitor[activeMonitor.id] ?? [] : [], [activeMonitor, mentionsByMonitor]);
@@ -151,7 +160,11 @@ export function RadarPage() {
         tone: failedSources.length || !result.persisted ? "error" : "success",
         message: processed.length
           ? `Collected ${processed.length} genuine source record${processed.length === 1 ? "" : "s"}.${failedSources.length ? ` ${failedSources.length} source failed; open Sources for details.` : ""}${!result.persisted ? ` Records are saved on this device, but cloud persistence failed${result.persistenceError ? `: ${result.persistenceError}` : "."}` : ""}`
-          : failedSources.length ? failedSources.map((source) => source.message).filter(Boolean).join(" ") || "The configured sources could not be collected." : "The run completed, but no records matched this monitor.",
+          : !result.persisted
+            ? `The source run completed, but cloud persistence failed${result.persistenceError ? `: ${result.persistenceError}` : "."}`
+            : failedSources.length
+              ? failedSources.map((source) => source.message).filter(Boolean).join(" ") || "The configured sources could not be collected."
+              : "The run completed, but no records matched this monitor.",
       });
     } catch (error) {
       const completedAt = new Date().toISOString();

@@ -38,13 +38,18 @@ export async function runRadarConnectors(
   if (!sources.length) throw new Error("Configure at least one source for this monitor.");
 
   const { data: sessionData } = await client.auth.getSession();
-  if (!sessionData.session) {
-    const { error: signInError } = await client.auth.signInAnonymously();
+  let accessToken = sessionData.session?.access_token;
+  if (!accessToken) {
+    const { data: signInData, error: signInError } = await client.auth.signInAnonymously();
     if (signInError) throw new Error(`Supabase sign-in failed: ${signInError.message}. Enable Anonymous Sign-Ins for this project.`);
+    accessToken = signInData.session?.access_token;
   }
+  if (!accessToken) throw new Error("Supabase sign-in did not return a valid session.");
+  client.functions.setAuth(accessToken);
 
   const functionName = process.env.NEXT_PUBLIC_RADAR_FUNCTION_NAME || "radar-connectors";
   const { data, error } = await client.functions.invoke(functionName, {
+    headers: { Authorization: `Bearer ${accessToken}` },
     body: {
       action: "run",
       monitor: {

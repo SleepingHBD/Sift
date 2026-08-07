@@ -38,7 +38,8 @@ export default {
         runId = stored.runId;
         persisted = true;
       } catch (error) {
-        persistenceError = error instanceof Error ? error.message : "Database persistence failed.";
+        persistenceError = errorMessage(error, "Database persistence failed.");
+        console.error("Radar persistence failed", persistenceError);
       }
 
       return Response.json({
@@ -50,10 +51,16 @@ export default {
         fetchedAt: new Date().toISOString(),
       });
     } catch (error) {
-      return Response.json({ error: error instanceof Error ? error.message : "The connector request failed." }, { status: 400 });
+      return Response.json({ error: errorMessage(error, "The connector request failed.") }, { status: 400 });
     }
   }),
 };
+
+function errorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message;
+  return fallback;
+}
 
 function validateRunRequest(value: unknown): RunRequest {
   if (!value || typeof value !== "object") throw new Error("A monitor request is required.");

@@ -32,14 +32,14 @@ export function HomePage() {
           <textarea rows={2} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask your strategist…" aria-label="Ask your strategist" />
           <div className="strategist-input__footer"><span>{hasEvidence ? `${researchItems.length} research item${researchItems.length === 1 ? "" : "s"} available · Workspace AI not connected` : "Add evidence for workspace-backed analysis"}</span><button type="submit" aria-label="Ask question"><CornerDownLeft size={18} /></button></div>
         </form>
-        {answerVisible ? <Card className="quick-answer general-ai-notice"><div className="quick-answer__icon"><Sparkles size={18} /></div><div><div className="quick-answer__label"><strong>General AI response</strong><span>Not workspace-backed</span></div><p>I don’t have enough workspace evidence yet to answer this as a research-backed strategist. Add research and conversations first so future analysis can cite your sources.</p><div className="general-ai-actions"><Link href="/research">Add research <ArrowRight size={13} /></Link><Link href="/radar">Create Radar monitor <ArrowRight size={13} /></Link></div></div></Card> : null}
+        {answerVisible ? <Card className="quick-answer general-ai-notice"><div className="quick-answer__icon"><Sparkles size={18} /></div><div><div className="quick-answer__label"><strong>General AI response</strong><span>Not workspace-backed</span></div><p>I don’t have enough workspace evidence yet to answer this as a research-backed strategist. Add research and conversations first so future analysis can cite your sources.</p><div className="general-ai-actions"><Link href="/research">Add research <ArrowRight size={13} /></Link><Link href="/radar/#new-monitor">Create Radar monitor <ArrowRight size={13} /></Link></div></div></Card> : null}
       </section>
 
       <section className="workspace-onboarding">
         <div><p className="eyebrow">Start building</p><h2>{projects.length ? "Keep building your evidence base." : "Four useful ways to begin."}</h2><p>Everything stays connected to the strategic question you are trying to answer.</p></div>
         <div className="workspace-onboarding__actions">
           <button onClick={() => setProjectDialogOpen(true)}><FolderKanban size={18} /><span><strong>{projects.length ? "Create another project" : "Create project"}</strong><small>Define the decision and context</small></span><ArrowRight size={14} /></button>
-          <Link href="/radar"><Radio size={18} /><span><strong>Create Radar monitor</strong><small>Define a conversation to collect</small></span><ArrowRight size={14} /></Link>
+          <Link href="/radar/#new-monitor"><Radio size={18} /><span><strong>Create Radar monitor</strong><small>Define a conversation to collect</small></span><ArrowRight size={14} /></Link>
           <Link href="/research"><BookOpen size={18} /><span><strong>Add research</strong><small>Build a source-backed knowledge base</small></span><ArrowRight size={14} /></Link>
           <Link href="/inspiration"><Images size={18} /><span><strong>Save inspiration</strong><small>Keep work and ideas worth revisiting</small></span><ArrowRight size={14} /></Link>
         </div>
@@ -52,7 +52,7 @@ export function HomePage() {
         <EmptyState compact icon={FolderKanban} eyebrow="Competitor activity" title="No competitors are being tracked." description="Add competitors to a project to begin comparing their activity." actions={<button className="text-link" onClick={() => setProjectDialogOpen(true)}>Add competitor <ArrowRight size={13} /></button>} />
       </div>
 
-      <EmptyState icon={Lightbulb} eyebrow="AI daily insight" title="Sift needs some evidence first." description="Add research or start monitoring conversations and Sift will surface strategic observations here." actions={<><Link className="text-link" href="/research">Add research <ArrowRight size={13} /></Link><Link className="text-link" href="/radar">Start monitoring <ArrowRight size={13} /></Link></>} />
+      <EmptyState icon={Lightbulb} eyebrow="AI daily insight" title="Sift needs some evidence first." description="Add research or start monitoring conversations and Sift will surface strategic observations here." actions={<><Link className="text-link" href="/research">Add research <ArrowRight size={13} /></Link><Link className="text-link" href="/radar/#new-monitor">Start monitoring <ArrowRight size={13} /></Link></>} />
     </div>
   );
 }
