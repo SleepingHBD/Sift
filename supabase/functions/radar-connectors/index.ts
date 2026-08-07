@@ -5,16 +5,42 @@ import type { ConnectorSource, DeleteMonitorRequest, NormalizedMention, ProjectI
 
 export default {
   fetch: withSupabase({ auth: "user" }, async (request, context) => {
+    const declaredLength = Number(request.headers.get("content-length") || "0");
+    if (Number.isFinite(declaredLength) && declaredLength > 65_536) {
+      return Response.json({ error: "The connector request is too large." }, { status: 413 });
+    }
+
     try {
-      const body = await request.json();
+      const rawBody = await request.text();
+      if (new TextEncoder().encode(rawBody).byteLength > 65_536) {
+        return Response.json({ error: "The connector request is too large." }, { status: 413 });
+      }
+      const body = JSON.parse(rawBody);
+      const userId = authenticatedUserId(context);
       if (isDeleteMonitorAction(body)) {
         const input = validateDeleteMonitorRequest(body);
-        const userId = authenticatedUserId(context);
         const result = await deleteStoredMonitor(context.supabaseAdmin, userId, input.monitorId, input.project);
         return Response.json(result);
       }
 
       const input = validateRunRequest(body);
+      let quota: RadarQuota;
+      try {
+        quota = await consumeRadarQuota(context.supabaseAdmin, userId);
+      } catch (error) {
+        console.error("Radar quota check failed", errorMessage(error, "Quota check failed."));
+        return Response.json({ error: "Radar is temporarily unavailable. Please try again shortly." }, { status: 503 });
+      }
+      if (!quota.allowed) {
+        return Response.json(
+          {
+            error: "Radar run limit reached. Please wait before running this monitor again.",
+            retryAfterSeconds: quota.retryAfterSeconds,
+          },
+          { status: 429, headers: { "Retry-After": String(quota.retryAfterSeconds) } },
+        );
+      }
+
       const startedAt = new Date().toISOString();
       const mentions: NormalizedMention[] = [];
       const sourceResults: SourceRunResult[] = [];
@@ -40,7 +66,6 @@ export default {
       let persistenceError: string | undefined;
       let runId = `run-${crypto.randomUUID()}`;
       try {
-        const userId = authenticatedUserId(context);
         // The function is the trusted write boundary: it derives ownership from
         // the verified JWT and never accepts a database owner ID from the client.
         const stored = await persistCollection(context.supabaseAdmin, userId, input.monitor, input.project, deduplicated, sourceResults, startedAt);
@@ -57,6 +82,10 @@ export default {
         sourceResults,
         persisted,
         persistenceError,
+        quota: {
+          remainingMinute: quota.remainingMinute,
+          remainingDay: quota.remainingDay,
+        },
         fetchedAt: new Date().toISOString(),
       });
     } catch (error) {
@@ -64,6 +93,31 @@ export default {
     }
   }),
 };
+
+interface RadarQuota {
+  allowed: boolean;
+  retryAfterSeconds: number;
+  remainingMinute: number;
+  remainingDay: number;
+}
+
+async function consumeRadarQuota(
+  supabase: { rpc: (name: string, parameters: Record<string, unknown>) => { single: () => Promise<{ data: unknown; error: unknown }> } },
+  userId: string,
+): Promise<RadarQuota> {
+  const { data, error } = await supabase.rpc("consume_radar_quota", { target_user_id: userId }).single();
+  if (error) throw error;
+  if (!data || typeof data !== "object") throw new Error("The Radar quota response was invalid.");
+
+  const row = data as Record<string, unknown>;
+  if (typeof row.allowed !== "boolean") throw new Error("The Radar quota response was incomplete.");
+  return {
+    allowed: row.allowed,
+    retryAfterSeconds: Math.max(0, Number(row.retry_after_seconds) || 0),
+    remainingMinute: Math.max(0, Number(row.remaining_minute) || 0),
+    remainingDay: Math.max(0, Number(row.remaining_day) || 0),
+  };
+}
 
 function authenticatedUserId(context: { authMode: string; userClaims: Record<string, unknown> }) {
   if (context.authMode !== "user") throw new Error("An authenticated user session is required.");

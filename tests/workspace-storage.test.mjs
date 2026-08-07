@@ -18,7 +18,7 @@ class MemoryStorage {
   }
 }
 
-test("the linked account claims legacy workspace data without deleting it", () => {
+test("the permanent account claims legacy workspace data without deleting it", () => {
   const storage = new MemoryStorage();
   const legacyProjects = JSON.stringify([{ id: "project-local", name: "Existing work" }]);
   storage.setItem(workspaceStorageKeys.projects, legacyProjects);

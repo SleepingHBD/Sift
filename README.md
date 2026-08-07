@@ -48,11 +48,11 @@ The production build is written to `out/`.
 
 The GitHub Pages build currently stores client-created projects, monitors, collected Radar records, research, inspiration, notes, saves, and evidence links in user-scoped browser storage on the current device. Private routes hydrate those caches only for a verified permanent Sift user. This lets a completed connector run remain usable immediately and offline on that device without exposing one account's cached workspace to another account on the same browser.
 
-Connector runs also write projects, monitor definitions, run audits, sources, normalized mentions, sentiment, keywords, topics, and mention-topic links to Supabase. The account interface supports GitHub OAuth and can upgrade an existing anonymous session through identity linking so its Sift user ID is preserved. If cloud persistence fails after collection, Radar labels the condition and keeps the retrieved records in the signed-in user's device cache.
+Connector runs also write projects, monitor definitions, run audits, sources, normalized mentions, sentiment, keywords, topics, and mention-topic links to Supabase. GitHub OAuth is the only supported sign-in method; anonymous access, email/password access, manual identity linking, and new registrations are disabled in the personal production workspace. If cloud persistence fails after collection, Radar labels the condition and keeps the retrieved records in the signed-in user's device cache.
 
 ## Supabase setup
 
-1. Create a Supabase project. Enable **Manual Linking** only while an existing anonymous workspace is being upgraded to GitHub. Keep **Anonymous Sign-Ins** disabled for the permanent-account workspace; if a temporary migration window is required, enable CAPTCHA or Turnstile as recommended by Supabase and disable anonymous sign-ins again immediately after verification.
+1. Create a Supabase project. Keep **Anonymous Sign-Ins** and **Manual Linking** disabled. For a personal workspace, enable only the selected OAuth provider and disable other sign-in methods.
 2. Link the repository and apply the migrations:
 
    ```bash
@@ -75,7 +75,7 @@ Connector runs also write projects, monitor definitions, run audits, sources, no
 
 5. Copy `.env.example` to `.env.local` and add the Supabase project URL and publishable key. Keep Row Level Security enabled. Never expose the service-role key or YouTube key through a `NEXT_PUBLIC_` variable.
 
-6. Configure a GitHub OAuth App with the Supabase callback URL, enable the GitHub provider in Supabase, and allow both the production and local `/account/` return URLs. Set `NEXT_PUBLIC_GITHUB_AUTH_ENABLED=true` only after the provider is genuinely active.
+6. Configure a GitHub OAuth App with the Supabase callback URL, enable the GitHub provider in Supabase, and allow both the production and local `/account/` return URLs. Set `NEXT_PUBLIC_GITHUB_AUTH_ENABLED=true` only after the provider is genuinely active. After the intended GitHub user has signed in once, disable **Allow new users to sign up** for a single-user deployment.
 
 7. For GitHub Pages, create repository variables named `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, and `NEXT_PUBLIC_GITHUB_AUTH_ENABLED`. The deployment workflow passes them into the static build. Until GitHub OAuth is ready, use `NEXT_PUBLIC_GITHUB_AUTH_ENABLED=false` so the interface accurately labels the unavailable action.
 
@@ -93,12 +93,14 @@ GitHub Pages cannot protect an OpenAI API key. A secure endpoint should authenti
 
 ## GitHub Pages deployment
 
-The workflow deploys pushes to `main`:
+Deployment is manual. Pushing to `main` does not publish the website:
 
 1. Open **Settings → Pages** in the GitHub repository.
 2. Set **Source** to **GitHub Actions**.
-3. Push the repository to `main`.
+3. Open **Actions â†’ Deploy Sift to GitHub Pages** and choose **Run workflow** only when you intend to publish.
 
 The build applies the repository subpath to routes and assets automatically.
+
+The static export includes a restrictive browser content policy and referrer policy. GitHub Pages controls HTTP response headers, so stronger server headers such as `X-Content-Type-Options` and an HTTP-delivered frame policy require moving the frontend to a host with configurable headers.
 
 See [docs/architecture.md](docs/architecture.md), [docs/radar.md](docs/radar.md), [docs/development-roadmap.md](docs/development-roadmap.md), and [docs/phase-0-audit.md](docs/phase-0-audit.md) for implementation boundaries, the evidence-first development sequence, and current backend findings.

@@ -20,7 +20,7 @@ monitor definition
 
 The default monitor form asks only for a topic and monitor name. An optional advanced editor supports `AND`, `OR`, `NOT`, exact phrases, parentheses, exclusions, project context, language, market, and requested sources.
 
-New monitor definitions persist to browser storage and start with no records. On the first run, the client creates an anonymous Supabase session, invokes the authenticated connector function, stores the normalized response locally, and writes the run and its evidence to PostgreSQL through Row Level Security.
+New monitor definitions persist to user-scoped browser storage and start with no records. A run requires the permanent GitHub-backed Supabase session, invokes the JWT-protected connector function, stores the normalized response locally, and writes the run and its evidence to PostgreSQL through Row Level Security. The server enforces atomic limits of six Radar runs per minute and 100 per day for the permanent user.
 
 ## Normalized mentions
 

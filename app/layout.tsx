@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: { default: "Sift — Creative Strategy Intelligence", template: "%s · Sift" },
   description: "Discover signals, understand culture and turn evidence into creative strategy.",
   applicationName: "Sift",
+  referrer: "strict-origin-when-cross-origin",
   keywords: ["creative strategy", "cultural intelligence", "social listening", "research"],
   openGraph: {
     type: "website",
@@ -27,6 +28,28 @@ export const metadata: Metadata = {
   },
 };
 
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  "media-src 'self' blob: https:",
+  "frame-src 'none'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" suppressHydrationWarning><body><AuthProvider><AppProvider>{children}</AppProvider></AuthProvider></body></html>;
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta httpEquiv="Content-Security-Policy" content={contentSecurityPolicy} />
+      </head>
+      <body><AuthProvider><AppProvider>{children}</AppProvider></AuthProvider></body>
+    </html>
+  );
 }

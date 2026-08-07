@@ -2,28 +2,28 @@
 
 Audit date: 8 August 2026
 
-Status: **Complete.** Audit, live hardening, controlled cross-user RLS verification, GitHub identity linking, permanent-account route protection, and remote migration-history synchronization are complete.
+Status: **Complete.** Audit, live hardening, controlled cross-user RLS verification, permanent GitHub ownership, permanent-account route protection, Radar abuse controls, and remote migration-history synchronization are complete.
 
 ## Scope
 
 This audit covers the current Sift repository, browser persistence, connected Supabase project, authentication configuration, Data API exposure, database migrations, Edge Function boundary, Storage state, advisors, and visible product actions.
 
-No user-created records were deleted or rewritten. No website deployment was performed.
+No user-created domain records were deleted. The existing project ownership reference was transferred to the permanent GitHub identity, and three obsolete anonymous Auth users plus their sessions were permanently removed after verifying that they owned no remaining domain records. No website deployment was performed.
 
 ## Executive findings
 
-1. The live Supabase project is healthy. All five repository migrations, including the Phase 0 hardening migration, are applied and recorded in the remote migration history.
+1. The live Supabase project is healthy. All eight repository migrations, including the Phase 0 and permanent-identity hardening migrations, are applied and recorded in the remote migration history.
 2. The database contains one project, one monitor, one monitor run, one source, 92 mentions, four topics, and 92 mention-topic relationships. These records must be preserved.
 3. The application is still device-first: projects, research, inspiration, monitor definitions, notes, saves, important flags, connector settings, and Radar display state are read primarily from `localStorage`.
 4. Connector runs persist genuine records to Supabase, but normal application hydration does not read the workspace back from Supabase.
-5. GitHub OAuth is the selected permanent sign-in method. The GitHub OAuth App and Supabase provider are active, the production and local redirect URLs are configured, and the existing anonymous workspace was linked in place without changing its Sift user ID.
-6. There are approximately ten anonymous authentication users from browser sessions. Anonymous users cannot recover access after clearing browser data or changing device.
+5. GitHub OAuth is the sole permanent sign-in method. The GitHub OAuth App and Supabase provider are active, the production and local redirect URLs are configured, and the existing project is owned by the permanent GitHub identity.
+6. Supabase Auth contains one permanent user and zero anonymous users. New registrations, anonymous sign-ins, email authentication, and manual identity linking are disabled.
 7. All 32 public tables have RLS enabled. The `anon` Postgres role has no table SELECT privilege. The `authenticated` role has SELECT, INSERT, UPDATE, and DELETE grants on all 32 public tables, with RLS providing row authorization.
 8. The Data API settings report both configured schemas exposed, explicit table exposure at 0 of 32, and automatic exposure of new tables disabled. Phase 1 must test each intended client table explicitly rather than infer access from grants alone.
 9. Before hardening, the Security Advisor reported zero errors and 38 warnings. After hardening, permanent-account protection, and disabling anonymous sign-ins, a fresh run reports zero errors and one warning: leaked-password protection is disabled. Sift's active application sign-in path uses GitHub OAuth, so this password-specific warning is recorded but does not block Phase 0.
 10. Before hardening, the Performance Advisor reported zero errors, 11 warnings, and 39 suggestions. After hardening and a fresh lint run it reports zero errors, zero warnings, and 39 informational suggestions.
 11. Supabase Storage has no buckets. File and screenshot capture cannot be considered implemented.
-12. The `radar-connectors` Edge Function is deployed. Its handler requires `auth: "user"`, derives ownership from verified user claims, and keeps connector credentials server-side. The repository currently disables the platform JWT gate, so this boundary should be tested against the current Supabase authentication guidance before Phase 1.
+12. The `radar-connectors` Edge Function is deployed with the platform JWT gate enabled. Its handler requires `auth: "user"`, derives ownership from verified claims, rejects oversized request bodies, and consumes an atomic per-user quota before connector work begins. A request without an authorization header was verified to return HTTP 401.
 13. The project has no scheduled Supabase backup on the current plan. A logical export is required before the hardening migration is applied.
 14. A pre-migration logical export was saved locally under the git-ignored `work/backups` directory before the live change. It contains the seven populated domain tables plus export metadata.
 
@@ -35,7 +35,7 @@ No user-created records were deleted or rewritten. No website deployment was per
 - Project reference: `mgghyjffxovanmaoudsv`
 - Region: Southeast Asia, Singapore
 - Status during audit: Healthy
-- Database migration history: all five repository migrations applied and recorded
+- Database migration history: all eight repository migrations applied and recorded
 - Edge Functions: one deployed function, `radar-connectors`
 - Storage buckets: none
 - Scheduled backups: none shown
@@ -49,8 +49,11 @@ No user-created records were deleted or rewritten. No website deployment was per
 | `202608070003` | `connector_runtime` |
 | `20260807112919` | `data_api_grants` |
 | `20260807145944` | `phase_0_security_foundation` |
+| `20260807170412` | `permanent_identity_and_radar_rate_limits` |
+| `20260807171459` | `fix_radar_rate_limit_clock` |
+| `20260807171930` | `explicitly_deny_direct_rate_limit_access` |
 
-The Phase 0 migration `20260807145944_phase_0_security_foundation.sql` was applied through the signed-in Supabase SQL Editor on 7 August 2026. Its private authorization helper, security-invoker wrapper, policy role restrictions, and all 28 expected indexes were verified live before the missing ledger row was registered through the authenticated Supabase administration connection on 8 August 2026. A fresh migration listing confirms that the local and remote histories now contain the same five versions.
+The Phase 0 migration `20260807145944_phase_0_security_foundation.sql` was applied through the signed-in Supabase SQL Editor on 7 August 2026. Its private authorization helper, security-invoker wrapper, policy role restrictions, and all 28 expected indexes were verified live before the missing ledger row was registered through the authenticated Supabase administration connection on 8 August 2026. The later permanent-identity migrations add a restrictive non-anonymous policy to every public table, revoke unused table capabilities, and provide service-role-only Radar quotas. A fresh migration listing confirms that the local and remote histories contain the same eight versions.
 
 ### Existing domain data
 
@@ -119,22 +122,21 @@ Phase 1 should implement that reverse flow and then remove domain records from b
 
 ### Current configuration
 
-- New user signups: enabled
+- New user signups: disabled after provisioning the permanent user
 - Anonymous sign-ins: disabled and verified in the Supabase dashboard on 8 August 2026
-- Email authentication: enabled
-- Email confirmation: enabled
-- Manual identity linking: enabled for the anonymous-to-GitHub migration
-- GitHub OAuth: enabled and linked to the existing Sift workspace identity
+- Email authentication: disabled
+- Manual identity linking: disabled
+- GitHub OAuth: enabled and owns the existing Sift workspace
 - Other OAuth providers: disabled
 - CAPTCHA/Turnstile: not required for Sift's current authentication flow because anonymous sign-ins are disabled
 
 ### Risk
 
-Anonymous users receive the `authenticated` Postgres role. RLS still isolates rows by `auth.uid()`, but the identity is not recoverable after sign-out, browser-data deletion, or movement to another device. This was the migration risk; new anonymous account creation is now disabled.
+Anonymous users would receive the `authenticated` Postgres role. Sift therefore applies a restrictive policy that rejects an `is_anonymous` JWT on every public table, even if anonymous sign-ins are accidentally re-enabled or an old token remains unexpired. All obsolete anonymous Auth rows have also been removed.
 
 ### Phase 1 decision
 
-Sift uses GitHub OAuth as its permanent sign-in method. The existing anonymous session was upgraded with `linkIdentity()` rather than replaced, preserving the Sift user ID and its RLS ownership. A signed-out browser uses ordinary GitHub OAuth. Workspace routes now require a verified, non-anonymous session; the Account route remains public so a user can sign in or recover access.
+Sift uses GitHub OAuth as its sole permanent sign-in method. The project ownership reference was transferred transactionally to the existing GitHub identity after checking every Auth foreign-key dependency. Controlled RLS tests confirmed that the GitHub identity can see the project and the retired anonymous identity cannot. Workspace routes require a verified, non-anonymous session; the Account route remains public so the owner can sign in or recover access.
 
 Browser domain caches are copied into user-scoped keys on the linked account's first authenticated load. The legacy values are retained for Phase 1's reviewed cloud migration and backup. A different GitHub account on the same browser cannot claim or hydrate those legacy values.
 
@@ -156,25 +158,25 @@ Browser domain caches are copied into user-scoped keys on the linked account's f
 
 `public.can_access_project(uuid)` is `SECURITY DEFINER`, uses `search_path = public`, and has default function privileges. It is required to avoid recursive RLS checks, but it should not be a privileged function in the exposed schema.
 
-Planned fix: move the privileged lookup to `private.can_access_project`, use an explicit empty search path and caller identity, restrict execution, and retain a non-privileged public compatibility wrapper for existing policies.
+Applied fix: moved the privileged lookup to `private.can_access_project`, set an empty search path and explicit caller identity, restricted execution, and retained a non-privileged public compatibility wrapper for existing policies.
 
 #### P0-SEC-02: directly executable RLS event helper
 
 `public.rls_auto_enable()` is a hosted Supabase event-trigger helper with a safe `pg_catalog` search path, but default privileges make it appear directly executable to client roles.
 
-Planned fix: preserve the event trigger and revoke direct execution from client roles. The migration guards this statement so local environments without the hosted helper still work.
+Applied fix: preserved the event trigger and revoked direct execution from client roles. The migration guards this statement so local environments without the hosted helper still work.
 
 #### P0-SEC-03: mutable trigger search path
 
 `public.set_updated_at()` has no explicit `search_path`.
 
-Planned fix: use an empty search path, schema-qualify time functions, and remove unnecessary client execution.
+Applied fix: set an empty search path, schema-qualified time functions, and removed unnecessary client execution.
 
 #### P0-SEC-04: implicit PUBLIC policy roles
 
 All 36 public-table policies were created without a `TO` clause, so their policy role is `PUBLIC`. The `anon` role currently lacks table grants, but the intent should still be explicit.
 
-Planned fix: move current policies to `TO authenticated`. Anonymous Auth continues to work temporarily because anonymous users assume the authenticated database role.
+Applied fix: moved current policies to `TO authenticated` and added a restrictive permanent-user policy that explicitly rejects anonymous JWTs.
 
 #### P0-SEC-05: broad authenticated table grants
 
@@ -192,13 +194,13 @@ The dashboard shows no scheduled backups. A logical export of existing Sift tabl
 
 Six policy definitions call `auth.uid()` directly rather than using a statement-initialized subquery. These occur on user profiles, project ownership, project membership, and mention notes.
 
-Planned fix: use `(select auth.uid())` in direct policy predicates and in the private authorization helper.
+Applied fix: used `(select auth.uid())` in direct policy predicates and in the private authorization helper.
 
 ### Overlapping membership policies
 
 `project_members` has a SELECT policy plus an owner `FOR ALL` policy. This causes multiple permissive policies to run for the same action.
 
-Planned fix: retain the membership SELECT policy and split owner management into INSERT, UPDATE, and DELETE policies.
+Applied fix: retained the membership SELECT policy and split owner management into INSERT, UPDATE, and DELETE policies.
 
 ### Missing foreign-key indexes
 
@@ -251,8 +253,9 @@ The prepared migration adds covering indexes for all 28 findings.
 ### Follow-up findings
 
 - The function uses `context.supabaseAdmin` for persistence. Ownership checks are performed in code, so this boundary requires dedicated cross-user tests.
-- `verify_jwt = false` is configured while the handler uses `withSupabase({ auth: "user" })`. Current Supabase guidance supports handler-level authentication but generally recommends the platform JWT gate for the user mode. Test the deployed function with missing, invalid, anonymous-user, and permanent-user tokens before changing the setting.
-- Scheduled execution, quota tracking, overlapping-run prevention, and cursor resumption are not implemented yet and remain Phase 4 work.
+- The platform JWT gate is enabled and an unauthenticated request is rejected with HTTP 401 before the handler runs.
+- Atomic quotas are active at six runs per minute and 100 per day for the permanent user. The RPC is executable only by `service_role`; `anon` and `authenticated` cannot call it directly.
+- Scheduled execution, overlapping-run prevention, and cursor resumption are not implemented yet and remain Phase 4 work.
 
 ## Functional action inventory
 
@@ -347,6 +350,10 @@ The local backup is `work/backups/sift-pre-phase0-20260807.csv` (141,357 bytes, 
 - [x] Disable new anonymous sign-ins after verifying the linked GitHub identity.
 - [x] Gate private workspace routes behind a verified permanent session.
 - [x] Scope browser workspace caches to the authenticated Sift user.
+- [x] Transfer project ownership to the permanent GitHub identity and remove unreferenced anonymous Auth users.
+- [x] Disable new registrations, anonymous sign-ins, email authentication, and manual identity linking.
+- [x] Enable Edge Function JWT verification and verify unauthenticated requests return HTTP 401.
+- [x] Add and verify database-backed per-user Radar quotas.
 
 Phase 0 is complete. Phase 1 can now begin from a reproducible, verified backend baseline.
 

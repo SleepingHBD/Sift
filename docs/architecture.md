@@ -28,6 +28,7 @@ GitHub Pages cannot protect an OpenAI or connector secret. Radar calls an authen
 - The interface does not seed records or infer analytics when the workspace is empty.
 - Connector runs use the verified permanent Supabase user and write through `owner_id`, project membership checks, and Row Level Security.
 - Workspace routes require a verified, non-anonymous session. The Account route remains public for sign-in and recovery.
+- GitHub is the only enabled sign-in provider. Anonymous access, manual identity linking, email authentication, and new account registration are disabled in the personal production project.
 - Device caches are scoped to the Supabase user ID; legacy unscoped records can be claimed only once by the account that completes the migration.
 - Local records make the static interface resilient, but the application distinguishes device persistence from authenticated cloud persistence.
 
@@ -73,4 +74,5 @@ The schema uses generated `tsvector` columns and GIN indexes. A later embedding 
 - Project-scoped tables use Row Level Security and `can_access_project`.
 - Only public client keys enter the browser.
 - OpenAI keys, connector tokens, scheduled jobs, and ingestion stay server-side.
+- Radar runs require a platform-verified user JWT and pass through atomic per-user quotas before connector work begins.
 - AI messages store structured claims and citations for inspectable provenance.

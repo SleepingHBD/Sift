@@ -18,7 +18,7 @@ export function AccountPage() {
       <PageIntro
         eyebrow="Account"
         title="One identity. One private workspace."
-        description="Use GitHub to recover your Sift workspace on another browser without changing the owner of your existing evidence."
+        description="GitHub is the only sign-in and recovery method for your private Sift workspace."
       />
 
       <div className="account-layout">
@@ -56,13 +56,13 @@ export function AccountPage() {
           {status === "anonymous" ? (
             <div className="account-state">
               <span className="account-state__icon account-state__icon--warning"><UserRound size={22} /></span>
-              <Badge>Temporary identity</Badge>
-              <h2>Protect the workspace already on this device.</h2>
-              <p>Linking GitHub upgrades this anonymous account in place. Your Sift user ID stays the same, so existing projects and Radar evidence remain attached to it.</p>
-              <div className="account-id-row"><span>Current Sift ID</span><code>{shortId(user?.id)}</code></div>
-              <Button variant="dark" onClick={() => void connectGitHub()} disabled={pending || !githubAuthReady}>
-                {pending ? <LoaderCircle className="account-spinner" size={16} /> : <Github size={16} />}
-                {githubAuthReady ? "Link this workspace to GitHub" : "GitHub setup in progress"}
+              <Badge>Retired session</Badge>
+              <h2>Temporary access is no longer accepted.</h2>
+              <p>Your workspace has already been transferred to its permanent GitHub account. Sign out of this old session, then continue with GitHub.</p>
+              <div className="account-id-row"><span>Retired Sift ID</span><code>{shortId(user?.id)}</code></div>
+              <Button variant="dark" onClick={() => void signOut()} disabled={pending}>
+                {pending ? <LoaderCircle className="account-spinner" size={16} /> : <LogOut size={16} />}
+                Sign out old session
               </Button>
             </div>
           ) : null}
@@ -72,10 +72,9 @@ export function AccountPage() {
               <span className="account-state__icon account-state__icon--success"><Check size={22} /></span>
               <Badge>{githubLinked ? "GitHub connected" : "Permanent account"}</Badge>
               <h2>{displayName}</h2>
-              <p>{githubLinked ? "This workspace can now be recovered with your GitHub account." : "This is a permanent Sift account, but GitHub is not linked yet."}</p>
+              <p>{githubLinked ? "This workspace is owned by and recoverable through your GitHub account." : "This account does not use Sift's supported GitHub sign-in method. Sign out and continue with the workspace owner account."}</p>
               <div className="account-id-row"><span>Sift user ID</span><code>{shortId(user?.id)}</code></div>
               <div className="account-actions">
-                {!githubLinked ? <Button variant="dark" onClick={() => void connectGitHub()} disabled={pending || !githubAuthReady}><Github size={16} />{githubAuthReady ? "Link GitHub" : "GitHub setup in progress"}</Button> : null}
                 <Button variant="secondary" onClick={() => void signOut()} disabled={pending}><LogOut size={16} />Sign out</Button>
               </div>
             </div>
@@ -86,13 +85,14 @@ export function AccountPage() {
 
         <aside className="account-assurance">
           <ShieldCheck size={22} />
-          <h2>What linking changes</h2>
+          <h2>How your workspace is protected</h2>
           <ul>
-            <li><Check size={14} /><span>Your existing Sift user ID is preserved.</span></li>
-            <li><Check size={14} /><span>GitHub becomes the way you recover the account.</span></li>
+            <li><Check size={14} /><span>Your GitHub identity owns the cloud workspace.</span></li>
+            <li><Check size={14} /><span>Anonymous and email sign-ins are disabled.</span></li>
+            <li><Check size={14} /><span>Database rules isolate data by the verified owner ID.</span></li>
             <li><Check size={14} /><span>Sift never receives your GitHub password.</span></li>
           </ul>
-          <p>Only link from the browser that currently contains your Sift workspace.</p>
+          <p>Only continue with the GitHub account configured for this Sift workspace.</p>
         </aside>
       </div>
     </div>

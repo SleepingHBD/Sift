@@ -43,13 +43,13 @@ Sift is not required to observe the whole internet. It is required to be explici
 
 - Projects, research, inspiration, saved state, monitor definitions, notes, and collected Radar state are primarily read from browser `localStorage`.
 - Connector runs write records to Supabase, but the application does not use Supabase as its normal read repository.
-- GitHub sign-in and account recovery are configured, and the original anonymous workspace has been linked in place.
+- GitHub is the only enabled sign-in method. Workspace ownership has been transferred to that permanent identity; obsolete anonymous users and sessions have been removed.
 - Private routes now require a verified permanent session, but most domain data still needs Phase 1 cloud hydration before cross-device recovery is complete.
 - Research and inspiration forms do not yet upload files, extract content, or save rich provenance.
 - Strategy AI is a labelled framing placeholder, not a server-backed evidence retrieval system.
 - Several database relationships use polymorphic IDs whose integrity is enforced by application code rather than foreign keys.
 - The mention feed is client-aggregated and not yet designed for large, paginated collections.
-- The existing RLS helper and broad Data API grants require a focused security and performance audit before more personal data is stored.
+- Database ownership, RLS, client grants, Auth providers, and the Radar Edge Function have completed the Phase 0 security audit; repository-level least privilege remains part of the cloud hydration work.
 
 ## Target architecture
 
@@ -120,7 +120,7 @@ Every retrievable evidence record should expose:
 
 ## Phase 0 - Architecture and data safety audit
 
-Status: **Complete.** The repository and live backend audit is documented in [phase-0-audit.md](phase-0-audit.md). The additive hardening migration is backed up, applied, and verified without changing existing record counts; controlled cross-user RLS checks pass; GitHub OAuth is active and linked in place; private routes plus browser caches are scoped to the permanent Sift identity; and all five repository migrations are recorded in the live Supabase migration history.
+Status: **Complete.** The repository and live backend audit is documented in [phase-0-audit.md](phase-0-audit.md). Additive hardening migrations are backed up, applied, and verified without changing domain record counts; controlled cross-user RLS checks pass; the workspace is owned by the sole permanent GitHub identity; private routes plus browser caches are scoped to that identity; and all eight repository migrations are recorded in the live Supabase migration history.
 
 ### Goal
 
@@ -166,10 +166,10 @@ Make Supabase the durable source of truth and remove browser storage as the prim
 #### Authentication
 
 - Add a first-party sign-in page inside Sift.
-- Start with passwordless email or another deliberately selected provider; anonymous sessions remain only as a temporary migration path.
+- Keep GitHub as the sole supported production provider and keep new registrations disabled after the personal account is provisioned.
 - Add sign-out, session-expired, auth-loading, and recovery states.
 - Configure production and local redirect URLs.
-- Provide a safe flow for linking or migrating the current anonymous workspace to the permanent account.
+- Preserve the completed ownership transfer and reject any retired anonymous token that remains in an old browser cache.
 
 #### Repository layer
 

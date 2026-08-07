@@ -117,12 +117,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    if (session) {
+      if (githubLinked) return;
+      setError("Sign out before continuing with the GitHub account that owns this workspace.");
+      return;
+    }
+
     setPending(true);
     setError("");
     const options = { redirectTo: accountReturnUrl() };
-    const result = session
-      ? await client.auth.linkIdentity({ provider: "github", options })
-      : await client.auth.signInWithOAuth({ provider: "github", options });
+    const result = await client.auth.signInWithOAuth({ provider: "github", options });
 
     if (result.error) {
       setError(result.error.message);

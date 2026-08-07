@@ -17,9 +17,9 @@ export function WorkspaceAccessGate() {
     : status === "anonymous"
       ? {
           icon: <ShieldCheck size={24} />,
-          eyebrow: "Account protection required",
-          title: "Link this workspace before continuing.",
-          description: "This browser still has a temporary Sift identity. Link GitHub from the Account page to preserve its projects and evidence.",
+          eyebrow: "Old session detected",
+          title: "This temporary session is no longer accepted.",
+          description: "Open Account, sign out of the retired session, then use the GitHub account that owns your Sift workspace.",
         }
       : status === "unavailable"
         ? {
@@ -48,7 +48,7 @@ export function WorkspaceAccessGate() {
         {canOpenAccount ? (
           <Link className="ui-button ui-button--dark ui-button--md workspace-access-action" href="/account">
             <Github size={16} />
-            {status === "anonymous" ? "Protect this workspace" : "Continue with GitHub"}
+            {status === "anonymous" ? "Resolve account access" : "Continue with GitHub"}
           </Link>
         ) : null}
         {error ? <small role="alert">{error}</small> : status === "signed-out" && !githubAuthReady ? <small>GitHub sign-in is not enabled in this build.</small> : null}
