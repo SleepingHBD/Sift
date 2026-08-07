@@ -1,4 +1,4 @@
-import { withSupabase } from "npm:@supabase/server@^1";
+import { withSupabase } from "npm:@supabase/server@1.4.1";
 import { persistCollection } from "../_shared/database.ts";
 import { createConnectorRegistry } from "../_shared/registry.ts";
 import type { ConnectorSource, NormalizedMention, RunRequest, SourceRunResult } from "../_shared/types.ts";
@@ -32,9 +32,12 @@ export default {
       let persistenceError: string | undefined;
       let runId = `run-${crypto.randomUUID()}`;
       try {
+        if (context.authMode !== "user") throw new Error("An authenticated user session is required for persistence.");
         const userId = String(context.userClaims.sub || context.userClaims.id || "");
         if (!userId) throw new Error("The authenticated user ID is unavailable.");
-        const stored = await persistCollection(context.supabase, userId, input.monitor, input.project, deduplicated, sourceResults, startedAt);
+        // The function is the trusted write boundary: it derives ownership from
+        // the verified JWT and never accepts a database owner ID from the client.
+        const stored = await persistCollection(context.supabaseAdmin, userId, input.monitor, input.project, deduplicated, sourceResults, startedAt);
         runId = stored.runId;
         persisted = true;
       } catch (error) {
