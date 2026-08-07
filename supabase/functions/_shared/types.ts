@@ -36,6 +36,12 @@ export interface RunRequest {
   connectorConfig: ConnectorConfigInput;
 }
 
+export interface DeleteMonitorRequest {
+  action: "delete-monitor";
+  monitorId: string;
+  project: ProjectInput | null;
+}
+
 export interface NormalizedMention {
   id: string;
   platform: ConnectorSource;

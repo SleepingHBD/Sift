@@ -64,6 +64,67 @@ export async function persistCollection(
   return { runId: run.id as string, projectId, queryId };
 }
 
+export async function deleteStoredMonitor(
+  supabase: any,
+  userId: string,
+  monitorId: string,
+  project: ProjectInput | null,
+) {
+  const clientRef = project?.id || "personal-radar";
+  const { data: projectRow, error: projectError } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("owner_id", userId)
+    .eq("client_ref", clientRef)
+    .maybeSingle();
+  if (projectError) throw projectError;
+  if (!projectRow?.id) return { deleted: false, mentionsDeleted: 0 };
+
+  const { data: queryRow, error: queryError } = await supabase
+    .from("monitoring_queries")
+    .select("id")
+    .eq("project_id", projectRow.id)
+    .eq("client_ref", monitorId)
+    .maybeSingle();
+  if (queryError) throw queryError;
+  if (!queryRow?.id) return { deleted: false, mentionsDeleted: 0 };
+
+  const { data: mentionRows, error: mentionsError } = await supabase
+    .from("mentions")
+    .select("id")
+    .eq("project_id", projectRow.id)
+    .eq("monitoring_query_id", queryRow.id);
+  if (mentionsError) throw mentionsError;
+  const mentionIds = (mentionRows ?? []).map((mention: { id: string }) => mention.id);
+
+  if (mentionIds.length) {
+    await deleteMentionReferences(supabase, projectRow.id, mentionIds);
+    const { error } = await supabase.from("mentions").delete().in("id", mentionIds);
+    if (error) throw error;
+  }
+
+  const { error: deleteError } = await supabase
+    .from("monitoring_queries")
+    .delete()
+    .eq("id", queryRow.id)
+    .eq("project_id", projectRow.id);
+  if (deleteError) throw deleteError;
+  return { deleted: true, mentionsDeleted: mentionIds.length };
+}
+
+async function deleteMentionReferences(supabase: any, projectId: string, mentionIds: string[]) {
+  const operations = [
+    supabase.from("saved_items").delete().eq("project_id", projectId).eq("item_type", "mention").in("item_id", mentionIds),
+    supabase.from("item_tags").delete().eq("project_id", projectId).eq("item_type", "mention").in("item_id", mentionIds),
+    supabase.from("insight_sources").delete().eq("source_type", "mention").in("source_id", mentionIds),
+    supabase.from("brief_sources").delete().eq("source_type", "mention").in("source_id", mentionIds),
+  ];
+  for (const operation of operations) {
+    const { error } = await operation;
+    if (error) throw error;
+  }
+}
+
 async function ensureProject(supabase: any, userId: string, monitor: MonitorInput, project: ProjectInput | null) {
   const clientRef = project?.id || "personal-radar";
   const { data: existing, error: selectError } = await supabase.from("projects").select("id").eq("owner_id", userId).eq("client_ref", clientRef).maybeSingle();

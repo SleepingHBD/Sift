@@ -57,6 +57,41 @@ export function useRadarState() {
     });
   }
 
+  function removeMonitor(monitorId: string) {
+    const mentionIds = new Set((mentionsByMonitor[monitorId] ?? []).map((mention) => mention.id));
+    setMonitors((current) => {
+      const next = current.filter((monitor) => monitor.id !== monitorId);
+      persist(storageKeys.monitors, next);
+      return next;
+    });
+    setMentionsByMonitor((current) => {
+      const next = { ...current };
+      delete next[monitorId];
+      persist(storageKeys.mentions, next);
+      return next;
+    });
+    setRuns((current) => {
+      const next = current.filter((run) => run.monitorId !== monitorId);
+      persist(storageKeys.runs, next);
+      return next;
+    });
+    setEvidenceLinks((current) => {
+      const next = current.filter((link) => !mentionIds.has(link.mentionId));
+      persist(storageKeys.evidence, next);
+      return next;
+    });
+    setNotes((current) => {
+      const next = Object.fromEntries(Object.entries(current).filter(([mentionId]) => !mentionIds.has(mentionId)));
+      persist(storageKeys.notes, next);
+      return next;
+    });
+    setImportantIds((current) => {
+      const next = current.filter((mentionId) => !mentionIds.has(mentionId));
+      persist(storageKeys.important, next);
+      return next;
+    });
+  }
+
   function saveConnectorSettings(settings: RadarConnectorSettings) {
     const cleaned = {
       rssFeedUrls: uniqueHttpUrls(settings.rssFeedUrls),
@@ -119,6 +154,7 @@ export function useRadarState() {
   return {
     monitors,
     addMonitor,
+    removeMonitor,
     mentionsByMonitor,
     runs,
     connectorSettings,

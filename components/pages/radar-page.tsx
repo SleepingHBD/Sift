@@ -13,10 +13,12 @@ import {
   RefreshCw,
   Settings2,
   Shapes,
+  Trash2,
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
+import { DeleteMonitorDialog } from "@/components/radar/delete-monitor-dialog";
 import { EvidenceDialog } from "@/components/radar/evidence-dialog";
 import { MentionDetailDrawer } from "@/components/radar/mention-detail-drawer";
 import { MentionFeed } from "@/components/radar/mention-feed";
@@ -30,7 +32,7 @@ import { TopicIntelligence } from "@/components/radar/topic-intelligence";
 import { useRadarState } from "@/components/radar/use-radar-state";
 import { Badge, Button, Card, Metric, PageIntro, SectionHeader } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
-import { enrichConnectorMentions, getRunnableSources, isRadarConnectorBackendConfigured, runRadarConnectors } from "@/lib/radar/connector-service";
+import { deleteRadarMonitor, enrichConnectorMentions, getRunnableSources, isRadarConnectorBackendConfigured, runRadarConnectors } from "@/lib/radar/connector-service";
 import { buildRadarAnalytics } from "@/lib/radar/processing";
 import type { DateRangeKey, EvidenceDestination, MonitorRun, MonitoringQuery, RadarEvidenceLink, RadarMention } from "@/lib/radar/types";
 import { formatNumber } from "@/lib/utils";
@@ -46,8 +48,8 @@ const rangeLabels: { id: DateRangeKey; label: string }[] = [
 ];
 
 export function RadarPage() {
-  const { savedIds, toggleSaved, projects, activeProjectId } = useApp();
-  const { monitors, addMonitor, mentionsByMonitor, connectorSettings, saveConnectorSettings, completeMonitorRun, recordMonitorRun, evidenceLinks, addEvidenceLink, notes, saveNote, importantIds, toggleImportant } = useRadarState();
+  const { savedIds, toggleSaved, removeSavedIds, projects } = useApp();
+  const { monitors, addMonitor, removeMonitor, mentionsByMonitor, runs, connectorSettings, saveConnectorSettings, completeMonitorRun, recordMonitorRun, evidenceLinks, addEvidenceLink, notes, saveNote, importantIds, toggleImportant } = useRadarState();
   const [activeMonitorId, setActiveMonitorId] = useState("");
   const [activeView, setActiveView] = useState<RadarView>("overview");
   const [dateRange, setDateRange] = useState<DateRangeKey>("30d");
@@ -62,6 +64,9 @@ export function RadarPage() {
   const [evidenceMention, setEvidenceMention] = useState<RadarMention | null>(null);
   const [runState, setRunState] = useState<"idle" | "running">("idle");
   const [runNotice, setRunNotice] = useState<{ tone: "success" | "error"; message: string } | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteState, setDeleteState] = useState<"idle" | "deleting">("idle");
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     if (window.location.hash !== "#new-monitor") return;
@@ -84,8 +89,8 @@ export function RadarPage() {
     ? allMentions.filter((mention) => mention.id !== selectedMention.id && mention.topics.some((topic) => selectedMention.topics.includes(topic))).sort((a, b) => b.engagement - a.engagement).slice(0, 4)
     : [];
   const evidenceCount = new Set(allMentions.filter((mention) => savedIds.includes(mention.id) || importantIds.includes(mention.id) || evidenceLinks.some((link) => link.mentionId === mention.id)).map((mention) => mention.id)).size;
-  const activeProject = projects.find((project) => project.id === activeProjectId);
-  const projectLabel = activeProject?.name ?? "Current project";
+  const monitorProject = activeMonitor?.projectId ? projects.find((project) => project.id === activeMonitor.projectId) : undefined;
+  const projectLabel = monitorProject?.name ?? "Personal Radar";
   const backendConfigured = isRadarConnectorBackendConfigured();
   const runnableSources = activeMonitor ? getRunnableSources(activeMonitor, connectorSettings) : [];
   const canRun = backendConfigured && runnableSources.length > 0 && runState !== "running";
@@ -134,11 +139,11 @@ export function RadarPage() {
     setRunState("running");
     setRunNotice(null);
     try {
-      const result = await runRadarConnectors(activeMonitor, connectorSettings, activeProject ? {
-        id: activeProject.id,
-        name: activeProject.name,
-        description: activeProject.description,
-        market: activeProject.market,
+      const result = await runRadarConnectors(activeMonitor, connectorSettings, monitorProject ? {
+        id: monitorProject.id,
+        name: monitorProject.name,
+        description: monitorProject.description,
+        market: monitorProject.market,
       } : undefined);
       const processed = enrichConnectorMentions(result.mentions, activeMonitor);
       const completedAt = new Date().toISOString();
@@ -185,6 +190,45 @@ export function RadarPage() {
       setRunNotice({ tone: "error", message });
     } finally {
       setRunState("idle");
+    }
+  }
+
+  async function confirmDeleteMonitor() {
+    if (!activeMonitor || deleteState === "deleting") return;
+    const monitorId = activeMonitor.id;
+    const mentionIds = (mentionsByMonitor[monitorId] ?? []).map((mention) => mention.id);
+    const nextMonitor = monitors.find((monitor) => monitor.id !== monitorId);
+    const hasPersistedData = runs.some((run) => run.monitorId === monitorId && run.persisted);
+    setDeleteState("deleting");
+    setDeleteError("");
+
+    try {
+      if (hasPersistedData) {
+        if (!backendConfigured) throw new Error("Connect Supabase before deleting this monitor's cloud records.");
+        await deleteRadarMonitor(monitorId, monitorProject ? {
+          id: monitorProject.id,
+          name: monitorProject.name,
+          description: monitorProject.description,
+          market: monitorProject.market,
+        } : undefined);
+      }
+      removeSavedIds(mentionIds);
+      removeMonitor(monitorId);
+      setActiveMonitorId(nextMonitor?.id ?? "");
+      setActiveView("overview");
+      setActiveTopic("");
+      setSourceFilter("all");
+      setKeywordFilter("");
+      setSelectedSpikeId("");
+      setSelectedMention(null);
+      setEvidenceMention(null);
+      setRunNotice(null);
+      setDeleteDialogOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The monitor could not be deleted.";
+      setDeleteError(`Nothing was deleted. ${message}`);
+    } finally {
+      setDeleteState("idle");
     }
   }
 
@@ -240,7 +284,10 @@ export function RadarPage() {
           <span>{activeMonitor.market || "Any market"}</span>
           <span>{activeMonitor.language || "Any language"}</span>
         </div>
-        <Button disabled={!canRun} title={!backendConfigured ? "Configure Supabase before running this monitor" : !runnableSources.length ? "Configure at least one eligible source" : undefined} onClick={runMonitor}>{runState === "running" ? <RefreshCw className="spin" size={14} /> : <Play size={14} />}{runState === "running" ? "Collecting" : "Run monitor"}</Button>
+        <div className="monitor-command-bar__actions">
+          <Button disabled={!canRun} title={!backendConfigured ? "Configure Supabase before running this monitor" : !runnableSources.length ? "Configure at least one eligible source" : undefined} onClick={runMonitor}>{runState === "running" ? <RefreshCw className="spin" size={14} /> : <Play size={14} />}{runState === "running" ? "Collecting" : "Run monitor"}</Button>
+          <Button size="icon" className="monitor-delete-trigger" disabled={runState === "running"} title="Delete this monitor" aria-label={`Delete ${activeMonitor.name}`} onClick={() => { setDeleteError(""); setDeleteDialogOpen(true); }}><Trash2 size={15} /></Button>
+        </div>
       </Card>
 
       {runNotice ? <div className={`radar-run-notice radar-run-notice--${runNotice.tone}`} role="status"><span>{runNotice.message}</span><button onClick={() => setRunNotice(null)} aria-label="Dismiss run status">×</button></div> : null}
@@ -337,6 +384,7 @@ export function RadarPage() {
       )}
 
       <MonitorDialog open={monitorDialogOpen} onClose={() => setMonitorDialogOpen(false)} onCreate={createMonitor} />
+      <DeleteMonitorDialog open={deleteDialogOpen} monitor={activeMonitor} mentionCount={allMentions.length} deleting={deleteState === "deleting"} error={deleteError} onClose={() => { if (deleteState !== "deleting") { setDeleteDialogOpen(false); setDeleteError(""); } }} onConfirm={confirmDeleteMonitor} />
       <SourceDrawer open={sourceDrawerOpen} onClose={() => setSourceDrawerOpen(false)} settings={connectorSettings} onSave={saveConnectorSettings} backendConfigured={backendConfigured} />
       <SpikeDrawer spike={selectedSpike} mentions={analytics.currentMentions} onClose={() => setSelectedSpikeId("")} onOpenMention={(mention) => { setSelectedSpikeId(""); setSelectedMention(mention); }} />
       <MentionDetailDrawer mention={selectedMention} related={relatedMentions} note={selectedMention ? notes[selectedMention.id] ?? "" : ""} links={selectedMention ? evidenceLinks.filter((link) => link.mentionId === selectedMention.id) : []} saved={Boolean(selectedMention && savedIds.includes(selectedMention.id))} important={Boolean(selectedMention && importantIds.includes(selectedMention.id))} onClose={() => setSelectedMention(null)} onSaveNote={(note) => selectedMention && saveNote(selectedMention.id, note)} onToggleSaved={() => selectedMention && toggleSaved(selectedMention.id)} onToggleImportant={() => selectedMention && toggleImportant(selectedMention.id)} onUseEvidence={() => selectedMention && setEvidenceMention(selectedMention)} onOpenRelated={setSelectedMention} onFilterKeyword={inspectKeyword} />

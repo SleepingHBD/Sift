@@ -46,6 +46,7 @@ interface AppContextValue {
   addResearch: (input: NewResearchInput) => ResearchItem;
   savedIds: string[];
   toggleSaved: (id: string) => void;
+  removeSavedIds: (ids: string[]) => void;
   searchOpen: boolean;
   setSearchOpen: (value: boolean) => void;
 }
@@ -193,6 +194,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     toggleSaved: (id) => {
       setSavedIds((current) => {
         const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id];
+        window.localStorage.setItem("sift-saved-items-personal", JSON.stringify(next));
+        return next;
+      });
+    },
+    removeSavedIds: (ids) => {
+      if (!ids.length) return;
+      const removed = new Set(ids);
+      setSavedIds((current) => {
+        const next = current.filter((id) => !removed.has(id));
         window.localStorage.setItem("sift-saved-items-personal", JSON.stringify(next));
         return next;
       });

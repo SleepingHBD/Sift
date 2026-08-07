@@ -1,12 +1,20 @@
 import { withSupabase } from "npm:@supabase/server@1.4.1";
-import { persistCollection } from "../_shared/database.ts";
+import { deleteStoredMonitor, persistCollection } from "../_shared/database.ts";
 import { createConnectorRegistry } from "../_shared/registry.ts";
-import type { ConnectorSource, NormalizedMention, RunRequest, SourceRunResult } from "../_shared/types.ts";
+import type { ConnectorSource, DeleteMonitorRequest, NormalizedMention, ProjectInput, RunRequest, SourceRunResult } from "../_shared/types.ts";
 
 export default {
   fetch: withSupabase({ auth: "user" }, async (request, context) => {
     try {
-      const input = validateRunRequest(await request.json());
+      const body = await request.json();
+      if (isDeleteMonitorAction(body)) {
+        const input = validateDeleteMonitorRequest(body);
+        const userId = authenticatedUserId(context);
+        const result = await deleteStoredMonitor(context.supabaseAdmin, userId, input.monitorId, input.project);
+        return Response.json(result);
+      }
+
+      const input = validateRunRequest(body);
       const startedAt = new Date().toISOString();
       const mentions: NormalizedMention[] = [];
       const sourceResults: SourceRunResult[] = [];
@@ -32,9 +40,7 @@ export default {
       let persistenceError: string | undefined;
       let runId = `run-${crypto.randomUUID()}`;
       try {
-        if (context.authMode !== "user") throw new Error("An authenticated user session is required for persistence.");
-        const userId = String(context.userClaims.sub || context.userClaims.id || "");
-        if (!userId) throw new Error("The authenticated user ID is unavailable.");
+        const userId = authenticatedUserId(context);
         // The function is the trusted write boundary: it derives ownership from
         // the verified JWT and never accepts a database owner ID from the client.
         const stored = await persistCollection(context.supabaseAdmin, userId, input.monitor, input.project, deduplicated, sourceResults, startedAt);
@@ -58,6 +64,13 @@ export default {
     }
   }),
 };
+
+function authenticatedUserId(context: { authMode: string; userClaims: Record<string, unknown> }) {
+  if (context.authMode !== "user") throw new Error("An authenticated user session is required.");
+  const userId = String(context.userClaims.sub || context.userClaims.id || "");
+  if (!userId) throw new Error("The authenticated user ID is unavailable.");
+  return userId;
+}
 
 function errorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
@@ -90,12 +103,41 @@ function validateRunRequest(value: unknown): RunRequest {
         exclude: cleanTerms(candidate.monitor.builder.exclude),
       },
     },
-    project: candidate.project ? { id: String(candidate.project.id).slice(0, 160), name: String(candidate.project.name).slice(0, 200), description: candidate.project.description ? String(candidate.project.description).slice(0, 2_000) : undefined, market: candidate.project.market ? String(candidate.project.market).slice(0, 160) : undefined } : null,
+    project: cleanProject(candidate.project),
     connectorConfig: {
       rssFeedUrls: cleanUrls(candidate.connectorConfig.rssFeedUrls),
       manualUrls: cleanUrls(candidate.connectorConfig.manualUrls),
       youtubeEnabled: Boolean(candidate.connectorConfig.youtubeEnabled),
     },
+  };
+}
+
+function isDeleteMonitorAction(value: unknown) {
+  return Boolean(value && typeof value === "object" && "action" in value && value.action === "delete-monitor");
+}
+
+function validateDeleteMonitorRequest(value: unknown): DeleteMonitorRequest {
+  if (!value || typeof value !== "object") throw new Error("A monitor deletion request is required.");
+  const candidate = value as Partial<DeleteMonitorRequest>;
+  const monitorId = String(candidate.monitorId || "").trim();
+  if (candidate.action !== "delete-monitor" || !monitorId) throw new Error("The monitor deletion request is incomplete.");
+  return {
+    action: "delete-monitor",
+    monitorId: monitorId.slice(0, 160),
+    project: cleanProject(candidate.project),
+  };
+}
+
+function cleanProject(project: ProjectInput | null | undefined): ProjectInput | null {
+  if (!project) return null;
+  const id = String(project.id || "").trim();
+  const name = String(project.name || "").trim();
+  if (!id || !name) throw new Error("The project definition is incomplete.");
+  return {
+    id: id.slice(0, 160),
+    name: name.slice(0, 200),
+    description: project.description ? String(project.description).slice(0, 2_000) : undefined,
+    market: project.market ? String(project.market).slice(0, 160) : undefined,
   };
 }
 

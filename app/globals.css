@@ -1099,6 +1099,9 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .monitor-command-bar__context { display: flex; align-items: center; justify-content: flex-end; gap: 7px; white-space: nowrap; }
 .monitor-command-bar__context > span { color: var(--muted); font-size: 10px; }
 .monitor-command-bar__context > span + span::before { margin-right: 7px; color: var(--faint); content: "·"; }
+.monitor-command-bar__actions { display: flex; align-items: center; gap: 7px; }
+.monitor-delete-trigger { color: var(--muted); }
+.monitor-delete-trigger:hover:not(:disabled) { border-color: color-mix(in srgb, var(--coral) 60%, var(--border)); background: color-mix(in srgb, var(--coral) 10%, var(--card)); color: #b94232; }
 
 .radar-view-tabs { position: sticky; top: 58px; z-index: 30; display: flex; align-items: center; gap: 2px; margin-top: 18px; padding: 0 3px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(14px); }
 .radar-view-tabs button { position: relative; min-height: 48px; display: flex; align-items: center; gap: 7px; padding: 0 16px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 680; }
@@ -1310,6 +1313,13 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .workspace-dialog__body input:focus, .workspace-dialog__body textarea:focus, .workspace-dialog__body select:focus { border-color: var(--border-strong); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acid) 26%, transparent); }
 .workspace-dialog > footer { display: flex; justify-content: flex-end; gap: 8px; padding: 18px 30px; border-top: 1px solid var(--border); }
 .form-error { margin: 0; color: var(--negative); font-size: 12px; }
+.monitor-delete-dialog .workspace-dialog__icon { background: color-mix(in srgb, var(--coral) 22%, var(--card)); color: #b94232; }
+.workspace-dialog__body.monitor-delete-dialog__body { gap: 14px; }
+.monitor-delete-dialog__body > .monitor-delete-summary { display: flex; grid-template-columns: none; align-items: flex-start; gap: 11px; padding: 15px; border: 1px solid color-mix(in srgb, var(--coral) 44%, var(--border)); border-radius: 11px; background: color-mix(in srgb, var(--coral) 8%, var(--card)); }
+.monitor-delete-summary > svg { flex: 0 0 auto; margin-top: 2px; color: #b94232; }
+.monitor-delete-summary p { margin: 0; color: var(--text-soft); font-size: 13px; line-height: 1.6; }
+.monitor-delete-confirm.ui-button { border-color: #b94232; background: #b94232; color: #fff; }
+.monitor-delete-confirm.ui-button:hover:not(:disabled) { border-color: #9f3326; background: #9f3326; }
 
 .brand-empty-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .personal-brand-card { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 20px; align-items: start; padding: 28px; }
