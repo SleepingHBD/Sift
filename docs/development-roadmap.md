@@ -120,7 +120,7 @@ Every retrievable evidence record should expose:
 
 ## Phase 0 - Architecture and data safety audit
 
-Status: **In progress.** The repository and live backend audit is documented in [phase-0-audit.md](phase-0-audit.md). The additive hardening migration is backed up, applied, and verified without changing existing record counts; controlled cross-user RLS checks pass; GitHub OAuth is active and linked in place; and private routes plus browser caches are scoped to the permanent Sift identity. CLI migration-history synchronization remains.
+Status: **Complete.** The repository and live backend audit is documented in [phase-0-audit.md](phase-0-audit.md). The additive hardening migration is backed up, applied, and verified without changing existing record counts; controlled cross-user RLS checks pass; GitHub OAuth is active and linked in place; private routes plus browser caches are scoped to the permanent Sift identity; and all five repository migrations are recorded in the live Supabase migration history.
 
 ### Goal
 

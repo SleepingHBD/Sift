@@ -2,7 +2,7 @@
 
 Audit date: 8 August 2026
 
-Status: Audit, live hardening, controlled cross-user RLS verification, GitHub identity linking, and permanent-account route protection are complete in the repository. CLI migration-history synchronization remains before Phase 0 is closed.
+Status: **Complete.** Audit, live hardening, controlled cross-user RLS verification, GitHub identity linking, permanent-account route protection, and remote migration-history synchronization are complete.
 
 ## Scope
 
@@ -12,7 +12,7 @@ No user-created records were deleted or rewritten. No website deployment was per
 
 ## Executive findings
 
-1. The live Supabase project is healthy. Its four earlier repository migrations remain recorded; the Phase 0 hardening SQL is applied live and preserved in the repository, but still needs to be registered in the CLI-managed migration history.
+1. The live Supabase project is healthy. All five repository migrations, including the Phase 0 hardening migration, are applied and recorded in the remote migration history.
 2. The database contains one project, one monitor, one monitor run, one source, 92 mentions, four topics, and 92 mention-topic relationships. These records must be preserved.
 3. The application is still device-first: projects, research, inspiration, monitor definitions, notes, saves, important flags, connector settings, and Radar display state are read primarily from `localStorage`.
 4. Connector runs persist genuine records to Supabase, but normal application hydration does not read the workspace back from Supabase.
@@ -20,7 +20,7 @@ No user-created records were deleted or rewritten. No website deployment was per
 6. There are approximately ten anonymous authentication users from browser sessions. Anonymous users cannot recover access after clearing browser data or changing device.
 7. All 32 public tables have RLS enabled. The `anon` Postgres role has no table SELECT privilege. The `authenticated` role has SELECT, INSERT, UPDATE, and DELETE grants on all 32 public tables, with RLS providing row authorization.
 8. The Data API settings report both configured schemas exposed, explicit table exposure at 0 of 32, and automatic exposure of new tables disabled. Phase 1 must test each intended client table explicitly rather than infer access from grants alone.
-9. Before hardening, the Security Advisor reported zero errors and 38 warnings. After hardening and a fresh lint run it reported zero errors and 33 warnings. Anonymous sign-ins were subsequently disabled on 8 August 2026; the Security Advisor has not yet been rerun against that configuration.
+9. Before hardening, the Security Advisor reported zero errors and 38 warnings. After hardening, permanent-account protection, and disabling anonymous sign-ins, a fresh run reports zero errors and one warning: leaked-password protection is disabled. Sift's active application sign-in path uses GitHub OAuth, so this password-specific warning is recorded but does not block Phase 0.
 10. Before hardening, the Performance Advisor reported zero errors, 11 warnings, and 39 suggestions. After hardening and a fresh lint run it reports zero errors, zero warnings, and 39 informational suggestions.
 11. Supabase Storage has no buckets. File and screenshot capture cannot be considered implemented.
 12. The `radar-connectors` Edge Function is deployed. Its handler requires `auth: "user"`, derives ownership from verified user claims, and keeps connector credentials server-side. The repository currently disables the platform JWT gate, so this boundary should be tested against the current Supabase authentication guidance before Phase 1.
@@ -35,7 +35,7 @@ No user-created records were deleted or rewritten. No website deployment was per
 - Project reference: `mgghyjffxovanmaoudsv`
 - Region: Southeast Asia, Singapore
 - Status during audit: Healthy
-- Database migration history: four repository migrations applied
+- Database migration history: all five repository migrations applied and recorded
 - Edge Functions: one deployed function, `radar-connectors`
 - Storage buckets: none
 - Scheduled backups: none shown
@@ -48,8 +48,9 @@ No user-created records were deleted or rewritten. No website deployment was per
 | `202608070002` | `radar_core` |
 | `202608070003` | `connector_runtime` |
 | `20260807112919` | `data_api_grants` |
+| `20260807145944` | `phase_0_security_foundation` |
 
-The Phase 0 migration `20260807145944_phase_0_security_foundation.sql` was applied through the signed-in Supabase SQL Editor on 7 August 2026. The SQL is replay-safe, but the dashboard execution does not create a CLI migration-history entry. The official CLI could not repair the history without a personal access token or database password, so history synchronization remains explicit follow-up work rather than creating or exposing a new credential automatically.
+The Phase 0 migration `20260807145944_phase_0_security_foundation.sql` was applied through the signed-in Supabase SQL Editor on 7 August 2026. Its private authorization helper, security-invoker wrapper, policy role restrictions, and all 28 expected indexes were verified live before the missing ledger row was registered through the authenticated Supabase administration connection on 8 August 2026. A fresh migration listing confirms that the local and remote histories now contain the same five versions.
 
 ### Existing domain data
 
@@ -340,14 +341,14 @@ The local backup is `work/backups/sift-pre-phase0-20260807.csv` (141,357 bytes, 
 - [x] Export a logical backup of current Sift data.
 - [x] Apply and verify the hardening migration.
 - [x] Run controlled cross-user RLS checks for project select, update, and delete behavior.
-- [ ] Register the dashboard-applied migration in CLI-managed migration history using an explicitly supplied Supabase credential.
+- [x] Register the dashboard-applied migration in the remote migration history and verify the complete five-version ledger.
 - [x] Decide the Phase 1 permanent sign-in method and anonymous-account migration behavior.
 - [x] Enable GitHub OAuth and link the existing workspace without changing its Sift user ID.
 - [x] Disable new anonymous sign-ins after verifying the linked GitHub identity.
 - [x] Gate private workspace routes behind a verified permanent session.
 - [x] Scope browser workspace caches to the authenticated Sift user.
 
-Phase 0 remains in progress until the remaining CLI migration-history item is resolved.
+Phase 0 is complete. Phase 1 can now begin from a reproducible, verified backend baseline.
 
 ## Current official guidance considered
 
