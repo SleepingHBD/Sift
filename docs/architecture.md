@@ -6,7 +6,7 @@ Sift is a strategy intelligence workspace, not a publishing or scheduling produc
 
 ## Runtime shape
 
-The current application is a statically exported Next.js app for GitHub Pages. New browser profiles start with an empty personal workspace.
+The current application is a statically exported Next.js app for GitHub Pages. New browser profiles must sign in with the linked GitHub account before opening the private workspace.
 
 ```text
 Next.js static client
@@ -26,7 +26,9 @@ GitHub Pages cannot protect an OpenAI or connector secret. Radar calls an authen
 
 - Personal projects, research, inspiration, saves, Radar monitors, notes, important marks, and evidence relationships have dedicated browser-storage keys.
 - The interface does not seed records or infer analytics when the workspace is empty.
-- Connector runs use an anonymous Supabase user until permanent sign-in is added, then write through `owner_id`, project membership checks, and Row Level Security.
+- Connector runs use the verified permanent Supabase user and write through `owner_id`, project membership checks, and Row Level Security.
+- Workspace routes require a verified, non-anonymous session. The Account route remains public for sign-in and recovery.
+- Device caches are scoped to the Supabase user ID; legacy unscoped records can be claimed only once by the account that completes the migration.
 - Local records make the static interface resilient, but the application distinguishes device persistence from authenticated cloud persistence.
 
 ## Primary routes

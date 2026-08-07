@@ -1,22 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/components/auth/auth-provider";
 import { defaultRadarConnectorSettings, mergeRadarMentions, type RadarConnectorSettings } from "@/lib/radar/connector-service";
 import type { MonitorRun, MonitoringQuery, RadarEvidenceLink, RadarMention } from "@/lib/radar/types";
+import { prepareUserWorkspaceStorage, userWorkspaceStorageKey, workspaceStorageKeys } from "@/lib/workspace-storage";
 
 const storageKeys = {
-  monitors: "sift-radar-monitors-v2",
-  mentions: "sift-radar-mentions-v1",
-  runs: "sift-radar-runs-v1",
-  connectorSettings: "sift-radar-connector-settings-v1",
-  evidence: "sift-radar-evidence-personal-v1",
-  notes: "sift-radar-notes-personal-v1",
-  important: "sift-radar-important-personal-v1",
+  monitors: workspaceStorageKeys.radarMonitors,
+  mentions: workspaceStorageKeys.radarMentions,
+  runs: workspaceStorageKeys.radarRuns,
+  connectorSettings: workspaceStorageKeys.radarConnectorSettings,
+  evidence: workspaceStorageKeys.radarEvidence,
+  notes: workspaceStorageKeys.radarNotes,
+  important: workspaceStorageKeys.radarImportant,
 };
-
-function persist(key: string, value: unknown) {
-  window.localStorage.setItem(key, JSON.stringify(value));
-}
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -28,6 +26,8 @@ function read<T>(key: string, fallback: T): T {
 }
 
 export function useRadarState() {
+  const { status, user } = useAuth();
+  const workspaceUserId = status === "authenticated" ? user?.id ?? "" : "";
   const [monitors, setMonitors] = useState<MonitoringQuery[]>([]);
   const [mentionsByMonitor, setMentionsByMonitor] = useState<Record<string, RadarMention[]>>({});
   const [runs, setRuns] = useState<MonitorRun[]>([]);
@@ -36,20 +36,40 @@ export function useRadarState() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [importantIds, setImportantIds] = useState<string[]>([]);
 
+  function scopedKey(legacyKey: string) {
+    return userWorkspaceStorageKey(workspaceUserId, legacyKey);
+  }
+
+  function persist(legacyKey: string, value: unknown) {
+    if (!workspaceUserId) return;
+    window.localStorage.setItem(scopedKey(legacyKey), JSON.stringify(value));
+  }
+
   useEffect(() => {
     const hydration = window.setTimeout(() => {
-      setMonitors(read<MonitoringQuery[]>(storageKeys.monitors, []));
-      setMentionsByMonitor(read<Record<string, RadarMention[]>>(storageKeys.mentions, {}));
-      setRuns(read<MonitorRun[]>(storageKeys.runs, []));
-      setConnectorSettings(read<RadarConnectorSettings>(storageKeys.connectorSettings, defaultRadarConnectorSettings));
-      setEvidenceLinks(read<RadarEvidenceLink[]>(storageKeys.evidence, []));
-      setNotes(read<Record<string, string>>(storageKeys.notes, {}));
-      setImportantIds(read<string[]>(storageKeys.important, []));
+      setMonitors([]);
+      setMentionsByMonitor({});
+      setRuns([]);
+      setConnectorSettings(defaultRadarConnectorSettings);
+      setEvidenceLinks([]);
+      setNotes({});
+      setImportantIds([]);
+      if (!workspaceUserId) return;
+
+      prepareUserWorkspaceStorage(window.localStorage, workspaceUserId);
+      setMonitors(read<MonitoringQuery[]>(userWorkspaceStorageKey(workspaceUserId, storageKeys.monitors), []));
+      setMentionsByMonitor(read<Record<string, RadarMention[]>>(userWorkspaceStorageKey(workspaceUserId, storageKeys.mentions), {}));
+      setRuns(read<MonitorRun[]>(userWorkspaceStorageKey(workspaceUserId, storageKeys.runs), []));
+      setConnectorSettings(read<RadarConnectorSettings>(userWorkspaceStorageKey(workspaceUserId, storageKeys.connectorSettings), defaultRadarConnectorSettings));
+      setEvidenceLinks(read<RadarEvidenceLink[]>(userWorkspaceStorageKey(workspaceUserId, storageKeys.evidence), []));
+      setNotes(read<Record<string, string>>(userWorkspaceStorageKey(workspaceUserId, storageKeys.notes), {}));
+      setImportantIds(read<string[]>(userWorkspaceStorageKey(workspaceUserId, storageKeys.important), []));
     }, 0);
     return () => window.clearTimeout(hydration);
-  }, []);
+  }, [workspaceUserId]);
 
   function addMonitor(monitor: MonitoringQuery) {
+    if (!workspaceUserId) return;
     setMonitors((current) => {
       const next = [...current, monitor];
       persist(storageKeys.monitors, next);
@@ -58,6 +78,7 @@ export function useRadarState() {
   }
 
   function removeMonitor(monitorId: string) {
+    if (!workspaceUserId) return;
     const mentionIds = new Set((mentionsByMonitor[monitorId] ?? []).map((mention) => mention.id));
     setMonitors((current) => {
       const next = current.filter((monitor) => monitor.id !== monitorId);
@@ -93,6 +114,7 @@ export function useRadarState() {
   }
 
   function saveConnectorSettings(settings: RadarConnectorSettings) {
+    if (!workspaceUserId) return;
     const cleaned = {
       rssFeedUrls: uniqueHttpUrls(settings.rssFeedUrls),
       manualUrls: uniqueHttpUrls(settings.manualUrls),
@@ -103,6 +125,7 @@ export function useRadarState() {
   }
 
   function completeMonitorRun(monitorId: string, mentions: RadarMention[], run: MonitorRun) {
+    if (!workspaceUserId) return;
     setMentionsByMonitor((current) => {
       const merged = mergeRadarMentions(current[monitorId] ?? [], mentions);
       const next = { ...current, [monitorId]: merged };
@@ -120,6 +143,7 @@ export function useRadarState() {
   }
 
   function recordMonitorRun(run: MonitorRun) {
+    if (!workspaceUserId) return;
     setRuns((current) => {
       const next = [run, ...current].slice(0, 100);
       persist(storageKeys.runs, next);
@@ -128,6 +152,7 @@ export function useRadarState() {
   }
 
   function addEvidenceLink(link: RadarEvidenceLink) {
+    if (!workspaceUserId) return;
     setEvidenceLinks((current) => {
       const next = [...current.filter((item) => !(item.mentionId === link.mentionId && item.destination === link.destination && item.destinationId === link.destinationId)), link];
       persist(storageKeys.evidence, next);
@@ -136,6 +161,7 @@ export function useRadarState() {
   }
 
   function saveNote(mentionId: string, note: string) {
+    if (!workspaceUserId) return;
     setNotes((current) => {
       const next = { ...current, [mentionId]: note };
       persist(storageKeys.notes, next);
@@ -144,6 +170,7 @@ export function useRadarState() {
   }
 
   function toggleImportant(mentionId: string) {
+    if (!workspaceUserId) return;
     setImportantIds((current) => {
       const next = current.includes(mentionId) ? current.filter((id) => id !== mentionId) : [...current, mentionId];
       persist(storageKeys.important, next);

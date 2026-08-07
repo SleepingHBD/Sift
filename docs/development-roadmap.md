@@ -43,8 +43,8 @@ Sift is not required to observe the whole internet. It is required to be explici
 
 - Projects, research, inspiration, saved state, monitor definitions, notes, and collected Radar state are primarily read from browser `localStorage`.
 - Connector runs write records to Supabase, but the application does not use Supabase as its normal read repository.
-- Anonymous authentication produces a different workspace when the browser session is lost or another device is used.
-- There is no permanent in-app sign-in and account recovery flow.
+- GitHub sign-in and account recovery are configured, and the original anonymous workspace has been linked in place.
+- Private routes now require a verified permanent session, but most domain data still needs Phase 1 cloud hydration before cross-device recovery is complete.
 - Research and inspiration forms do not yet upload files, extract content, or save rich provenance.
 - Strategy AI is a labelled framing placeholder, not a server-backed evidence retrieval system.
 - Several database relationships use polymorphic IDs whose integrity is enforced by application code rather than foreign keys.
@@ -120,7 +120,7 @@ Every retrievable evidence record should expose:
 
 ## Phase 0 - Architecture and data safety audit
 
-Status: **In progress.** The repository and live backend audit is documented in [phase-0-audit.md](phase-0-audit.md). The additive hardening migration is backed up, applied, and verified without changing existing record counts; controlled cross-user RLS checks pass; and GitHub OAuth is selected as the permanent identity with an in-place anonymous-account linking path. CLI migration-history synchronization remains.
+Status: **In progress.** The repository and live backend audit is documented in [phase-0-audit.md](phase-0-audit.md). The additive hardening migration is backed up, applied, and verified without changing existing record counts; controlled cross-user RLS checks pass; GitHub OAuth is active and linked in place; and private routes plus browser caches are scoped to the permanent Sift identity. CLI migration-history synchronization remains.
 
 ### Goal
 

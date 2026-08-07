@@ -54,23 +54,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!client) return;
 
     let active = true;
-    void client.auth.getSession().then(({ data, error: sessionError }) => {
+    let unsubscribe: (() => void) | undefined;
+    const verificationTimeout = window.setTimeout(() => {
+      if (!active) return;
+      setError("Session verification took too long. Reload this page or sign in again from Account.");
+      syncSession(null);
+    }, 8_000);
+
+    void client.auth.getSession().then(async ({ data, error: sessionError }) => {
       if (!active) return;
       if (sessionError) {
         setError(sessionError.message);
         syncSession(null);
-        return;
+      } else if (!data.session) {
+        setError("");
+        syncSession(null);
+      } else {
+        const { data: verified, error: userError } = await client.auth.getUser();
+        if (!active) return;
+        if (userError || !verified.user || verified.user.id !== data.session.user.id) {
+          setError(userError?.message || "Your session could not be verified. Please sign in again.");
+          syncSession(null);
+        } else {
+          setError("");
+          syncSession({ ...data.session, user: verified.user });
+        }
       }
-      syncSession(data.session);
-    });
 
-    const { data: { subscription } } = client.auth.onAuthStateChange((_event, nextSession) => {
-      if (active) syncSession(nextSession);
+      if (!active) return;
+      window.clearTimeout(verificationTimeout);
+      const { data: { subscription } } = client.auth.onAuthStateChange((_event, nextSession) => {
+        if (active) syncSession(nextSession);
+      });
+      unsubscribe = () => subscription.unsubscribe();
+    }).catch((sessionError: unknown) => {
+      if (!active) return;
+      window.clearTimeout(verificationTimeout);
+      setError(sessionError instanceof Error ? sessionError.message : "Your session could not be verified.");
+      syncSession(null);
     });
 
     return () => {
       active = false;
-      subscription.unsubscribe();
+      window.clearTimeout(verificationTimeout);
+      unsubscribe?.();
     };
   }, [syncSession]);
 

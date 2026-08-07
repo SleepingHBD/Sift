@@ -15,6 +15,7 @@ It combines social-listening workflows, cultural research, inspiration, competit
 - Radar views for metrics, timelines, topics, spikes, mentions, source detail, and evidence
 - Research and inspiration libraries with browser-local creation and search
 - Empty-state workspaces for brands, competitors, trends, briefs, and Strategy AI
+- GitHub authentication with a protected permanent-account workspace
 - Global search, responsive navigation, light and dark modes
 - Static GitHub Pages export
 - Supabase schema with project ownership, Row Level Security, full-text indexes, normalized mentions, monitor runs, evidence links, and strategy entities
@@ -45,13 +46,13 @@ The production build is written to `out/`.
 
 ## Current persistence
 
-The GitHub Pages build stores client-created projects, monitors, collected Radar records, research, inspiration, notes, saves, and evidence links in browser storage on the current device. This lets a completed connector run remain usable immediately and offline on that device.
+The GitHub Pages build currently stores client-created projects, monitors, collected Radar records, research, inspiration, notes, saves, and evidence links in user-scoped browser storage on the current device. Private routes hydrate those caches only for a verified permanent Sift user. This lets a completed connector run remain usable immediately and offline on that device without exposing one account's cached workspace to another account on the same browser.
 
-Connector runs also write projects, monitor definitions, run audits, sources, normalized mentions, sentiment, keywords, topics, and mention-topic links to Supabase. The account interface supports GitHub OAuth and upgrades an existing anonymous session through identity linking so its Sift user ID can be preserved. Anonymous sign-in remains a temporary migration path until the current workspace is linked. If cloud persistence fails after collection, Radar labels the condition and keeps the retrieved records on the current device.
+Connector runs also write projects, monitor definitions, run audits, sources, normalized mentions, sentiment, keywords, topics, and mention-topic links to Supabase. The account interface supports GitHub OAuth and can upgrade an existing anonymous session through identity linking so its Sift user ID is preserved. If cloud persistence fails after collection, Radar labels the condition and keeps the retrieved records in the signed-in user's device cache.
 
 ## Supabase setup
 
-1. Create a Supabase project. Enable **Manual Linking** while an existing anonymous workspace is being upgraded to GitHub, and keep **Anonymous Sign-Ins** enabled only for that migration window. For public anonymous access, configure CAPTCHA or Turnstile abuse protection as recommended by Supabase.
+1. Create a Supabase project. Enable **Manual Linking** only while an existing anonymous workspace is being upgraded to GitHub. Keep **Anonymous Sign-Ins** disabled for the permanent-account workspace; if a temporary migration window is required, enable CAPTCHA or Turnstile as recommended by Supabase and disable anonymous sign-ins again immediately after verification.
 2. Link the repository and apply the migrations:
 
    ```bash

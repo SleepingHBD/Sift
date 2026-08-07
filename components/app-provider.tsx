@@ -1,7 +1,9 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "@/components/auth/auth-provider";
 import type { InspirationItem, Project, ResearchItem } from "@/lib/types";
+import { prepareUserWorkspaceStorage, userWorkspaceStorageKey, workspaceStorageKeys } from "@/lib/workspace-storage";
 
 type Theme = "light" | "dark";
 
@@ -64,6 +66,8 @@ function parseStored<T>(key: string, fallback: T): T {
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const { status, user } = useAuth();
+  const workspaceUserId = status === "authenticated" ? user?.id ?? "" : "";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
@@ -80,19 +84,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const savedTheme = window.localStorage.getItem("sift-theme") as Theme | null;
       const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       const initialTheme = savedTheme ?? (systemDark ? "dark" : "light");
-      const storedProjects = parseStored<Project[]>("sift-user-projects-v1", []);
       setTheme(initialTheme);
       document.documentElement.dataset.theme = initialTheme;
-      setProjects(storedProjects);
-      setInspirationItems(parseStored<InspirationItem[]>("sift-user-inspiration-v1", []));
-      setResearchItems(parseStored<ResearchItem[]>("sift-user-research-v1", []));
-      setSavedIds(parseStored<string[]>("sift-saved-items-personal", []));
-
-      const storedActive = window.localStorage.getItem("sift-active-project-personal") ?? "";
-      setActiveProjectIdState(storedProjects.some((project) => project.id === storedActive) ? storedActive : storedProjects[0]?.id ?? "");
     }, 0);
     return () => window.clearTimeout(hydratePreferences);
   }, []);
+
+  useEffect(() => {
+    const hydrateWorkspace = window.setTimeout(() => {
+      setProjects([]);
+      setInspirationItems([]);
+      setResearchItems([]);
+      setSavedIds([]);
+      setActiveProjectIdState("");
+      setProjectDialogOpen(false);
+      setSearchOpen(false);
+      if (!workspaceUserId) return;
+
+      prepareUserWorkspaceStorage(window.localStorage, workspaceUserId);
+      const scoped = (legacyKey: string) => userWorkspaceStorageKey(workspaceUserId, legacyKey);
+      const storedProjects = parseStored<Project[]>(scoped(workspaceStorageKeys.projects), []);
+      setProjects(storedProjects);
+      setInspirationItems(parseStored<InspirationItem[]>(scoped(workspaceStorageKeys.inspiration), []));
+      setResearchItems(parseStored<ResearchItem[]>(scoped(workspaceStorageKeys.research), []));
+      setSavedIds(parseStored<string[]>(scoped(workspaceStorageKeys.savedItems), []));
+
+      const storedActive = window.localStorage.getItem(scoped(workspaceStorageKeys.activeProject)) ?? "";
+      setActiveProjectIdState(storedProjects.some((project) => project.id === storedActive) ? storedActive : storedProjects[0]?.id ?? "");
+    }, 0);
+    return () => window.clearTimeout(hydrateWorkspace);
+  }, [workspaceUserId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -111,6 +132,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   function createProject(input: NewProjectInput) {
+    if (!workspaceUserId) throw new Error("Sign in with GitHub before creating a project.");
     const project: Project = {
       id: `project-${Date.now()}`,
       name: input.name.trim(),
@@ -125,12 +147,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const next = [...projects, project];
     setProjects(next);
     setActiveProjectIdState(project.id);
-    window.localStorage.setItem("sift-user-projects-v1", JSON.stringify(next));
-    window.localStorage.setItem("sift-active-project-personal", project.id);
+    window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.projects), JSON.stringify(next));
+    window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.activeProject), project.id);
     return project;
   }
 
   function addInspiration(input: NewInspirationInput) {
+    if (!workspaceUserId) throw new Error("Sign in with GitHub before adding inspiration.");
     const item: InspirationItem = {
       id: `inspiration-${Date.now()}`,
       brand: "Personal workspace",
@@ -144,11 +167,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     const next = [...inspirationItems, item];
     setInspirationItems(next);
-    window.localStorage.setItem("sift-user-inspiration-v1", JSON.stringify(next));
+    window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.inspiration), JSON.stringify(next));
     return item;
   }
 
   function addResearch(input: NewResearchInput) {
+    if (!workspaceUserId) throw new Error("Sign in with GitHub before adding research.");
     const item: ResearchItem = {
       id: `research-${Date.now()}`,
       title: input.title.trim(),
@@ -161,7 +185,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     const next = [...researchItems, item];
     setResearchItems(next);
-    window.localStorage.setItem("sift-user-research-v1", JSON.stringify(next));
+    window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.research), JSON.stringify(next));
     return item;
   }
 
@@ -183,8 +207,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setProjectDialogOpen,
     activeProjectId,
     setActiveProjectId: (id) => {
+      if (!workspaceUserId) return;
       setActiveProjectIdState(id);
-      window.localStorage.setItem("sift-active-project-personal", id);
+      window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.activeProject), id);
     },
     inspirationItems,
     addInspiration,
@@ -192,9 +217,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addResearch,
     savedIds,
     toggleSaved: (id) => {
+      if (!workspaceUserId) return;
       setSavedIds((current) => {
         const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id];
-        window.localStorage.setItem("sift-saved-items-personal", JSON.stringify(next));
+        window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.savedItems), JSON.stringify(next));
         return next;
       });
     },
@@ -203,7 +229,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const removed = new Set(ids);
       setSavedIds((current) => {
         const next = current.filter((id) => !removed.has(id));
-        window.localStorage.setItem("sift-saved-items-personal", JSON.stringify(next));
+        if (workspaceUserId) window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.savedItems), JSON.stringify(next));
         return next;
       });
     },
