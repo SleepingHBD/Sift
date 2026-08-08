@@ -1,4 +1,5 @@
 import { normalizeSource } from "@/lib/evidence/source";
+import { normalizeCaptureUrl } from "@/lib/evidence/capture";
 import type { EvidenceCaptureMethod } from "@/lib/evidence/reference";
 import type { EvidenceUrlMetadata } from "@/lib/evidence/url-extraction";
 import {
@@ -6,9 +7,14 @@ import {
   EVIDENCE_ASSET_BUCKET,
   validateEvidenceFile,
 } from "@/lib/evidence/file-capture";
+import { socialPlatforms, validateSocialScreenshot, type SocialPlatform } from "@/lib/evidence/social-capture";
 import { createResearchClientRef, researchFromRow, type ResearchRow } from "@/lib/research/model";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/database.types";
 import type { EvidenceAsset, Project, ResearchItem } from "@/lib/types";
+
+type ResearchInsert = Database["public"]["Tables"]["research_items"]["Insert"];
+type ResearchAssetPayload = Omit<ResearchInsert, "client_ref" | "project_id">;
 
 export interface ResearchDraft {
   title: string;
@@ -26,6 +32,19 @@ export interface ResearchFileDraft {
   summary: string;
   file: File;
   captureOrigin?: "research_form" | "global_capture";
+}
+
+export interface ResearchSocialDraft {
+  title: string;
+  url: string;
+  platform: SocialPlatform;
+  author?: string;
+  caption?: string;
+  selectedComments?: string;
+  observedAt?: string;
+  summary: string;
+  screenshot?: File;
+  urlMetadata?: EvidenceUrlMetadata;
 }
 
 const researchSelect = "id,client_ref,project_id,title,url,author,publication,published_at,item_type,key_findings,notes,ai_summary,collection_name,metadata,created_at,updated_at";
@@ -70,12 +89,14 @@ async function removeStorageObject(path: string) {
   return error?.message ?? null;
 }
 
-export async function createCloudFileResearch(
+async function createCloudResearchWithAsset(
   project: Project,
   userId: string,
-  input: ResearchFileDraft,
+  file: File,
+  payload: ResearchAssetPayload,
+  options: { screenshotOnly?: boolean } = {},
 ) {
-  const validation = validateEvidenceFile(input.file);
+  const validation = options.screenshotOnly ? validateSocialScreenshot(file) : validateEvidenceFile(file);
   if (!validation.ok) throw new Error(validation.error);
   const client = requireClient();
   const cloudProjectId = requireCloudProject(project);
@@ -84,13 +105,13 @@ export async function createCloudFileResearch(
     userId,
     projectId: cloudProjectId,
     researchClientRef: clientRef,
-    filename: input.file.name,
+    filename: file.name,
     mimeType: validation.mimeType,
   });
 
   const { error: uploadError } = await client.storage
     .from(EVIDENCE_ASSET_BUCKET)
-    .upload(storagePath, input.file, {
+    .upload(storagePath, file, {
       cacheControl: "3600",
       contentType: validation.mimeType,
       upsert: false,
@@ -102,17 +123,7 @@ export async function createCloudFileResearch(
     .insert({
       client_ref: clientRef,
       project_id: cloudProjectId,
-      title: input.title.trim() || input.file.name,
-      publication: "Private upload",
-      item_type: validation.kind === "image" ? "Screenshot" : "Document",
-      key_findings: input.summary.trim() || null,
-      collection_name: "Unsorted",
-      metadata: {
-        sift_origin: input.captureOrigin ?? "global_capture",
-        capture_method: "upload",
-        source_label: "Private upload",
-        processing_status: "unprocessed",
-      },
+      ...payload,
     })
     .select(researchSelect)
     .single();
@@ -129,9 +140,9 @@ export async function createCloudFileResearch(
       research_item_id: research.id,
       bucket_id: EVIDENCE_ASSET_BUCKET,
       storage_path: storagePath,
-      original_filename: input.file.name,
+      original_filename: file.name,
       mime_type: validation.mimeType,
-      byte_size: input.file.size,
+      byte_size: file.size,
       asset_kind: validation.kind,
       processing_status: "ready",
     })
@@ -149,6 +160,90 @@ export async function createCloudFileResearch(
     ...research,
     evidence_assets: [asset],
   } as unknown as ResearchRow, project.id);
+}
+
+export async function createCloudFileResearch(
+  project: Project,
+  userId: string,
+  input: ResearchFileDraft,
+) {
+  const validation = validateEvidenceFile(input.file);
+  if (!validation.ok) throw new Error(validation.error);
+  return createCloudResearchWithAsset(project, userId, input.file, {
+      title: input.title.trim() || input.file.name,
+      publication: "Private upload",
+      item_type: validation.kind === "image" ? "Screenshot" : "Document",
+      key_findings: input.summary.trim() || null,
+      collection_name: "Unsorted",
+      metadata: {
+        sift_origin: input.captureOrigin ?? "global_capture",
+        capture_method: "upload",
+        source_label: "Private upload",
+        processing_status: "unprocessed",
+      },
+  });
+}
+
+function socialResearchMetadata(input: ResearchSocialDraft) {
+  const urlMetadata = input.urlMetadata;
+  return {
+    sift_origin: "social_capture",
+    capture_method: "strategist",
+    source_label: input.platform,
+    social_platform: input.platform,
+    social_author: input.author?.trim() || null,
+    observed_at: input.observedAt || null,
+    source_text: input.caption?.trim() || null,
+    selected_comments: input.selectedComments?.trim() || null,
+    extraction_status: urlMetadata ? "complete" : "manual_capture",
+    capture_limitation: "Strategist-captured evidence; not collected by a live connector.",
+    processing_status: "unprocessed",
+    ...(urlMetadata ? {
+      original_url: urlMetadata.originalUrl,
+      final_url: urlMetadata.finalUrl,
+      canonical_url: urlMetadata.canonicalUrl,
+      description: urlMetadata.description ?? null,
+      preview_image: urlMetadata.previewImage ?? null,
+      extracted_at: urlMetadata.extractedAt,
+    } : {}),
+  };
+}
+
+export async function createCloudSocialResearch(
+  project: Project,
+  userId: string,
+  input: ResearchSocialDraft,
+) {
+  const url = normalizeCaptureUrl(input.url);
+  if (!url) throw new Error("Enter a valid public social post address.");
+  if (!socialPlatforms.includes(input.platform)) throw new Error("Choose a valid social platform.");
+  const payload = {
+    title: input.title.trim() || `${input.platform} post`,
+    url,
+    author: input.author?.trim() || null,
+    publication: input.platform,
+    item_type: "Social post",
+    key_findings: input.summary.trim() || null,
+    collection_name: "Unsorted",
+    metadata: socialResearchMetadata(input),
+  };
+  if (input.screenshot) {
+    return createCloudResearchWithAsset(project, userId, input.screenshot, payload, { screenshotOnly: true });
+  }
+
+  const client = requireClient();
+  const cloudProjectId = requireCloudProject(project);
+  const { data, error } = await client
+    .from("research_items")
+    .insert({
+      client_ref: createResearchClientRef(),
+      project_id: cloudProjectId,
+      ...payload,
+    })
+    .select(researchSelect)
+    .single();
+  if (error || !data) throw new Error(`Social evidence could not be saved: ${error?.message ?? "No record was returned."}`);
+  return researchFromRow(data as unknown as ResearchRow, project.id);
 }
 
 export async function createPrivateEvidenceAssetUrl(asset: EvidenceAsset, expiresInSeconds = 300) {

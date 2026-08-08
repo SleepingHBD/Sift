@@ -105,6 +105,53 @@ test("Research evidence separates quoted source text from strategist notes", () 
   assert.equal(evidence.attachments[0].path, "project-cloud/research.pdf");
 });
 
+test("strategist-captured social evidence stays distinct from connector collection", () => {
+  const evidence = researchItemToEvidenceReference({
+    id: "social-local",
+    cloudId: "social-cloud",
+    clientRef: "social-local",
+    projectId: "project-local",
+    title: "Instagram post · @account",
+    publication: "Instagram",
+    url: "https://www.instagram.com/p/example",
+    type: "Social post",
+    date: "08 Aug 2026",
+    tags: [],
+    summary: "The comments reveal a stronger community motivation.",
+    keyFindings: "The comments reveal a stronger community motivation.",
+    collection: "Unsorted",
+    author: "@account",
+    assets: [{
+      id: "asset-1",
+      projectId: "project-local",
+      researchItemId: "social-cloud",
+      bucketId: "evidence-assets",
+      storagePath: "user/project/research/screenshot.png",
+      originalFilename: "screenshot.png",
+      mimeType: "image/png",
+      byteSize: 1024,
+      kind: "image",
+      processingStatus: "ready",
+      createdAt: "2026-08-08T02:00:00.000Z",
+    }],
+    createdAt: "2026-08-08T02:00:00.000Z",
+    metadata: {
+      sift_origin: "social_capture",
+      capture_method: "strategist",
+      source_text: "Selected post caption.",
+      selected_comments: "@viewer: I came for the people.",
+      capture_limitation: "Strategist-captured evidence; not collected by a live connector.",
+    },
+  }, { cloudProjectId: "project-cloud" });
+
+  assert.equal(evidence.provenance.captureMethod, "strategist");
+  assert.equal(evidence.originalContent, "Selected post caption.");
+  assert.equal(evidence.author, "@account");
+  assert.equal(evidence.sourceLabel, "Instagram");
+  assert.equal(evidence.attachments[0].path, "user/project/research/screenshot.png");
+  assert.equal(evidence.provenance.metadata.selected_comments, "@viewer: I came for the people.");
+});
+
 test("Inspiration evidence preserves imported origin and extracted material", () => {
   const evidence = inspirationItemToEvidenceReference({
     id: "inspiration-local",

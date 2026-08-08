@@ -14,7 +14,7 @@ It combines social-listening workflows, cultural research, inspiration, competit
 - Functional Radar collection through RSS/Atom feeds, manually supplied public URLs, and the official YouTube Data API
 - Cloud-backed Radar monitors, connector run history, normalized conversations, notes, saved and important markers, and evidence relationships with views for metrics, timelines, topics, spikes, source detail, and evidence
 - Cloud-backed Research and Inspiration libraries with project assignment, search, filtering, source links, deletion, and reviewed browser-data import
-- Persistent evidence capture for project-scoped links, notes, screenshots, images, and PDFs, including secure URL metadata inspection, canonical duplicate warnings, private file previews, and manual-save fallback
+- Persistent evidence capture for project-scoped links, notes, social posts, screenshots, images, and PDFs, including secure URL metadata inspection, canonical duplicate warnings, private file previews, and manual-save fallback
 - Empty-state workspaces for brands, competitors, trends, briefs, and Strategy AI
 - GitHub authentication with a protected permanent-account workspace
 - Global search, responsive navigation, light and dark modes
@@ -50,6 +50,8 @@ The production build is written to `out/`.
 Projects, Research, Inspiration, Radar monitors, connector-created conversations, run history, notes, saved and important markers, and evidence relationships are now cloud-first. After GitHub sign-in, the application hydrates these records from Supabase under project Row Level Security. Creates and deletes write through the authenticated Data API; connector collection remains behind the JWT-protected Edge Function. New records derive their owner or creator from the verified JWT rather than accepting an identity from the browser.
 
 Screenshot, image, and PDF evidence is stored in the private `evidence-assets` Storage bucket. Uploads are limited to JPG, PNG, WebP, and PDF files of 20 MB or less. Storage paths are uploader- and project-scoped, access is checked through Row Level Security, and the Research library opens files with short-lived signed links rather than public URLs.
+
+Social-post capture stores a strategist-selected link, platform, optional account, source text, selected comments, observed date, screenshot, and why-it-matters annotation in the same private Research workflow. These records are explicitly marked `strategist captured`; they are never presented as connector-collected conversations.
 
 If older project, research, inspiration, or Radar records are found in browser storage, the relevant page offers a downloadable JSON backup plus an idempotent cloud import. Research and Inspiration imports require an explicit destination project because legacy browser items did not store that relationship. Local payloads are removed only after Supabase confirms the cloud write and reload. Theme, connector configuration, and the active-project selection remain local preferences for now.
 

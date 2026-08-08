@@ -225,7 +225,7 @@ Make Supabase the durable source of truth and remove browser storage as the prim
 
 ## Phase 2 - Fast evidence capture
 
-Status: **In progress.** The shared TypeScript `EvidenceReference` normalizes existing Radar, Research, and Inspiration records without introducing a duplicate evidence table. A persistent `Capture evidence` action saves links, notes, screenshots, images, and PDFs through the authenticated Research repository with explicit provenance and a rapid `Save & continue` flow. Authenticated metadata extraction, project-scoped canonical duplicate warnings, rate limits, network safeguards, private Storage with signed previews, and coordinated file cleanup are implemented locally. Richer strategist-captured social context remains the next increment.
+Status: **Implementation complete; acceptance checkpoint pending.** The shared TypeScript `EvidenceReference` normalizes existing Radar, Research, and Inspiration records without introducing a duplicate evidence table. A persistent `Capture evidence` action saves links, notes, social posts, screenshots, images, and PDFs through the authenticated Research repository with explicit provenance and a rapid `Save & continue` flow. Authenticated metadata extraction, project-scoped canonical duplicate warnings, rate limits, network safeguards, private Storage with signed previews, coordinated file cleanup, and strategist-captured social context are implemented. One authenticated browser check of social capture and refresh persistence remains before Phase 2 is closed.
 
 ### Goal
 
@@ -593,7 +593,8 @@ Phases 0 and 1 are complete. The next development cycle is Phase 2, beginning wi
 3. Persist captured URLs and notes through the authenticated repository boundary.
 4. Add duplicate detection, extraction failure handling, and explicit project assignment. **Completed.**
 5. Apply the extraction quota migration, deploy the updated authenticated Edge Function, and verify refresh, privacy, provenance, and deletion. **Completed.**
-6. Add the private evidence-assets bucket, file metadata repository, signed previews, and coordinated deletion. **Implemented locally; migration and authenticated browser acceptance remain before release.**
+6. Add the private evidence-assets bucket, file metadata repository, signed previews, and coordinated deletion. **Completed and accepted.**
+7. Add strategist-captured social posts with platform inference, selected source text and comments, observed date, optional private screenshot, duplicate handling, and explicit non-connector provenance. **Implemented locally; authenticated browser acceptance remains.**
 
 ## Definition of a successful first strategist release
 

@@ -19,6 +19,7 @@ import {
 import {
   createCloudFileResearch,
   createCloudResearch,
+  createCloudSocialResearch,
   deleteCloudResearch,
   importLocalResearch,
   listCloudResearch,
@@ -35,6 +36,7 @@ import { describeWorkspaceError } from "@/lib/workspace-error";
 import type { EvidenceCaptureMethod } from "@/lib/evidence/reference";
 import type { EvidenceCaptureDialogMode } from "@/lib/evidence/capture";
 import type { EvidenceUrlMetadata } from "@/lib/evidence/url-extraction";
+import type { SocialPlatform } from "@/lib/evidence/social-capture";
 
 type Theme = "light" | "dark";
 export type WorkspaceStatus = "idle" | "loading" | "ready" | "error";
@@ -75,6 +77,20 @@ export interface NewResearchFileInput {
   captureOrigin?: "research_form" | "global_capture";
 }
 
+export interface NewSocialResearchInput {
+  projectId: string;
+  title: string;
+  url: string;
+  platform: SocialPlatform;
+  author?: string;
+  caption?: string;
+  selectedComments?: string;
+  observedAt?: string;
+  summary: string;
+  screenshot?: File;
+  urlMetadata?: EvidenceUrlMetadata;
+}
+
 interface AppContextValue {
   collapsed: boolean;
   setCollapsed: (value: boolean) => void;
@@ -111,6 +127,7 @@ interface AppContextValue {
   researchItems: ResearchItem[];
   addResearch: (input: NewResearchInput) => Promise<ResearchItem>;
   addResearchFile: (input: NewResearchFileInput) => Promise<ResearchItem>;
+  addSocialResearch: (input: NewSocialResearchInput) => Promise<ResearchItem>;
   deleteResearch: (id: string) => Promise<void>;
   savedIds: string[];
   toggleSaved: (id: string) => void;
@@ -403,6 +420,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
+  async function addSocialResearch(input: NewSocialResearchInput) {
+    if (!workspaceUserId) throw new Error("Sign in with GitHub before capturing social evidence.");
+    const project = projects.find((item) => item.id === input.projectId);
+    if (!project) throw new Error("Choose a project before capturing social evidence.");
+    return runWorkspaceMutation(async () => {
+      const item = await createCloudSocialResearch(project, workspaceUserId, input);
+      setResearchItems((current) => [item, ...current]);
+      setAllProjects((current) => current.map((candidate) => candidate.id === project.id
+        ? { ...candidate, counts: { ...candidate.counts, research: candidate.counts.research + 1 } }
+        : candidate));
+      return item;
+    });
+  }
+
   async function deleteResearch(id: string) {
     const item = researchItems.find((candidate) => candidate.id === id);
     if (!item) throw new Error("The research item could not be found.");
@@ -497,6 +528,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     researchItems,
     addResearch,
     addResearchFile,
+    addSocialResearch,
     deleteResearch,
     savedIds,
     toggleSaved: (id) => {
