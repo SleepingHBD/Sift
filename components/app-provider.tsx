@@ -30,6 +30,7 @@ import {
   userWorkspaceStorageKey,
   workspaceStorageKeys,
 } from "@/lib/workspace-storage";
+import { describeWorkspaceError } from "@/lib/workspace-error";
 
 type Theme = "light" | "dark";
 export type WorkspaceStatus = "idle" | "loading" | "ready" | "error";
@@ -207,7 +208,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setPendingProjectImports(localProjects);
         setPendingResearchImports(localResearch);
         setPendingInspirationImports(localInspiration);
-        setWorkspaceError(loadError instanceof Error ? loadError.message : "The workspace could not be loaded from Supabase.");
+        setWorkspaceError(describeWorkspaceError(loadError));
         setWorkspaceStatus("error");
       });
     }, 0);
@@ -240,8 +241,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       return await operation();
     } catch (mutationError) {
-      setWorkspaceError(mutationError instanceof Error ? mutationError.message : "The workspace change could not be saved.");
-      throw mutationError;
+      const message = describeWorkspaceError(mutationError);
+      setWorkspaceError(message);
+      throw new Error(message, { cause: mutationError });
     }
   }
 
@@ -316,9 +318,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setWorkspaceStatus("ready");
       return importedCount;
     } catch (importError) {
-      setWorkspaceError(importError instanceof Error ? importError.message : "Local projects could not be imported.");
+      const message = describeWorkspaceError(importError);
+      setWorkspaceError(message);
       setWorkspaceStatus("error");
-      throw importError;
+      throw new Error(message, { cause: importError });
     }
   }
 

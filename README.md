@@ -105,4 +105,4 @@ The build applies the repository subpath to routes and assets automatically.
 
 The static export includes a restrictive browser content policy and referrer policy. GitHub Pages controls HTTP response headers, so stronger server headers such as `X-Content-Type-Options` and an HTTP-delivered frame policy require moving the frontend to a host with configurable headers.
 
-See [docs/architecture.md](docs/architecture.md), [docs/radar.md](docs/radar.md), [docs/development-roadmap.md](docs/development-roadmap.md), and [docs/phase-0-audit.md](docs/phase-0-audit.md) for implementation boundaries, the evidence-first development sequence, and current backend findings.
+See [docs/architecture.md](docs/architecture.md), [docs/radar.md](docs/radar.md), [docs/development-roadmap.md](docs/development-roadmap.md), [docs/phase-0-audit.md](docs/phase-0-audit.md), and [docs/phase-1-acceptance.md](docs/phase-1-acceptance.md) for implementation boundaries, the evidence-first development sequence, backend findings, and acceptance evidence.

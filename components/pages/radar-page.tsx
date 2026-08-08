@@ -345,7 +345,7 @@ export function RadarPage() {
           {activeView === "overview" ? (
             <div className="radar-view radar-view--overview">
               <div className="radar-primary-metrics">
-                <Metric label="Total mentions" value={formatNumber(analytics.metrics.totalMentions)} delta={`${analytics.metrics.mentionGrowth >= 0 ? "+" : ""}${analytics.metrics.mentionGrowth}% vs prior period`} tone={analytics.metrics.mentionGrowth >= 0 ? "positive" : "negative"} />
+                <Metric label="Mentions in selected period" value={formatNumber(analytics.metrics.totalMentions)} delta={`${analytics.metrics.mentionGrowth >= 0 ? "+" : ""}${analytics.metrics.mentionGrowth}% vs prior period`} tone={analytics.metrics.mentionGrowth >= 0 ? "positive" : "negative"} />
                 <Metric label="Mention growth" value={`${analytics.metrics.mentionGrowth >= 0 ? "+" : ""}${analytics.metrics.mentionGrowth}%`} delta="Directional change" tone={analytics.metrics.mentionGrowth >= 0 ? "positive" : "negative"} />
                 <Metric label="Estimated engagement" value={formatNumber(analytics.metrics.engagement)} delta="Normalized across sources" />
                 <Metric label="Conversation sentiment" value={`${analytics.metrics.positive}% positive`} delta={`${analytics.metrics.negative}% negative`} tone={analytics.metrics.positive >= analytics.metrics.negative ? "positive" : "negative"} />

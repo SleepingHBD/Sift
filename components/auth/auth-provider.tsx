@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!client) return;
     setPending(true);
     setError("");
-    const { error: signOutError } = await client.auth.signOut();
+    const { error: signOutError } = await client.auth.signOut({ scope: "local" });
     if (signOutError) setError(signOutError.message);
     setPending(false);
   }

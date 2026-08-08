@@ -3,6 +3,7 @@ import {
   monitorRunFromRow,
   monitoringQueryFromRow,
   radarMentionFromRow,
+  shouldPersistMonitorRun,
   sourceToDatabase,
   type MentionRow,
   type MonitoringQueryRow,
@@ -232,7 +233,7 @@ export async function createCloudMonitor(monitor: MonitoringQuery, projects: Pro
 }
 
 export async function saveCloudMonitorRun(run: MonitorRun, monitor: MonitoringQuery) {
-  if (!monitor.cloudId || !monitor.cloudProjectId) return;
+  if (!shouldPersistMonitorRun(run) || !monitor.cloudId || !monitor.cloudProjectId) return;
   const client = requireClient();
   const clientRef = run.clientRef || run.id;
   const { error } = await client.from("monitor_runs").upsert({

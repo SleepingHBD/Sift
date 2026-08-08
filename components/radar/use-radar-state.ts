@@ -25,6 +25,7 @@ import {
   userWorkspaceStorageKey,
   workspaceStorageKeys,
 } from "@/lib/workspace-storage";
+import { describeWorkspaceError } from "@/lib/workspace-error";
 
 const storageKeys = {
   monitors: workspaceStorageKeys.radarMonitors,
@@ -164,7 +165,7 @@ export function useRadarState(
         setCloudStatus("ready");
       } catch (error) {
         if (cancelled) return;
-        setCloudError(error instanceof Error ? error.message : "Radar could not be loaded.");
+        setCloudError(describeWorkspaceError(error));
         setCloudStatus("error");
       }
     };

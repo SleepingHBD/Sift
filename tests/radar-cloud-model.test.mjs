@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createMonitorClientRef, monitorRunFromRow, monitoringQueryFromRow, radarMentionFromRow } from "../lib/radar/model.ts";
+import { createMonitorClientRef, monitorRunFromRow, monitoringQueryFromRow, radarMentionFromRow, shouldPersistMonitorRun } from "../lib/radar/model.ts";
 
 const monitorRow = {
   id: "cloud-monitor",
@@ -91,4 +91,10 @@ test("cloud run metadata returns source diagnostics", () => {
 
 test("new Radar monitors use UUID-backed client references", () => {
   assert.equal(createMonitorClientRef(() => "fixed-uuid"), "monitor-fixed-uuid");
+});
+
+test("browser migration does not reinsert runs that already persisted to the cloud", () => {
+  assert.equal(shouldPersistMonitorRun({ persisted: true }), false);
+  assert.equal(shouldPersistMonitorRun({ persisted: false, cloudId: "cloud-run" }), false);
+  assert.equal(shouldPersistMonitorRun({ persisted: false }), true);
 });

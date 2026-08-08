@@ -41,7 +41,7 @@ Sift is not required to observe the whole internet. It is required to be explici
 
 ### Current limitations to resolve first
 
-- Phase 1 cloud repositories are implemented; refresh, sign-out, second-browser, and failed-write acceptance checks remain before the phase is formally closed.
+- Phase 1 is complete: the permanent GitHub identity and cloud-first workspace passed refresh, sign-out privacy, second-browser hydration, reviewed browser migration, idempotency, and failed-write acceptance checks.
 - Theme, connector settings, active-project selection, and other harmless interface preferences remain browser-local by design.
 - GitHub is the only enabled sign-in method. Workspace ownership has been transferred to that permanent identity; obsolete anonymous users and sessions have been removed.
 - Private routes require a verified permanent session and the implemented Phase 1 domains now hydrate from Supabase.
@@ -157,6 +157,8 @@ Freeze the new product boundary and verify the existing backend before moving mo
 
 ## Phase 1 - Permanent identity and cloud workspace
 
+Status: **Complete.** The cloud-first workspace and its acceptance evidence are documented in [phase-1-acceptance.md](phase-1-acceptance.md). The same private Radar workspace hydrated in a second signed-in browser, signing out removed private UI state, controlled write failures retained unsaved input, and reviewed browser migration preserved the 92 genuine connector records without duplicate mentions.
+
 ### Goal
 
 Make Supabase the durable source of truth and remove browser storage as the primary database.
@@ -168,7 +170,7 @@ Make Supabase the durable source of truth and remove browser storage as the prim
 - Completed: Research and Inspiration cloud repositories, authenticated hydration and creation, project assignment, deletion, loading/error states, and reviewed idempotent browser-data imports with backups.
 - Completed: Radar monitor creation and deletion, connector-created mention/run hydration, normalized topic/source mapping, bounded keyset reads, honest loading/error/truncation states, and reviewed idempotent browser-data import with backup.
 - Completed: authenticated per-user Radar notes, saved markers, important marks, and evidence relationships, including reviewed browser-data migration and explicit write failures.
-- Pending checkpoint: run the complete Phase 1 acceptance sequence across refresh, sign-out, a second signed-in browser, import retry, empty states, and failed writes.
+- Completed checkpoint: the full Phase 1 acceptance sequence passed across refresh, local sign-out privacy, re-authentication, a second signed-in browser, reviewed migration, retry safety, loading and empty states, and controlled failed writes.
 
 ### Work
 
@@ -582,20 +584,13 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-The next development cycle should be Phase 0 followed by the smallest complete slice of Phase 1:
+Phases 0 and 1 are complete. The next development cycle is Phase 2, beginning with the smallest complete fast-capture slice:
 
-1. Create a browser-storage-to-table inventory.
-2. Audit the live schema, grants, RLS, helper functions, and missing indexes.
-3. Define repository interfaces for projects and auth state.
-4. Add permanent in-app authentication.
-5. Move project create/read/update/archive to Supabase.
-6. Add a safe import path for existing local projects.
-7. Verify persistence across refresh, sign-out, and a second browser.
-8. Repeat the repository migration for research and inspiration.
-9. Move Radar monitor, note, save, and mention reads to the cloud.
-10. Remove migrated domain data from `localStorage`, leaving only UI preferences.
-
-Do not begin AI integration or the browser extension until this sequence passes its acceptance criteria. That prevents new strategic features from being built on temporary identity and device-only data.
+1. Define the shared evidence reference and capture provenance contracts.
+2. Add a global `Capture evidence` action with a URL-first quick flow.
+3. Persist captured URLs and notes through the authenticated repository boundary.
+4. Add duplicate detection, extraction failure handling, and explicit project assignment.
+5. Verify refresh, privacy, provenance, and deletion before adding file uploads or a browser extension.
 
 ## Definition of a successful first strategist release
 

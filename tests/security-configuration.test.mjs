@@ -29,6 +29,13 @@ test("the client cannot perform manual identity linking", async () => {
   assert.match(provider, /signInWithOAuth/);
 });
 
+test("signing out revokes only the current browser session", async () => {
+  const provider = await read("components/auth/auth-provider.tsx");
+
+  assert.match(provider, /signOut\(\{ scope: "local" \}\)/);
+  assert.doesNotMatch(provider, /client\.auth\.signOut\(\)/);
+});
+
 test("the static export declares a constrained browser content policy", async () => {
   const layout = await read("app/layout.tsx");
 
@@ -61,9 +68,10 @@ test("Phase 1 evidence libraries derive creators and support idempotent project 
 });
 
 test("Phase 1 Radar hydration uses idempotent monitor and run references with cursor indexes", async () => {
-  const [migration, foreignKeys] = await Promise.all([
+  const [migration, foreignKeys, database] = await Promise.all([
     read("supabase/migrations/20260808055940_phase_1_radar_repository.sql"),
     read("supabase/migrations/20260808061236_phase_1_radar_foreign_key_indexes.sql"),
+    read("supabase/functions/_shared/database.ts"),
   ]);
 
   assert.match(migration, /monitoring_queries_project_client_ref_key/);
@@ -73,6 +81,7 @@ test("Phase 1 Radar hydration uses idempotent monitor and run references with cu
   assert.match(migration, /monitor_runs_query_started_cursor_idx/);
   assert.match(foreignKeys, /mention_topics_topic_id_idx/);
   assert.match(foreignKeys, /monitoring_query_competitors_competitor_id_idx/);
+  assert.match(database, /id: runId,[\s\S]*client_ref: runId/);
 });
 
 test("Phase 1 Radar annotations are per-user, project-bound, and idempotent", async () => {

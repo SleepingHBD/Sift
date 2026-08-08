@@ -48,7 +48,10 @@ export async function persistCollection(
 
   await supabase.from("monitoring_queries").update({ last_run_at: new Date().toISOString(), enabled: true }).eq("id", queryId);
   const status = sourceResults.every((result) => result.status === "failed") ? "failed" : "completed";
+  const runId = crypto.randomUUID();
   const { data: run, error: runError } = await supabase.from("monitor_runs").insert({
+    id: runId,
+    client_ref: runId,
     project_id: projectId,
     monitoring_query_id: queryId,
     status,

@@ -215,6 +215,10 @@ export function monitorRunFromRow(row: MonitorRunRow, monitorClientRef: string):
   };
 }
 
+export function shouldPersistMonitorRun(run: Pick<MonitorRun, "cloudId" | "persisted">) {
+  return !run.persisted && !run.cloudId;
+}
+
 export function createMonitorClientRef(randomUuid = () => crypto.randomUUID()) {
   return `monitor-${randomUuid()}`;
 }
