@@ -125,6 +125,7 @@ export function filterEvidenceInbox(items: EvidenceReference[], filters: Evidenc
       item.language,
       item.provenance.captureMethod,
       ...item.tags,
+      ...(item.organizationTopics ?? []),
       ...item.topics,
     ].filter(Boolean).join("\n").toLocaleLowerCase();
     return searchable.includes(query);

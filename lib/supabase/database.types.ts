@@ -758,6 +758,89 @@ export type Database = {
           },
         ]
       }
+      evidence_topic_assignments: {
+        Row: {
+          assigned_by: string
+          created_at: string
+          item_id: string
+          item_type: Database["public"]["Enums"]["item_kind"]
+          project_id: string
+          topic_id: string
+        }
+        Insert: {
+          assigned_by?: string
+          created_at?: string
+          item_id: string
+          item_type: Database["public"]["Enums"]["item_kind"]
+          project_id: string
+          topic_id: string
+        }
+        Update: {
+          assigned_by?: string
+          created_at?: string
+          item_id?: string
+          item_type?: Database["public"]["Enums"]["item_kind"]
+          project_id?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_topic_assignments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_topic_assignments_topic_id_project_id_fkey"
+            columns: ["topic_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_topics"
+            referencedColumns: ["id", "project_id"]
+          },
+        ]
+      }
+      evidence_topics: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          project_id: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name: string
+          project_id: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_topics_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insight_sources: {
         Row: {
           claim_type: Database["public"]["Enums"]["claim_kind"]
@@ -1977,6 +2060,17 @@ export type Database = {
         Returns: {
           cursor_value: Json
           evidence: Json
+        }[]
+      }
+      update_evidence_note: {
+        Args: {
+          p_item_id: string
+          p_item_type: string
+          p_note: string
+          p_project_id: string
+        }
+        Returns: {
+          notes: string
         }[]
       }
     }

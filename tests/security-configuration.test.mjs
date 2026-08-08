@@ -264,3 +264,23 @@ test("Phase 3 CSV imports are bounded, private, audited, and safe to retry", asy
   assert.match(identifierFix, /resolved_tag_id/);
   assert.doesNotMatch(identifierFix, /security definer/i);
 });
+
+test("Phase 3 strategist topics and notes are project-scoped, searchable, and RLS-invoker safe", async () => {
+  const migration = await read("supabase/migrations/20260808150723_phase_3_evidence_topics_and_notes.sql");
+
+  assert.match(migration, /create table public\.evidence_topics/);
+  assert.match(migration, /create table public\.evidence_topic_assignments/);
+  assert.match(migration, /foreign key \(topic_id, project_id\)/);
+  assert.match(migration, /evidence topic assignments match their source/);
+  assert.match(migration, /as restrictive[\s\S]*is_anonymous/);
+  assert.match(migration, /alter table public\.evidence_topics enable row level security/);
+  assert.match(migration, /alter table public\.evidence_topic_assignments enable row level security/);
+  assert.match(migration, /revoke all[\s\S]*from anon/);
+  assert.match(migration, /create or replace function public\.update_evidence_note/);
+  assert.match(migration, /security invoker/g);
+  assert.match(migration, /metadata - 'strategist_note'/);
+  assert.match(migration, /organization_topics/);
+  assert.match(migration, /to_tsvector\('english'::regconfig, coalesce\(mention\.metadata ->> 'strategist_note'/);
+  assert.match(migration, /from public\.evidence_topic_assignments assignment/);
+  assert.doesNotMatch(migration, /security definer/i);
+});

@@ -114,6 +114,7 @@ function evidenceRecord(value: unknown): EvidenceSearchRecord {
     notes: nullableString(row.notes),
     source_tags: strings(row.source_tags),
     organization_tags: strings(row.organization_tags),
+    organization_topics: strings(row.organization_topics),
     topics: strings(row.topics),
     associated_project_ids: strings(row.associated_project_ids),
     language: nullableString(row.language),

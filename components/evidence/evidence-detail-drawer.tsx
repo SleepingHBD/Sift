@@ -1,7 +1,7 @@
 "use client";
 
-import { Archive, Check, CircleX, ExternalLink, FileText, Link2, LoaderCircle, Network, RotateCcw, ShieldAlert, X } from "lucide-react";
-import { useEffect } from "react";
+import { Archive, Check, CircleX, ExternalLink, FileText, Link2, LoaderCircle, Network, RotateCcw, Save, Shapes, ShieldAlert, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { PrivateEvidenceAsset } from "@/components/evidence/private-evidence-asset";
 import { Badge } from "@/components/ui/primitives";
 import { captureMethodLabel, evidenceKindLabel, evidenceReviewLabel } from "@/lib/evidence/inbox";
@@ -35,6 +35,13 @@ export function EvidenceDetailDrawer({
   reviewError,
   reviewSaved,
   onReview,
+  notePending,
+  noteError,
+  noteSaved,
+  onSaveNote,
+  topicPending,
+  topicError,
+  onTopics,
   onClose,
 }: {
   evidence: EvidenceReference | null;
@@ -49,8 +56,18 @@ export function EvidenceDetailDrawer({
   reviewError: string;
   reviewSaved: boolean;
   onReview: (status: EvidenceReviewStatus) => Promise<void>;
+  notePending: boolean;
+  noteError: string;
+  noteSaved: boolean;
+  onSaveNote: (note: string) => Promise<boolean>;
+  topicPending: boolean;
+  topicError: string;
+  onTopics: (mode: "add" | "remove", topics: string) => Promise<boolean>;
   onClose: () => void;
 }) {
+  const [noteDraft, setNoteDraft] = useState(evidence?.notes ?? "");
+  const [topicDraft, setTopicDraft] = useState("");
+
   useEffect(() => {
     if (!evidence) return;
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -108,7 +125,12 @@ export function EvidenceDetailDrawer({
           {evidence.kind === "mention" ? <div className="inbox-detail-drawer__signal"><span>{evidence.sentiment} sentiment</span><strong>{formatNumber(evidence.engagement)} estimated engagement</strong></div> : null}
         </section>
 
-        {evidence.notes ? <section className="inbox-detail-drawer__section inbox-detail-drawer__context"><p className="drawer-section-label">Strategist context</p><p>{evidence.notes}</p></section> : null}
+        <section className="inbox-detail-drawer__section inbox-detail-drawer__context inbox-detail-drawer__editor" aria-labelledby="strategist-note-heading">
+          <div className="inbox-detail-drawer__editor-heading"><div><p className="drawer-section-label" id="strategist-note-heading">Strategist notes</p><span>Your interpretation stays separate from the preserved source text.</span></div>{noteSaved ? <Badge>Saved to cloud</Badge> : null}</div>
+          <textarea value={noteDraft} maxLength={10_000} disabled={notePending} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Record why this matters, a tension to investigate, or a question to revisit." />
+          <div className="inbox-detail-drawer__editor-actions"><small>{noteDraft.length.toLocaleString()} / 10,000</small><button type="button" disabled={notePending || noteDraft.trim() === (evidence.notes ?? "")} onClick={() => void onSaveNote(noteDraft)}>{notePending ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}Save note</button></div>
+          {noteError ? <p className="form-error" role="alert">{noteError}</p> : null}
+        </section>
 
         {evidence.attachments.length ? (
           <section className="inbox-detail-drawer__section">
@@ -122,12 +144,14 @@ export function EvidenceDetailDrawer({
           </section>
         ) : null}
 
-        {(evidence.organizationTags.length || sourceLabels.length || evidence.topics.length) ? (
-          <section className="inbox-detail-drawer__section">
-            {evidence.organizationTags.length ? <><p className="drawer-section-label">Shared tags</p><div className="inbox-detail-drawer__taxonomy">{evidence.organizationTags.map((label) => <Badge key={`shared-${label}`}>{label}</Badge>)}</div></> : null}
-            {(sourceLabels.length || evidence.topics.length) ? <><p className="drawer-section-label inbox-detail-drawer__taxonomy-label">Source topics and labels</p><div className="inbox-detail-drawer__taxonomy">{[...evidence.topics, ...sourceLabels].map((label) => <Badge key={`source-${label}`}>{label}</Badge>)}</div></> : null}
-          </section>
-        ) : null}
+        <section className="inbox-detail-drawer__section inbox-detail-drawer__topic-editor" aria-labelledby="strategist-topics-heading">
+          <div className="inbox-detail-drawer__editor-heading"><div><p className="drawer-section-label" id="strategist-topics-heading">Strategist topics</p><span>Your project taxonomy; separate from extracted tags and detected conversation topics.</span></div><Shapes size={16} /></div>
+          {evidence.organizationTopics.length ? <div className="inbox-detail-drawer__topic-chips">{evidence.organizationTopics.map((topic) => <span key={topic}>{topic}<button type="button" disabled={topicPending} aria-label={`Remove topic ${topic}`} onClick={() => void onTopics("remove", topic)}><X size={12} /></button></span>)}</div> : <p className="inbox-detail-drawer__muted">No strategist topics assigned yet.</p>}
+          <div className="inbox-detail-drawer__topic-add"><input value={topicDraft} disabled={topicPending} onChange={(event) => setTopicDraft(event.target.value)} placeholder="Add topics, separated by commas" aria-label="Add strategist topics" /><button type="button" disabled={topicPending || !topicDraft.trim()} onClick={() => void onTopics("add", topicDraft).then((saved) => { if (saved) setTopicDraft(""); })}>{topicPending ? <LoaderCircle className="spin" size={14} /> : <Shapes size={14} />}Assign</button></div>
+          {topicError ? <p className="form-error" role="alert">{topicError}</p> : null}
+          {evidence.organizationTags.length ? <><p className="drawer-section-label inbox-detail-drawer__taxonomy-label">Shared tags</p><div className="inbox-detail-drawer__taxonomy">{evidence.organizationTags.map((label) => <Badge key={`shared-${label}`}>{label}</Badge>)}</div></> : null}
+          {(sourceLabels.length || evidence.topics.length) ? <><p className="drawer-section-label inbox-detail-drawer__taxonomy-label">Detected topics and source labels</p><div className="inbox-detail-drawer__taxonomy">{[...evidence.topics, ...sourceLabels].map((label) => <Badge key={`source-${label}`}>{label}</Badge>)}</div></> : null}
+        </section>
 
         <section className="inbox-detail-drawer__section inbox-detail-drawer__relationships" aria-labelledby="evidence-relationships-heading">
           <div className="inbox-detail-drawer__relationships-heading"><div><p className="drawer-section-label" id="evidence-relationships-heading">Used in</p><span>Trace where this source contributes elsewhere in Sift.</span></div>{relationshipStatus === "ready" ? <Badge>{relationships.items.length}</Badge> : null}</div>

@@ -31,6 +31,7 @@ test("server search records retain source identity, organization, and provenance
     notes: "Watch the social ritual.",
     source_tags: ["community"],
     organization_tags: ["social infrastructure"],
+    organization_topics: ["Belonging rituals"],
     topics: [],
     associated_project_ids: ["project-1", "project-2"],
     language: "en",
@@ -55,6 +56,7 @@ test("server search records retain source identity, organization, and provenance
   assert.equal(evidence.cloudId, "source-1");
   assert.equal(evidence.projectId, "project-1");
   assert.deepEqual(evidence.tags, ["community", "social infrastructure"]);
+  assert.deepEqual(evidence.organizationTopics, ["Belonging rituals"]);
   assert.deepEqual(evidence.associatedProjectIds, ["project-1", "project-2"]);
   assert.equal(evidence.provenance.captureMethod, "strategist");
   assert.equal(evidence.reviewStatus, "relevant");

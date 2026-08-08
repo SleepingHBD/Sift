@@ -26,6 +26,7 @@ import {
   updateEvidenceItemTags,
   type EvidenceBulkResult,
 } from "@/lib/evidence/organization";
+import { updateEvidenceItemTopics } from "@/lib/evidence/topics";
 import type { EvidenceReference } from "@/lib/evidence/reference";
 import {
   listEvidenceRelationships,
@@ -42,9 +43,11 @@ import {
 } from "@/lib/evidence/saved-views";
 import {
   assignEvidenceToProject,
+  updateEvidenceNote,
   updateEvidenceReviewStatus,
   updateEvidenceReviewStatuses,
   updateEvidenceTags,
+  updateEvidenceTopics,
   type EvidenceReviewUpdate,
 } from "@/lib/evidence/repository";
 import {
@@ -133,6 +136,11 @@ export function EvidencePage() {
   const [reviewPending, setReviewPending] = useState<EvidenceReviewStatus | null>(null);
   const [reviewError, setReviewError] = useState("");
   const [reviewSaved, setReviewSaved] = useState(false);
+  const [notePending, setNotePending] = useState(false);
+  const [noteError, setNoteError] = useState("");
+  const [noteSaved, setNoteSaved] = useState(false);
+  const [topicPending, setTopicPending] = useState(false);
+  const [topicError, setTopicError] = useState("");
   const [relationships, setRelationships] = useState<EvidenceRelationshipSummary>(emptyRelationships);
   const [relationshipStatus, setRelationshipStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [relationshipError, setRelationshipError] = useState("");
@@ -399,6 +407,62 @@ export function EvidencePage() {
     }
   }
 
+  async function bulkTopics(mode: "add" | "remove", topics: string) {
+    if (!selectedItems.length || bulkPending) return false;
+    setBulkPending(mode === "add" ? "Assigning topics..." : "Removing topics...");
+    setBulkNotice(null);
+    try {
+      const result = await updateEvidenceTopics(selectedItems, topics, mode);
+      setItems((current) => updateEvidenceItemTopics(current, result.succeededKeys, result.topics, mode));
+      setBulkNotice(bulkFeedback(result, mode === "add" ? "assigned to topics" : "updated"));
+      return result.failures.length === 0;
+    } catch (error) {
+      setBulkNotice({ tone: "error", message: error instanceof Error ? error.message : "Evidence topics could not be saved." });
+      return false;
+    } finally {
+      setBulkPending("");
+    }
+  }
+
+  async function saveEvidenceNote(note: string) {
+    if (!selected || notePending) return false;
+    setNotePending(true);
+    setNoteError("");
+    setNoteSaved(false);
+    try {
+      const savedNote = await updateEvidenceNote(selected, note);
+      const key = evidenceKey(selected);
+      setItems((current) => current.map((item) => evidenceKey(item) === key ? { ...item, notes: savedNote } : item));
+      setNoteSaved(true);
+      return true;
+    } catch (error) {
+      setNoteError(error instanceof Error ? error.message : "Strategist notes could not be saved.");
+      return false;
+    } finally {
+      setNotePending(false);
+    }
+  }
+
+  async function updateSelectedTopics(mode: "add" | "remove", topics: string) {
+    if (!selected || topicPending) return false;
+    setTopicPending(true);
+    setTopicError("");
+    try {
+      const result = await updateEvidenceTopics([selected], topics, mode);
+      setItems((current) => updateEvidenceItemTopics(current, result.succeededKeys, result.topics, mode));
+      if (result.failures.length) {
+        setTopicError(result.failures[0].message);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      setTopicError(error instanceof Error ? error.message : "Strategist topics could not be saved.");
+      return false;
+    } finally {
+      setTopicPending(false);
+    }
+  }
+
   async function bulkAssignProject(projectId: string) {
     if (!selectedItems.length || bulkPending) return false;
     setBulkPending("Adding evidence to project…");
@@ -463,6 +527,9 @@ export function EvidencePage() {
     setSelectedKey(evidenceKey(item));
     setReviewError("");
     setReviewSaved(false);
+    setNoteError("");
+    setNoteSaved(false);
+    setTopicError("");
   }
 
   function closeEvidence() {
@@ -472,6 +539,9 @@ export function EvidencePage() {
     setSelectedKey("");
     setReviewError("");
     setReviewSaved(false);
+    setNoteError("");
+    setNoteSaved(false);
+    setTopicError("");
   }
 
   return (
@@ -537,7 +607,7 @@ export function EvidencePage() {
             {filtersActive ? <button className="evidence-inbox-clear" type="button" onClick={clearFilters}><X size={14} />Clear</button> : null}
           </div>
 
-          {selectedItems.length ? <EvidenceBulkToolbar selectedCount={selectedItems.length} projects={projects} pending={bulkPending} feedback={bulkNotice} onReview={bulkReview} onTags={bulkTags} onAssignProject={bulkAssignProject} onClear={() => { setSelectedKeys(new Set()); setBulkNotice(null); }} /> : null}
+          {selectedItems.length ? <EvidenceBulkToolbar selectedCount={selectedItems.length} projects={projects} pending={bulkPending} feedback={bulkNotice} onReview={bulkReview} onTags={bulkTags} onTopics={bulkTopics} onAssignProject={bulkAssignProject} onClear={() => { setSelectedKeys(new Set()); setBulkNotice(null); }} /> : null}
 
           {statsStatus === "error" ? <div className="evidence-inbox-coverage-notice">Evidence is searchable, but the workspace totals could not be refreshed. Review counts will update on the next successful request.</div> : null}
 
@@ -557,7 +627,7 @@ export function EvidencePage() {
                       <label className="evidence-inbox-select"><input type="checkbox" aria-label={`Select ${item.title}`} checked={selectedKeys.has(key)} onChange={() => toggleEvidence(key)} /></label>
                       <button type="button" className="evidence-inbox-row__open" onClick={() => openEvidence(item)}>
                         <span className={`evidence-inbox-row__kind evidence-inbox-row__kind--${item.kind}`}>{item.kind === "mention" ? "M" : item.kind === "research" ? "R" : "I"}</span>
-                        <span className="evidence-inbox-row__copy"><strong>{highlight(item.title, query)}</strong><small>{highlight(item.excerpt ?? item.notes ?? "No excerpt preserved.", query)}</small>{item.organizationTags.length ? <span className="evidence-inbox-row__tags">{item.organizationTags.slice(0, 3).map((tag) => <em key={tag}>{tag}</em>)}</span> : null}</span>
+                        <span className="evidence-inbox-row__copy"><strong>{highlight(item.title, query)}</strong><small>{highlight(item.excerpt ?? item.notes ?? "No excerpt preserved.", query)}</small>{item.organizationTopics.length || item.organizationTags.length ? <span className="evidence-inbox-row__tags">{item.organizationTopics.slice(0, 2).map((topic) => <em className="evidence-inbox-row__topic" key={`topic-${topic}`}>{topic}</em>)}{item.organizationTags.slice(0, Math.max(0, 3 - Math.min(item.organizationTopics.length, 2))).map((tag) => <em key={`tag-${tag}`}>{tag}</em>)}</span> : null}</span>
                         <span className="evidence-inbox-row__provenance"><strong>{captureMethodLabel(item.provenance.captureMethod)}</strong><small>{item.sourceLabel}{item.author ? ` · ${item.author}` : ""}</small></span>
                         <span className="evidence-inbox-row__project"><strong>{projectNames.get(item.projectId) ?? "Project"}</strong>{associatedNames.length > 1 ? <small>+{associatedNames.length - 1} linked</small> : null}</span>
                         <span className="evidence-inbox-row__date">{formatDate(item.capturedAt)}</span>
@@ -577,7 +647,7 @@ export function EvidencePage() {
         </>
       )}
 
-      <EvidenceDetailDrawer evidence={selected} projectName={selected ? projectNames.get(selected.projectId) ?? "Project" : ""} associatedProjectNames={selected ? selected.associatedProjectIds.map((id) => projectNames.get(id)).filter((name): name is string => Boolean(name)) : []} assets={allAssets} relationships={relationships} relationshipStatus={relationshipStatus} relationshipError={relationshipError} onRetryRelationships={() => setRelationshipRetryVersion((current) => current + 1)} reviewPending={reviewPending} reviewError={reviewError} reviewSaved={reviewSaved} onReview={reviewEvidence} onClose={closeEvidence} />
+      <EvidenceDetailDrawer key={selected ? evidenceKey(selected) : "empty-evidence"} evidence={selected} projectName={selected ? projectNames.get(selected.projectId) ?? "Project" : ""} associatedProjectNames={selected ? selected.associatedProjectIds.map((id) => projectNames.get(id)).filter((name): name is string => Boolean(name)) : []} assets={allAssets} relationships={relationships} relationshipStatus={relationshipStatus} relationshipError={relationshipError} onRetryRelationships={() => setRelationshipRetryVersion((current) => current + 1)} reviewPending={reviewPending} reviewError={reviewError} reviewSaved={reviewSaved} onReview={reviewEvidence} notePending={notePending} noteError={noteError} noteSaved={noteSaved} onSaveNote={saveEvidenceNote} topicPending={topicPending} topicError={topicError} onTopics={updateSelectedTopics} onClose={closeEvidence} />
       {csvImportOpen ? <EvidenceCsvImportDialog projects={projects} initialProjectId={projectFilter === "all" ? undefined : projects.find((project) => projectEvidenceId(project) === projectFilter)?.id} onClose={() => setCsvImportOpen(false)} onImported={() => { retryWorkspace(); setRetryVersion((current) => current + 1); }} /> : null}
     </div>
   );

@@ -45,6 +45,7 @@ export interface EvidenceReferenceBase {
   notes: string | null;
   tags: string[];
   organizationTags: string[];
+  organizationTopics: string[];
   topics: string[];
   associatedProjectIds: string[];
   language: string | null;
@@ -103,6 +104,7 @@ export interface EvidenceSearchRecord {
   notes: string | null;
   source_tags: string[];
   organization_tags: string[];
+  organization_topics: string[];
   topics: string[];
   associated_project_ids: string[];
   language: string | null;
@@ -266,6 +268,7 @@ export function radarMentionToEvidenceReference(
     capturedAt,
     notes: text(metadata.strategist_note) ?? null,
     tags: [...mention.keywords],
+    organizationTopics: [],
     topics: [...mention.topics],
     language: mention.language || null,
     processingStatus: processingStatus(metadata, "processed"),
@@ -303,6 +306,7 @@ export function researchItemToEvidenceReference(
     capturedAt,
     notes: item.notes ?? item.keyFindings ?? item.summary ?? null,
     tags: [...item.tags],
+    organizationTopics: [],
     topics: [],
     language: text(metadata.language) ?? null,
     processingStatus: processingStatus(metadata, item.aiSummary ? "processed" : "unprocessed"),
@@ -339,6 +343,7 @@ export function inspirationItemToEvidenceReference(
     capturedAt,
     notes: item.note || null,
     tags: [...item.tags],
+    organizationTopics: [],
     topics: [],
     language: text(metadata.language) ?? null,
     processingStatus: processingStatus(metadata, originalContent ? "processed" : "unprocessed"),
@@ -375,6 +380,7 @@ function searchPlatform(value: string | null): RadarMention["platform"] {
 export function evidenceSearchRecordToReference(record: EvidenceSearchRecord): EvidenceReference {
   const metadata = record.metadata;
   const organizationTags = uniqueText(record.organization_tags);
+  const organizationTopics = uniqueText(record.organization_topics);
   const base: EvidenceReferenceBase = {
     id: record.item_id,
     cloudId: record.item_id,
@@ -393,6 +399,7 @@ export function evidenceSearchRecordToReference(record: EvidenceSearchRecord): E
     notes: record.notes,
     tags: uniqueText([...record.source_tags, ...organizationTags]),
     organizationTags,
+    organizationTopics,
     topics: uniqueText(record.topics),
     associatedProjectIds: uniqueText([record.project_id, ...record.associated_project_ids]),
     language: record.language,

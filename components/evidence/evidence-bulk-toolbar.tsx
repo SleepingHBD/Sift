@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderInput, LoaderCircle, Tags, X } from "lucide-react";
+import { FolderInput, LoaderCircle, Shapes, Tags, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/primitives";
 import type { EvidenceBulkFailure } from "@/lib/evidence/organization";
@@ -19,6 +19,7 @@ export function EvidenceBulkToolbar({
   feedback,
   onReview,
   onTags,
+  onTopics,
   onAssignProject,
   onClear,
 }: {
@@ -28,12 +29,15 @@ export function EvidenceBulkToolbar({
   feedback: EvidenceBulkFeedback | null;
   onReview: (status: EvidenceReviewStatus) => Promise<void>;
   onTags: (mode: "add" | "remove", tags: string) => Promise<boolean>;
+  onTopics: (mode: "add" | "remove", topics: string) => Promise<boolean>;
   onAssignProject: (projectId: string) => Promise<boolean>;
   onClear: () => void;
 }) {
-  const [panel, setPanel] = useState<"tags" | "project" | null>(null);
+  const [panel, setPanel] = useState<"tags" | "topics" | "project" | null>(null);
   const [tagMode, setTagMode] = useState<"add" | "remove">("add");
   const [tagInput, setTagInput] = useState("");
+  const [topicMode, setTopicMode] = useState<"add" | "remove">("add");
+  const [topicInput, setTopicInput] = useState("");
   const [projectId, setProjectId] = useState("");
   const disabled = Boolean(pending);
 
@@ -45,6 +49,11 @@ export function EvidenceBulkToolbar({
   async function assignProject() {
     if (!projectId) return;
     if (await onAssignProject(projectId)) setProjectId("");
+  }
+
+  async function applyTopics() {
+    if (!topicInput.trim()) return;
+    if (await onTopics(topicMode, topicInput)) setTopicInput("");
   }
 
   return (
@@ -65,6 +74,7 @@ export function EvidenceBulkToolbar({
             </select>
           </label>
           <Button size="sm" aria-pressed={panel === "tags"} disabled={disabled} onClick={() => setPanel((current) => current === "tags" ? null : "tags")}><Tags size={14} />Tags</Button>
+          <Button size="sm" aria-pressed={panel === "topics"} disabled={disabled} onClick={() => setPanel((current) => current === "topics" ? null : "topics")}><Shapes size={14} />Topics</Button>
           <Button size="sm" aria-pressed={panel === "project"} disabled={disabled} onClick={() => setPanel((current) => current === "project" ? null : "project")}><FolderInput size={14} />Add to project</Button>
           <button className="evidence-bulk-toolbar__clear" type="button" disabled={disabled} onClick={onClear}><X size={14} />Clear selection</button>
         </div>
@@ -77,6 +87,15 @@ export function EvidenceBulkToolbar({
           <select aria-label="Choose tag operation" value={tagMode} disabled={disabled} onChange={(event) => setTagMode(event.target.value as "add" | "remove")}><option value="add">Add tags</option><option value="remove">Remove shared tags</option></select>
           <input aria-label="Tags separated by commas" value={tagInput} disabled={disabled} onChange={(event) => setTagInput(event.target.value)} placeholder="community, pricing, youth culture" />
           <Button variant="dark" size="sm" disabled={disabled || !tagInput.trim()} onClick={() => void applyTags()}>Apply</Button>
+        </div>
+      ) : null}
+
+      {panel === "topics" ? (
+        <div className="evidence-bulk-toolbar__panel">
+          <div><strong>Edit strategist topics</strong><span>Topics are your project taxonomy. They stay separate from Radar&rsquo;s detected conversation topics.</span></div>
+          <select aria-label="Choose topic operation" value={topicMode} disabled={disabled} onChange={(event) => setTopicMode(event.target.value as "add" | "remove")}><option value="add">Assign topics</option><option value="remove">Remove topics</option></select>
+          <input aria-label="Topics separated by commas" value={topicInput} disabled={disabled} onChange={(event) => setTopicInput(event.target.value)} placeholder="belonging, pricing tension, rituals" />
+          <Button variant="dark" size="sm" disabled={disabled || !topicInput.trim()} onClick={() => void applyTopics()}>Apply</Button>
         </div>
       ) : null}
 

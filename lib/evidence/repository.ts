@@ -1,6 +1,11 @@
 import type { EvidenceKind, EvidenceReference } from "@/lib/evidence/reference";
 import { evidenceReviewMutation } from "@/lib/evidence/review";
 import {
+  evidenceTopicSlug,
+  normalizeEvidenceTopics,
+  type EvidenceTopic,
+} from "@/lib/evidence/topics";
+import {
   emptyEvidenceOrganization,
   evidenceKey,
   normalizeEvidenceTags,
@@ -38,6 +43,11 @@ export interface EvidenceBulkTagResult extends EvidenceBulkResult {
 
 export interface EvidenceBulkProjectResult extends EvidenceBulkResult {
   projectId: string;
+}
+
+export interface EvidenceBulkTopicResult extends EvidenceBulkResult {
+  topics: string[];
+  mode: "add" | "remove";
 }
 
 function requireClient() {
@@ -115,6 +125,26 @@ export async function listEvidenceOrganization(projects: Project[]): Promise<Evi
   }
 
   return { tagsByEvidence, projectIdsByEvidence };
+}
+
+export async function listEvidenceTopics(projects: Project[]): Promise<EvidenceTopic[]> {
+  const projectIds = cloudProjectIds(projects);
+  if (!projectIds.length) return [];
+  const client = requireClient();
+  const { data, error } = await client.from("evidence_topics")
+    .select("id,project_id,name,slug,description,created_at,updated_at")
+    .in("project_id", projectIds)
+    .order("name", { ascending: true });
+  if (error) throw new Error(`Evidence topics could not be loaded: ${error.message}`);
+  return (data ?? []).map((topic) => ({
+    id: topic.id,
+    projectId: topic.project_id,
+    name: topic.name,
+    slug: topic.slug,
+    description: topic.description,
+    createdAt: topic.created_at,
+    updatedAt: topic.updated_at,
+  }));
 }
 
 export async function updateEvidenceReviewStatus(
@@ -205,6 +235,28 @@ async function ensureTags(client: SiftSupabaseClient, projectId: string, request
   return requested.flatMap((name) => {
     const tag = byName.get(name.toLocaleLowerCase());
     return tag ? [{ id: tag.id, name: tag.name }] : [];
+  });
+}
+
+async function ensureEvidenceTopics(client: SiftSupabaseClient, projectId: string, requested: string[]) {
+  const slugs = requested.map(evidenceTopicSlug);
+  if (slugs.some((slug) => !slug)) throw new Error("Topic names must contain at least one letter or number.");
+  const { error: upsertError } = await client.from("evidence_topics")
+    .upsert(requested.map((name, index) => ({ project_id: projectId, name, slug: slugs[index] })), {
+      onConflict: "project_id,slug",
+      ignoreDuplicates: true,
+    });
+  if (upsertError) throw new Error(upsertError.message);
+
+  const { data, error } = await client.from("evidence_topics")
+    .select("id,name,slug")
+    .eq("project_id", projectId)
+    .in("slug", slugs);
+  if (error) throw new Error(error.message);
+  const bySlug = new Map((data ?? []).map((topic) => [topic.slug, topic]));
+  return slugs.flatMap((slug) => {
+    const topic = bySlug.get(slug);
+    return topic ? [topic] : [];
   });
 }
 
@@ -299,6 +351,119 @@ export async function updateEvidenceTags(
   }));
 
   return { attempted: evidence.length, succeededKeys: [...succeeded], failures: uniqueFailures(failures), tags, mode };
+}
+
+export async function updateEvidenceTopics(
+  evidence: EvidenceReference[],
+  rawTopics: string | string[],
+  mode: "add" | "remove",
+): Promise<EvidenceBulkTopicResult> {
+  const topics = normalizeEvidenceTopics(rawTopics);
+  if (!topics.length) throw new Error("Enter at least one topic.");
+  const client = requireClient();
+  const succeeded = new Set<string>();
+  const failures: EvidenceBulkFailure[] = [];
+  const cloudItems = evidence.filter((item) => {
+    if (item.cloudId) return true;
+    failures.push(failure(item, "This record is not stored in the cloud yet."));
+    return false;
+  });
+  const projects = new Map<string, EvidenceReference[]>();
+  for (const item of cloudItems) projects.set(item.projectId, [...(projects.get(item.projectId) ?? []), item]);
+
+  await Promise.all([...projects.entries()].map(async ([projectId, projectItems]) => {
+    let resolvedTopics: Array<{ id: string; name: string; slug: string }> = [];
+    try {
+      if (mode === "add") {
+        resolvedTopics = await ensureEvidenceTopics(client, projectId, topics);
+      } else {
+        const requestedSlugs = topics.map(evidenceTopicSlug).filter(Boolean);
+        const { data, error } = await client.from("evidence_topics")
+          .select("id,name,slug")
+          .eq("project_id", projectId)
+          .in("slug", requestedSlugs);
+        if (error) throw new Error(error.message);
+        resolvedTopics = data ?? [];
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Topics could not be resolved.";
+      failures.push(...projectItems.map((item) => failure(item, message)));
+      return;
+    }
+
+    if (!resolvedTopics.length) {
+      if (mode === "remove") projectItems.forEach((item) => succeeded.add(evidenceKey(item)));
+      else failures.push(...projectItems.map((item) => failure(item, "The topics could not be created.")));
+      return;
+    }
+
+    const topicIds = resolvedTopics.map((topic) => topic.id);
+    await Promise.all(groupBySource(projectItems).map(async (items) => {
+      const first = items[0];
+      const itemIds = items.flatMap((item) => item.cloudId ? [item.cloudId] : []);
+      if (mode === "add") {
+        const rows = items.flatMap((item) => topicIds.map((topicId) => ({
+          project_id: projectId,
+          topic_id: topicId,
+          item_type: item.kind,
+          item_id: item.cloudId!,
+        })));
+        const { error } = await client.from("evidence_topic_assignments")
+          .upsert(rows, { onConflict: "topic_id,item_type,item_id", ignoreDuplicates: true });
+        if (error) {
+          failures.push(...items.map((item) => failure(item, error.message)));
+          return;
+        }
+      } else {
+        const { error } = await client.from("evidence_topic_assignments").delete()
+          .eq("project_id", projectId)
+          .eq("item_type", first.kind)
+          .in("item_id", itemIds)
+          .in("topic_id", topicIds);
+        if (error) {
+          failures.push(...items.map((item) => failure(item, error.message)));
+          return;
+        }
+      }
+
+      const { data: remaining, error: verifyError } = await client.from("evidence_topic_assignments")
+        .select("item_id,topic_id")
+        .eq("project_id", projectId)
+        .eq("item_type", first.kind)
+        .in("item_id", itemIds)
+        .in("topic_id", topicIds);
+      if (verifyError) {
+        failures.push(...items.map((item) => failure(item, verifyError.message)));
+        return;
+      }
+      const present = new Set((remaining ?? []).map((assignment) => `${assignment.item_id}:${assignment.topic_id}`));
+      for (const item of items) {
+        const verified = mode === "add"
+          ? topicIds.every((topicId) => present.has(`${item.cloudId}:${topicId}`))
+          : topicIds.every((topicId) => !present.has(`${item.cloudId}:${topicId}`));
+        if (verified) succeeded.add(evidenceKey(item));
+        else failures.push(failure(item, "The topic change could not be verified after saving."));
+      }
+    }));
+  }));
+
+  return { attempted: evidence.length, succeededKeys: [...succeeded], failures: uniqueFailures(failures), topics, mode };
+}
+
+export async function updateEvidenceNote(evidence: EvidenceReference, rawNote: string) {
+  if (!evidence.cloudId) throw new Error("This evidence record is not stored in the cloud yet.");
+  const note = rawNote.trim();
+  if (note.length > 10_000) throw new Error("Strategist notes must be 10,000 characters or fewer.");
+  const client = requireClient();
+  const { data, error } = await client.rpc("update_evidence_note", {
+    p_item_type: evidence.kind,
+    p_item_id: evidence.cloudId,
+    p_project_id: evidence.projectId,
+    p_note: note,
+  }).single();
+  if (error) throw new Error(`Strategist notes could not be saved: ${error.message}`);
+  if (!data) throw new Error("Strategist notes were not saved because this source is no longer accessible.");
+  return data.notes;
 }
 
 export async function assignEvidenceToProject(
