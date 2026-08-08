@@ -517,12 +517,16 @@ export function CaptureEvidenceDialog() {
               <div className="capture-details-panel">
                 {mode === "social" ? (
                   <>
-                    <div className="capture-social-meta">
-                      <label><span>Account / author</span><input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="@account or author name" /></label>
-                      <label><span>Date observed</span><input type="date" value={observedAt} onChange={(event) => { setObservedAt(event.target.value); setErrors(emptyErrors); }} aria-invalid={Boolean(errors.observedAt)} />{errors.observedAt ? <small className="capture-field-error">{errors.observedAt}</small> : null}</label>
+                    <div className="capture-section-guide">
+                      <strong>Source evidence</strong>
+                      <span>Record what the post and its audience actually said. Keep your interpretation for “Why it matters.”</span>
                     </div>
-                    <label><span>Caption / selected post text</span><textarea rows={4} value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Paste only the source text you want preserved" /></label>
-                    <label><span>Relevant comments</span><textarea rows={4} value={selectedComments} onChange={(event) => setSelectedComments(event.target.value)} placeholder="Paste selected comments; keep speaker labels when useful" /></label>
+                    <div className="capture-social-meta">
+                      <label><span>Account / author</span><input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="@account or author name" /><small className="capture-field-hint">The public username or creator responsible for the post.</small></label>
+                      <label><span>Date observed</span><input type="date" value={observedAt} onChange={(event) => { setObservedAt(event.target.value); setErrors(emptyErrors); }} aria-invalid={Boolean(errors.observedAt)} />{errors.observedAt ? <small className="capture-field-error">{errors.observedAt}</small> : <small className="capture-field-hint">When you found or captured it—not necessarily its publication date.</small>}</label>
+                    </div>
+                    <label><span>Caption / selected post text</span><textarea rows={4} value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Paste the exact caption or relevant passage" /><small className="capture-field-hint">Copy the source’s own words. Do not add your analysis here.</small></label>
+                    <label><span>Relevant comments</span><textarea rows={4} value={selectedComments} onChange={(event) => setSelectedComments(event.target.value)} placeholder="@viewer: I joined mainly to meet people." /><small className="capture-field-hint">Keep only comments that reveal a useful reaction; include public speaker labels when helpful.</small></label>
                     <div className="capture-file-field">
                       <span>Screenshot</span>
                       <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => selectFile(event.target.files?.[0] ?? null)} tabIndex={-1} aria-hidden="true" />
@@ -532,11 +536,16 @@ export function CaptureEvidenceDialog() {
                         <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()}>{file ? "Replace" : "Choose"}</Button>
                       </div>
                       {errors.screenshot ? <small className="capture-field-error">{errors.screenshot}</small> : null}
+                      {!errors.screenshot ? <small className="capture-field-hint">Optional visual record in case the original post changes or disappears. Stored privately.</small> : null}
+                    </div>
+                    <div className="capture-section-guide capture-section-guide--interpretation">
+                      <strong>Your context</strong>
+                      <span>Describe how you will find this later and why it deserves strategic attention.</span>
                     </div>
                   </>
                 ) : null}
-                <label><span>Title</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={mode === "url" ? "Uses the website name if left empty" : mode === "social" ? "Uses the platform and account if left empty" : mode === "note" ? "Uses the first line if left empty" : "Uses the filename if left empty"} /></label>
-                <label><span>Why it matters</span><textarea rows={3} value={whyItMatters} onChange={(event) => setWhyItMatters(event.target.value)} placeholder="The strategic value, tension, or question this raises" /></label>
+                <label><span>Title</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={mode === "url" ? "Uses the website name if left empty" : mode === "social" ? "e.g. TikTok post about running clubs as social spaces" : mode === "note" ? "Uses the first line if left empty" : "Uses the filename if left empty"} />{mode === "social" ? <small className="capture-field-hint">A short, searchable description. Leave blank to use the platform and account.</small> : null}</label>
+                <label><span>Why it matters</span><textarea rows={3} value={whyItMatters} onChange={(event) => setWhyItMatters(event.target.value)} placeholder={mode === "social" ? "What behaviour, tension, shift, or question does this evidence suggest?" : "The strategic value, tension, or question this raises"} />{mode === "social" ? <small className="capture-field-hint">Your interpretation—not part of the original post. Sift keeps it separate from source evidence.</small> : null}</label>
               </div>
             ) : null}
 

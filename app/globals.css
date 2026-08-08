@@ -1387,6 +1387,10 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .capture-social-basics { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 12px; }
 .capture-social-basics > label, .capture-social-meta > label { min-width: 0; }
 .capture-social-meta { display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 12px; }
+.capture-section-guide { display: grid; gap: 3px; padding-bottom: 11px; border-bottom: 1px solid var(--border); }
+.capture-section-guide strong { font-size: 11px; letter-spacing: .55px; text-transform: uppercase; }
+.capture-section-guide span { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.capture-section-guide--interpretation { margin-top: 3px; padding-top: 13px; border-top: 1px solid var(--border); border-bottom: 0; }
 .capture-details-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 12px 13px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: var(--text); text-align: left; }
 .capture-details-toggle:hover { background: var(--subtle); }
 .capture-details-toggle > span { display: grid; gap: 2px; }
