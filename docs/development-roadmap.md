@@ -274,7 +274,7 @@ Make it effortless to save strategically useful material from sources that canno
 
 ## Phase 3 - Evidence inbox, search, and organization
 
-Status: **In progress.** The unified project evidence inbox now combines authorized Radar mentions, Research, social captures, files, and Inspiration without duplicating source records. It includes project/type filters, all/needs-review/recent views, contextual cross-field search with matched-term highlighting, conservative provenance labels, partial Radar failure handling, and a common evidence detail drawer. Durable `unreviewed`, `relevant`, `irrelevant`, and `archived` states now persist on the original source tables through verified project-scoped Supabase updates, with review timestamps and explicit single-item controls. Bulk organization, durable saved views, server-side full-text search, cursor pagination, relationships, and imports remain in later increments.
+Status: **In progress.** The unified project evidence inbox now combines authorized Radar mentions, Research, social captures, files, and Inspiration without duplicating source records. It includes project/type filters, all/needs-review/recent views, contextual cross-field search with matched-term highlighting, conservative provenance labels, partial Radar failure handling, sorting, grouping, and a common evidence detail drawer. Durable `unreviewed`, `relevant`, `irrelevant`, and `archived` states persist on the original source tables through verified project-scoped Supabase updates, with review timestamps, review progress, single-item controls, and safe bulk review. Shared tags and non-destructive project links reuse normalized relationship tables, verify persisted results, and report partial failures. Growing inbox queries now use RLS-safe PostgreSQL full-text retrieval, aggregate counts, and stable keyset cursors instead of hydrating thousands of records in the browser. Private named saved views persist query, project, type, review, sort, and grouping settings without copying evidence. The detail drawer now exposes tags, project links, strategic citations, attachments, notes, and trends; Research and Inspiration deletion is blocked while insight or brief citations remain and atomically cleans removable organization links after confirmation. CSV import, topic assignment, and richer notes remain in later increments.
 
 ### Goal
 
@@ -591,10 +591,13 @@ Every phase should add tests at the layer where its risk lives.
 Phases 0, 1, and 2 are complete. Phase 3 is proceeding in small, testable increments:
 
 1. Create a project evidence inbox over the shared evidence reference contract, with search, core filters, provenance, and a common detail drawer. **Completed.**
-2. Add persistent review states through an additive migration and explicit single-item review actions. **Implemented; authenticated browser acceptance remains.**
-3. Add bulk review and organization actions with safe partial-failure reporting.
-4. Move growing inbox queries to server-side full-text retrieval and cursor pagination.
-5. Add durable saved views, relationship visibility, protected deletion warnings, and CSV import history.
+2. Add persistent review states through an additive migration and explicit single-item review actions. **Completed.**
+3. Add bulk review and organization actions with safe partial-failure reporting. **Completed.**
+4. Move growing inbox queries to server-side full-text retrieval and cursor pagination. **Completed.**
+5. Add private durable Evidence Inbox saved views. **Completed.**
+6. Add relationship visibility and protected deletion warnings. **Completed.**
+7. Add CSV import mapping, validation, duplicate handling, and import history. **Next.**
+8. Complete the remaining topic-assignment and note workflows, then run the Phase 3 acceptance checkpoint.
 
 ## Definition of a successful first strategist release
 

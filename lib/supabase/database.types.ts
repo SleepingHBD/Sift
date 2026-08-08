@@ -1224,6 +1224,56 @@ export type Database = {
           },
         ]
       }
+      evidence_saved_views: {
+        Row: {
+          created_at: string
+          group_by: string
+          id: string
+          kind_filter: string
+          name: string
+          owner_id: string
+          project_id: string | null
+          search_query: string
+          sort_order: string
+          updated_at: string
+          view_filter: string
+        }
+        Insert: {
+          created_at?: string
+          group_by?: string
+          id?: string
+          kind_filter?: string
+          name: string
+          owner_id?: string
+          project_id?: string | null
+          search_query?: string
+          sort_order?: string
+          updated_at?: string
+          view_filter?: string
+        }
+        Update: {
+          created_at?: string
+          group_by?: string
+          id?: string
+          kind_filter?: string
+          name?: string
+          owner_id?: string
+          project_id?: string | null
+          search_query?: string
+          sort_order?: string
+          updated_at?: string
+          view_filter?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_saved_views_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       research_items: {
         Row: {
           ai_summary: string | null
@@ -1707,6 +1757,15 @@ export type Database = {
         Args: { target_project_id: string }
         Returns: boolean
       }
+      consume_evidence_extraction_quota: {
+        Args: { target_user_id: string }
+        Returns: {
+          allowed: boolean
+          remaining_day: number
+          remaining_minute: number
+          retry_after_seconds: number
+        }[]
+      }
       consume_radar_quota: {
         Args: { target_user_id: string }
         Returns: {
@@ -1714,6 +1773,55 @@ export type Database = {
           remaining_day: number
           remaining_minute: number
           retry_after_seconds: number
+        }[]
+      }
+      delete_evidence_item: {
+        Args: {
+          p_item_id: string
+          p_kind: Database["public"]["Enums"]["item_kind"]
+          p_project_id: string
+        }
+        Returns: string
+      }
+      evidence_inbox_stats: {
+        Args: { p_project_id?: string }
+        Returns: {
+          kind_count: number
+          reviewed_count: number
+          total_count: number
+          unreviewed_count: number
+        }[]
+      }
+      list_evidence_relationships: {
+        Args: {
+          p_item_id: string
+          p_kind: Database["public"]["Enums"]["item_kind"]
+          p_project_id: string
+        }
+        Returns: {
+          blocking: boolean
+          label: string
+          metadata: Json
+          relationship_id: string
+          relationship_type: string
+          target_id: string
+          target_project_id: string
+        }[]
+      }
+      search_evidence_page: {
+        Args: {
+          p_cursor?: Json
+          p_kind?: string
+          p_page_size?: number
+          p_project_id?: string
+          p_recent_after?: string
+          p_review_status?: string
+          p_search?: string
+          p_sort?: string
+        }
+        Returns: {
+          cursor_value: Json
+          evidence: Json
         }[]
       }
     }

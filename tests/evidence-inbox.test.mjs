@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildEvidenceInbox, filterEvidenceInbox } from "../lib/evidence/inbox.ts";
+import { buildEvidenceInbox, filterEvidenceInbox, organizeEvidenceInbox } from "../lib/evidence/inbox.ts";
+import { applyEvidenceOrganization } from "../lib/evidence/organization.ts";
 
 const project = {
   id: "project-local",
@@ -146,4 +147,35 @@ test("the recent view uses a deterministic seven-day boundary", () => {
     now: new Date("2026-08-20T12:00:00.000Z"),
   });
   assert.equal(none.length, 0);
+});
+
+test("project filters include evidence linked to another project without changing its source project", () => {
+  const { items } = buildEvidenceInbox({
+    projects: [project],
+    radarRecords: [{ mention: mention(), projectClientRef: "project-local" }],
+    researchItems: [],
+    inspirationItems: [],
+  });
+  const linked = items.map((item) => applyEvidenceOrganization(item, {
+    tagsByEvidence: {},
+    projectIdsByEvidence: { "mention:mention-cloud": ["project-linked"] },
+  }));
+
+  const filtered = filterEvidenceInbox(linked, { query: "", projectId: "project-linked", kind: "all", view: "all" });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].projectId, "project-cloud");
+  assert.deepEqual(filtered[0].associatedProjectIds, ["project-cloud", "project-linked"]);
+});
+
+test("sorting and grouping keep deterministic evidence sections", () => {
+  const { items } = buildEvidenceInbox({
+    projects: [project],
+    radarRecords: [{ mention: mention(), projectClientRef: "project-local" }],
+    researchItems: [research],
+    inspirationItems: [inspiration],
+  });
+  const groups = organizeEvidenceInbox(items, { sort: "oldest", group: "kind" });
+
+  assert.deepEqual(groups.map((group) => group.id), ["inspiration", "research", "mention"]);
+  assert.deepEqual(groups.map((group) => group.items.length), [1, 1, 1]);
 });

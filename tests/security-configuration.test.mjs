@@ -54,6 +54,8 @@ test("the static export declares a constrained browser content policy", async ()
   assert.match(layout, /Content-Security-Policy/);
   assert.match(layout, /object-src 'none'/);
   assert.match(layout, /connect-src 'self' https:\/\/\*\.supabase\.co/);
+  assert.match(layout, /process\.env\.NODE_ENV === "development"/);
+  assert.match(layout, /: "script-src 'self' 'unsafe-inline'"/);
 });
 
 test("Phase 1 project imports use authenticated ownership and an idempotency constraint", async () => {
@@ -159,4 +161,80 @@ test("Phase 3 review state is constrained and additive across existing evidence 
   assert.match(migration, /metadata ->> 'review_status'/);
   assert.doesNotMatch(migration, /create table/);
   assert.doesNotMatch(migration, /create policy|grant .*anon/i);
+});
+
+test("Phase 3 evidence organization preserves source integrity and target-project access", async () => {
+  const migration = await read("supabase/migrations/20260808120349_phase_3_evidence_organization.sql");
+
+  assert.match(migration, /saved evidence belongs to its source project/);
+  assert.match(migration, /mention\.project_id = saved_items\.project_id/);
+  assert.match(migration, /research\.project_id = saved_items\.project_id/);
+  assert.match(migration, /inspiration\.project_id = saved_items\.project_id/);
+  assert.match(migration, /project evidence links target an accessible project/);
+  assert.match(migration, /public\.can_access_project\(destination_id\)/);
+  assert.match(migration, /evidence tags belong to their project/);
+  assert.match(migration, /evidence tag links match their source project/);
+  assert.match(migration, /item_tags_project_item_lookup_idx/);
+  assert.match(migration, /saved_items_project_links_lookup_idx/);
+  assert.doesNotMatch(migration, /grant .*anon/i);
+});
+
+test("Phase 3 evidence search is security-invoker, full-text indexed, and keyset paginated", async () => {
+  const migration = await read("supabase/migrations/20260808123456_phase_3_evidence_search_pagination.sql");
+
+  assert.match(migration, /create or replace function public\.search_evidence_page/);
+  assert.match(migration, /security invoker/);
+  assert.match(migration, /set search_path = ''/);
+  assert.match(migration, /search_vector @@ search_query/);
+  assert.match(migration, /websearch_to_tsquery\('english'::regconfig/);
+  assert.match(migration, /captured_at < cursor_primary_time/);
+  assert.match(migration, /grant execute[\s\S]*to authenticated/);
+  assert.match(migration, /revoke all[\s\S]*from public, anon/);
+  assert.doesNotMatch(migration, /security definer/i);
+  assert.doesNotMatch(migration, /\boffset\b/i);
+  assert.doesNotMatch(migration, /create table/i);
+});
+
+test("Phase 3 saved evidence views are private, constrained, and contain no evidence copies", async () => {
+  const [migration, permanentIdentity] = await Promise.all([
+    read("supabase/migrations/20260808130752_phase_3_evidence_saved_views.sql"),
+    read("supabase/migrations/20260808131842_phase_3_saved_views_permanent_identity.sql"),
+  ]);
+
+  assert.match(migration, /create table public\.evidence_saved_views/);
+  assert.match(migration, /owner_id uuid not null default auth\.uid\(\)/);
+  assert.match(migration, /project_id uuid references public\.projects\(id\) on delete set null/);
+  assert.match(migration, /evidence_saved_views_owner_name_idx/);
+  assert.match(migration, /evidence_saved_views_project_id_idx/);
+  assert.match(migration, /alter table public\.evidence_saved_views enable row level security/);
+  assert.match(migration, /to authenticated[\s\S]*\(select auth\.uid\(\)\) = owner_id/);
+  assert.match(migration, /public\.can_access_project\(project_id\)/);
+  assert.match(migration, /revoke all on table public\.evidence_saved_views from public, anon/);
+  assert.match(migration, /grant select, insert, update, delete[\s\S]*to authenticated/);
+  assert.doesNotMatch(migration, /original_content|source_text|excerpt|evidence_id/);
+  assert.match(permanentIdentity, /as restrictive/);
+  assert.match(permanentIdentity, /is_anonymous/);
+  assert.match(permanentIdentity, /to authenticated/);
+});
+
+test("Phase 3 evidence deletion is RLS-invoker guarded and protects strategic citations", async () => {
+  const [guard, isolatedQueries, trendIdentity] = await Promise.all([
+    read("supabase/migrations/20260808132952_phase_3_evidence_relationships_guarded_deletion.sql"),
+    read("supabase/migrations/20260808133300_fix_evidence_relationship_query_ambiguity.sql"),
+    read("supabase/migrations/20260808133350_fix_trend_relationship_identity.sql"),
+  ]);
+
+  assert.match(guard, /create or replace function public\.list_evidence_relationships/);
+  assert.match(guard, /create or replace function public\.delete_evidence_item/);
+  assert.match(guard, /security invoker/g);
+  assert.match(guard, /destination in \('insight_evidence', 'insight_seed', 'brief'\)/);
+  assert.match(guard, /raise exception 'Evidence is still cited by % protected relationship/);
+  assert.match(guard, /insight_sources_source_lookup_idx/);
+  assert.match(guard, /brief_sources_source_lookup_idx/);
+  assert.match(guard, /revoke all[\s\S]*from public, anon/);
+  assert.match(guard, /grant execute[\s\S]*to authenticated/);
+  assert.doesNotMatch(guard, /security definer/i);
+  assert.match(isolatedQueries, /Keep each RLS-protected relationship lookup in its own statement/);
+  assert.match(trendIdentity, /'trend'::text,[\s\S]*trend\.id,[\s\S]*trend\.id/);
+  assert.doesNotMatch(trendIdentity, /security definer/i);
 });

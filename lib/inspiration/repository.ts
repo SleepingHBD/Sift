@@ -1,4 +1,5 @@
 import { normalizeSource } from "@/lib/evidence/source";
+import { deleteEvidenceItem } from "@/lib/evidence/relationships";
 import { createInspirationClientRef, inspirationFromRow, type InspirationRow } from "@/lib/inspiration/model";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { InspirationItem, Project } from "@/lib/types";
@@ -71,12 +72,9 @@ export async function createCloudInspiration(project: Project, input: Inspiratio
   return inspirationFromRow(data as unknown as InspirationRow, project.id);
 }
 
-export async function deleteCloudInspiration(item: InspirationItem) {
+export async function deleteCloudInspiration(item: InspirationItem, cloudProjectId: string) {
   if (!item.cloudId) throw new Error("This inspiration item has not been moved to the cloud yet.");
-  const client = requireClient();
-  const { data, error } = await client.from("inspiration_items").delete().eq("id", item.cloudId).select("id");
-  if (error) throw new Error(`Inspiration could not be deleted: ${error.message}`);
-  if (!data?.length) throw new Error("Inspiration deletion was not permitted for the current account.");
+  await deleteEvidenceItem({ kind: "inspiration", itemId: item.cloudId, projectId: cloudProjectId });
 }
 
 export async function importLocalInspiration(localItems: InspirationItem[], project: Project) {

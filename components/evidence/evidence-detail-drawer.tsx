@@ -1,11 +1,12 @@
 "use client";
 
-import { Archive, Check, CircleX, ExternalLink, FileText, Link2, LoaderCircle, RotateCcw, X } from "lucide-react";
+import { Archive, Check, CircleX, ExternalLink, FileText, Link2, LoaderCircle, Network, RotateCcw, ShieldAlert, X } from "lucide-react";
 import { useEffect } from "react";
 import { PrivateEvidenceAsset } from "@/components/evidence/private-evidence-asset";
 import { Badge } from "@/components/ui/primitives";
 import { captureMethodLabel, evidenceKindLabel, evidenceReviewLabel } from "@/lib/evidence/inbox";
 import type { EvidenceReference } from "@/lib/evidence/reference";
+import { relationshipTypeLabel, type EvidenceRelationshipSummary } from "@/lib/evidence/relationships";
 import type { EvidenceAsset, EvidenceReviewStatus } from "@/lib/types";
 import { formatNumber } from "@/lib/utils";
 
@@ -24,7 +25,12 @@ function metadataText(item: EvidenceReference, key: string) {
 export function EvidenceDetailDrawer({
   evidence,
   projectName,
+  associatedProjectNames,
   assets,
+  relationships,
+  relationshipStatus,
+  relationshipError,
+  onRetryRelationships,
   reviewPending,
   reviewError,
   reviewSaved,
@@ -33,7 +39,12 @@ export function EvidenceDetailDrawer({
 }: {
   evidence: EvidenceReference | null;
   projectName: string;
+  associatedProjectNames: string[];
   assets: EvidenceAsset[];
+  relationships: EvidenceRelationshipSummary;
+  relationshipStatus: "idle" | "loading" | "ready" | "error";
+  relationshipError: string;
+  onRetryRelationships: () => void;
   reviewPending: EvidenceReviewStatus | null;
   reviewError: string;
   reviewSaved: boolean;
@@ -53,6 +64,8 @@ export function EvidenceDetailDrawer({
   const selectedComments = metadataText(evidence, "selected_comments");
   const limitation = metadataText(evidence, "capture_limitation");
   const assetById = new Map(assets.map((asset) => [asset.id, asset]));
+  const sharedTagKeys = new Set(evidence.organizationTags.map((tag) => tag.toLocaleLowerCase()));
+  const sourceLabels = evidence.tags.filter((tag) => !sharedTagKeys.has(tag.toLocaleLowerCase()));
 
   return (
     <div className="radar-overlay radar-overlay--drawer" role="dialog" aria-modal="true" aria-labelledby="evidence-detail-title">
@@ -109,17 +122,27 @@ export function EvidenceDetailDrawer({
           </section>
         ) : null}
 
-        {(evidence.tags.length || evidence.topics.length) ? (
+        {(evidence.organizationTags.length || sourceLabels.length || evidence.topics.length) ? (
           <section className="inbox-detail-drawer__section">
-            <p className="drawer-section-label">Topics and tags</p>
-            <div className="inbox-detail-drawer__taxonomy">{[...evidence.topics, ...evidence.tags].map((label) => <Badge key={label}>{label}</Badge>)}</div>
+            {evidence.organizationTags.length ? <><p className="drawer-section-label">Shared tags</p><div className="inbox-detail-drawer__taxonomy">{evidence.organizationTags.map((label) => <Badge key={`shared-${label}`}>{label}</Badge>)}</div></> : null}
+            {(sourceLabels.length || evidence.topics.length) ? <><p className="drawer-section-label inbox-detail-drawer__taxonomy-label">Source topics and labels</p><div className="inbox-detail-drawer__taxonomy">{[...evidence.topics, ...sourceLabels].map((label) => <Badge key={`source-${label}`}>{label}</Badge>)}</div></> : null}
           </section>
         ) : null}
+
+        <section className="inbox-detail-drawer__section inbox-detail-drawer__relationships" aria-labelledby="evidence-relationships-heading">
+          <div className="inbox-detail-drawer__relationships-heading"><div><p className="drawer-section-label" id="evidence-relationships-heading">Used in</p><span>Trace where this source contributes elsewhere in Sift.</span></div>{relationshipStatus === "ready" ? <Badge>{relationships.items.length}</Badge> : null}</div>
+          {relationshipStatus === "loading" ? <div className="inbox-detail-drawer__relationships-state"><LoaderCircle className="spin" size={17} /><span>Checking evidence connections…</span></div> : null}
+          {relationshipStatus === "error" ? <div className="inbox-detail-drawer__relationships-state inbox-detail-drawer__relationships-state--error"><ShieldAlert size={17} /><span>{relationshipError}</span><button type="button" onClick={onRetryRelationships}><RotateCcw size={13} />Try again</button></div> : null}
+          {relationshipStatus === "ready" && !relationships.items.length ? <div className="inbox-detail-drawer__relationships-state"><Network size={17} /><span>No downstream relationships yet.</span></div> : null}
+          {relationshipStatus === "ready" && relationships.items.length ? <ul>{relationships.items.map((relationship) => <li key={`${relationship.type}-${relationship.id}`}><span className="inbox-detail-drawer__relationship-icon"><Link2 size={14} /></span><span><strong>{relationship.label}</strong><small>{relationshipTypeLabel(relationship.type)}</small></span>{relationship.blocking ? <Badge>Strategic citation</Badge> : null}</li>)}</ul> : null}
+          {relationshipStatus === "ready" && relationships.blockingCount ? <p className="inbox-detail-drawer__relationship-protection"><ShieldAlert size={14} />This source is protected from deletion while these strategic citations remain.</p> : null}
+        </section>
 
         <section className="inbox-detail-drawer__section">
           <p className="drawer-section-label">Provenance</p>
           <dl className="inbox-detail-drawer__provenance">
-            <div><dt>Project</dt><dd>{projectName}</dd></div>
+            <div><dt>Source project</dt><dd>{projectName}</dd></div>
+            <div><dt>Available in</dt><dd>{associatedProjectNames.join(", ") || projectName}</dd></div>
             <div><dt>Captured via</dt><dd>{captureMethodLabel(evidence.provenance.captureMethod)}</dd></div>
             <div><dt>Captured</dt><dd>{formatDate(evidence.capturedAt)}</dd></div>
             <div><dt>Last reviewed</dt><dd>{formatDate(evidence.reviewedAt)}</dd></div>

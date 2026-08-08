@@ -1,6 +1,7 @@
 import { normalizeSource } from "@/lib/evidence/source";
 import { normalizeCaptureUrl } from "@/lib/evidence/capture";
 import type { EvidenceCaptureMethod } from "@/lib/evidence/reference";
+import { deleteEvidenceItem } from "@/lib/evidence/relationships";
 import type { EvidenceUrlMetadata } from "@/lib/evidence/url-extraction";
 import {
   createEvidenceStoragePath,
@@ -297,13 +298,11 @@ export async function createCloudResearch(project: Project, input: ResearchDraft
   return researchFromRow(data as unknown as ResearchRow, project.id);
 }
 
-export async function deleteCloudResearch(item: ResearchItem) {
+export async function deleteCloudResearch(item: ResearchItem, cloudProjectId: string) {
   if (!item.cloudId) throw new Error("This research item has not been moved to the cloud yet.");
   const client = requireClient();
   const assets = item.assets ?? [];
-  const { data, error } = await client.from("research_items").delete().eq("id", item.cloudId).select("id");
-  if (error) throw new Error(`Research could not be deleted: ${error.message}`);
-  if (!data?.length) throw new Error("Research deletion was not permitted for the current account.");
+  await deleteEvidenceItem({ kind: "research", itemId: item.cloudId, projectId: cloudProjectId });
   if (!assets.length) return null;
   const cleanupErrors: string[] = [];
   const assetsByBucket = new Map<string, EvidenceAsset[]>();

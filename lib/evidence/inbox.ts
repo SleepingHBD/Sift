@@ -11,6 +11,14 @@ import type { InspirationItem, Project, ResearchItem } from "../types.ts";
 
 export type EvidenceInboxView = "all" | "needs-review" | "recent";
 export type EvidenceInboxKindFilter = "all" | EvidenceKind;
+export type EvidenceInboxSort = "newest" | "oldest" | "recently-reviewed" | "source" | "project";
+export type EvidenceInboxGroup = "none" | "project" | "kind" | "status";
+
+export interface EvidenceInboxGroupResult {
+  id: string;
+  label: string;
+  items: EvidenceReference[];
+}
 
 export interface RadarInboxRecord {
   mention: RadarMention;
@@ -100,7 +108,7 @@ export function filterEvidenceInbox(items: EvidenceReference[], filters: Evidenc
   const recentBoundary = (filters.now ?? new Date()).getTime() - (7 * 24 * 60 * 60 * 1_000);
 
   return items.filter((item) => {
-    if (filters.projectId !== "all" && item.projectId !== filters.projectId) return false;
+    if (filters.projectId !== "all" && !item.associatedProjectIds.includes(filters.projectId)) return false;
     if (filters.kind !== "all" && item.kind !== filters.kind) return false;
     if (filters.reviewStatus && filters.reviewStatus !== "all" && item.reviewStatus !== filters.reviewStatus) return false;
     if (filters.view === "needs-review" && item.reviewStatus !== "unreviewed") return false;
@@ -121,6 +129,48 @@ export function filterEvidenceInbox(items: EvidenceReference[], filters: Evidenc
     ].filter(Boolean).join("\n").toLocaleLowerCase();
     return searchable.includes(query);
   });
+}
+
+export function organizeEvidenceInbox(
+  items: EvidenceReference[],
+  options: {
+    sort: EvidenceInboxSort;
+    group: EvidenceInboxGroup;
+    projectNames?: Map<string, string>;
+  },
+): EvidenceInboxGroupResult[] {
+  const sorted = [...items].sort((a, b) => {
+    if (options.sort === "oldest") return validTime(a.capturedAt) - validTime(b.capturedAt);
+    if (options.sort === "recently-reviewed") {
+      return validTime(b.reviewedAt) - validTime(a.reviewedAt) || validTime(b.capturedAt) - validTime(a.capturedAt);
+    }
+    if (options.sort === "source") {
+      return a.sourceLabel.localeCompare(b.sourceLabel) || validTime(b.capturedAt) - validTime(a.capturedAt);
+    }
+    if (options.sort === "project") {
+      const aProject = options.projectNames?.get(a.projectId) ?? "";
+      const bProject = options.projectNames?.get(b.projectId) ?? "";
+      return aProject.localeCompare(bProject) || validTime(b.capturedAt) - validTime(a.capturedAt);
+    }
+    return validTime(b.capturedAt) - validTime(a.capturedAt);
+  });
+
+  if (options.group === "none") return [{ id: "all", label: "", items: sorted }];
+
+  const groups = new Map<string, EvidenceInboxGroupResult>();
+  for (const item of sorted) {
+    const id = options.group === "project" ? item.projectId : options.group === "kind" ? item.kind : item.reviewStatus;
+    const label = options.group === "project"
+      ? options.projectNames?.get(item.projectId) ?? "Project"
+      : options.group === "kind"
+        ? evidenceKindLabel(item.kind)
+        : evidenceReviewLabel(item.reviewStatus);
+    const group = groups.get(id) ?? { id, label, items: [] };
+    group.items.push(item);
+    groups.set(id, group);
+  }
+
+  return [...groups.values()];
 }
 
 export function evidenceKindLabel(kind: EvidenceKind) {

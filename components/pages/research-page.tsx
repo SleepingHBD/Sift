@@ -3,6 +3,7 @@
 import { BookOpen, Cloud, ExternalLink, FileImage, FilePlus2, FileText, LoaderCircle, MessageSquareText, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
+import { EvidenceDeleteDialog } from "@/components/evidence/evidence-delete-dialog";
 import { PrivateEvidenceAsset } from "@/components/evidence/private-evidence-asset";
 import { Badge, Button, Card, PageIntro, SectionHeader } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
@@ -34,7 +35,7 @@ export function ResearchPage() {
   const [source, setSource] = useState("");
   const [summary, setSummary] = useState("");
   const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState("");
+  const [deleteCandidateId, setDeleteCandidateId] = useState("");
   const [formError, setFormError] = useState("");
   const destinationProjectId = projects.some((project) => project.id === projectId)
     ? projectId
@@ -45,6 +46,8 @@ export function ResearchPage() {
     const haystack = `${item.title} ${item.publication} ${item.summary} ${item.tags.join(" ")}`.toLowerCase();
     return matchesProject && haystack.includes(query.toLowerCase());
   }), [projectFilter, query, researchItems]);
+  const deleteCandidate = researchItems.find((item) => item.id === deleteCandidateId) ?? null;
+  const deleteProject = deleteCandidate ? projects.find((project) => project.id === deleteCandidate.projectId) ?? null : null;
 
   function openAdd(nextType: string) {
     if (!projects.length) {
@@ -71,18 +74,6 @@ export function ResearchPage() {
       setFormError(error instanceof Error ? error.message : "Research could not be saved.");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function removeItem(id: string, itemTitle: string) {
-    if (!window.confirm(`Delete “${itemTitle}” from the cloud research library?`)) return;
-    setDeletingId(id);
-    try {
-      await deleteResearch(id);
-    } catch {
-      // AppProvider exposes the actionable error above the library.
-    } finally {
-      setDeletingId("");
     }
   }
 
@@ -120,7 +111,7 @@ export function ResearchPage() {
                     {item.assets?.length ? <div className="research-row__assets">{item.assets.map((asset) => <PrivateEvidenceAsset key={asset.id} asset={asset} />)}</div> : null}
                     {item.tags.length ? <div className="tag-row">{item.tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
                   </div>
-                  <aside><span>{projectNames.get(item.projectId) ?? "Project"}</span><small>{item.publication}</small><div className="library-item-actions">{item.url ? <a href={item.url} target="_blank" rel="noreferrer"><ExternalLink size={13} />Open source</a> : null}<button type="button" disabled={deletingId === item.id} onClick={() => void removeItem(item.id, item.title)}>{deletingId === item.id ? <LoaderCircle className="spin" size={13} /> : <Trash2 size={13} />}Delete</button></div></aside>
+                  <aside><span>{projectNames.get(item.projectId) ?? "Project"}</span><small>{item.publication}</small><div className="library-item-actions">{item.url ? <a href={item.url} target="_blank" rel="noreferrer"><ExternalLink size={13} />Open source</a> : null}<button type="button" disabled={!item.cloudId || !projects.find((project) => project.id === item.projectId)?.cloudId} title={!item.cloudId ? "This source does not have a cloud identity." : undefined} onClick={() => setDeleteCandidateId(item.id)}><Trash2 size={13} />Delete</button></div></aside>
                 </Card>;
               })}
               {!filtered.length ? <Card className="empty-state"><Search size={30} /><strong>No research matches these filters</strong><Button onClick={() => { setQuery(""); setProjectFilter("all"); }}>Clear filters</Button></Card> : null}
@@ -130,6 +121,7 @@ export function ResearchPage() {
       )}
 
       {adding ? <div className="radar-overlay" role="dialog" aria-modal="true" aria-labelledby="research-dialog-title"><button className="radar-overlay__scrim" onClick={() => setAdding(false)} aria-label="Close" /><form className="workspace-dialog workspace-dialog--small" onSubmit={submit}><header><div><span className="workspace-dialog__icon"><BookOpen size={19} /></span><div><p className="eyebrow">Add research</p><h2 id="research-dialog-title">Capture a source and its value.</h2></div></div><button type="button" onClick={() => setAdding(false)} aria-label="Close"><X size={18} /></button></header><div className="workspace-dialog__body"><label><span>Project *</span><select value={destinationProjectId} onChange={(event) => setProjectId(event.target.value)}>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label><span>Title *</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Source or note title" /></label><label><span>Type</span><select value={type} onChange={(event) => setType(event.target.value)}><option>Article</option><option>URL</option><option>Report</option><option>Note</option><option>Statistic</option><option>Quote</option></select></label><label><span>URL / publication</span><input value={source} onChange={(event) => setSource(event.target.value)} placeholder="Optional" /></label><label><span>Key finding or note</span><textarea rows={5} value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="What matters here, and why?" /></label>{formError ? <p className="form-error" role="alert">{formError}</p> : null}</div><footer><Button type="button" onClick={() => setAdding(false)}>Cancel</Button><Button type="submit" variant="dark" disabled={!title.trim() || !destinationProjectId || saving}>{saving ? <LoaderCircle className="spin" size={14} /> : null}{saving ? "Saving…" : "Add research"}</Button></footer></form></div> : null}
+      {deleteCandidate?.cloudId && deleteProject?.cloudId ? <EvidenceDeleteDialog identity={{ kind: "research", itemId: deleteCandidate.cloudId, projectId: deleteProject.cloudId }} title={deleteCandidate.title} libraryLabel="research" onClose={() => setDeleteCandidateId("")} onConfirm={() => deleteResearch(deleteCandidate.id)} /> : null}
     </div>
   );
 }

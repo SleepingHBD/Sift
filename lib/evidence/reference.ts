@@ -44,7 +44,9 @@ export interface EvidenceReferenceBase {
   capturedAt: string;
   notes: string | null;
   tags: string[];
+  organizationTags: string[];
   topics: string[];
+  associatedProjectIds: string[];
   language: string | null;
   processingStatus: EvidenceProcessingStatus;
   reviewStatus: EvidenceReviewStatus;
@@ -82,6 +84,44 @@ export type EvidenceReference = MentionEvidenceReference | ResearchEvidenceRefer
 export interface EvidenceReferenceContext {
   cloudProjectId?: string;
   projectClientRef?: string;
+}
+
+export interface EvidenceSearchRecord {
+  kind: EvidenceKind;
+  item_id: string;
+  client_ref: string | null;
+  project_id: string;
+  project_name: string;
+  title: string;
+  author: string | null;
+  source_label: string;
+  original_url: string | null;
+  canonical_url: string | null;
+  original_content: string | null;
+  published_at: string | null;
+  captured_at: string;
+  notes: string | null;
+  source_tags: string[];
+  organization_tags: string[];
+  topics: string[];
+  associated_project_ids: string[];
+  language: string | null;
+  processing_status: EvidenceProcessingStatus;
+  review_status: EvidenceReviewStatus;
+  reviewed_at: string | null;
+  attachments: unknown[];
+  metadata: Record<string, unknown>;
+  item_type: string | null;
+  collection_name: string | null;
+  key_findings: string | null;
+  ai_summary: string | null;
+  brand_name: string | null;
+  thumbnail_url: string | null;
+  monitor_id: string | null;
+  platform: string | null;
+  external_id: string;
+  engagement: number;
+  sentiment: string | null;
 }
 
 const captureMethods = new Set<EvidenceCaptureMethod>(["connector", "url", "manual", "strategist", "import", "upload", "unknown"]);
@@ -124,8 +164,8 @@ function processingStatus(metadata: Record<string, unknown>, fallback: EvidenceP
   return oneOf(metadata.processing_status ?? metadata.processingStatus, processingStatuses) ?? fallback;
 }
 
-function attachments(metadata: Record<string, unknown>): EvidenceAttachmentReference[] {
-  const values = Array.isArray(metadata.attachments) ? metadata.attachments : [];
+function attachmentReferences(value: unknown): EvidenceAttachmentReference[] {
+  const values = Array.isArray(value) ? value : [];
   return values.flatMap((value) => {
     const item = record(value);
     const path = text(item.path);
@@ -141,6 +181,10 @@ function attachments(metadata: Record<string, unknown>): EvidenceAttachmentRefer
       kind,
     }];
   });
+}
+
+function attachments(metadata: Record<string, unknown>): EvidenceAttachmentReference[] {
+  return attachmentReferences(metadata.attachments);
 }
 
 function researchAttachments(item: ResearchItem, metadata: Record<string, unknown>): EvidenceAttachmentReference[] {
@@ -192,6 +236,8 @@ function identity(
     clientRef: clientRef ?? id,
     projectId,
     projectClientRef: context.cloudProjectId ? projectClientRef : undefined,
+    organizationTags: [],
+    associatedProjectIds: [projectId],
   };
 }
 
@@ -303,5 +349,95 @@ export function inspirationItemToEvidenceReference(
     itemType: item.type,
     brand: item.brand,
     thumbnailUrl: item.thumbnailUrl ?? null,
+  };
+}
+
+function uniqueText(values: string[]) {
+  const unique = new Map<string, string>();
+  for (const value of values) {
+    const clean = value.trim();
+    if (!clean) continue;
+    const key = clean.toLocaleLowerCase();
+    if (!unique.has(key)) unique.set(key, clean);
+  }
+  return [...unique.values()];
+}
+
+function searchPlatform(value: string | null): RadarMention["platform"] {
+  if (value === "manual_url" || value === "manual_note") return "manual";
+  if (value === "blog") return "rss";
+  if (value && ["reddit", "youtube", "rss", "news", "tiktok", "instagram", "facebook", "linkedin", "x"].includes(value)) {
+    return value as RadarMention["platform"];
+  }
+  return "manual";
+}
+
+export function evidenceSearchRecordToReference(record: EvidenceSearchRecord): EvidenceReference {
+  const metadata = record.metadata;
+  const organizationTags = uniqueText(record.organization_tags);
+  const base: EvidenceReferenceBase = {
+    id: record.item_id,
+    cloudId: record.item_id,
+    clientRef: record.client_ref ?? record.item_id,
+    projectId: record.project_id,
+    kind: record.kind,
+    title: record.title,
+    author: record.author,
+    sourceLabel: record.source_label,
+    originalUrl: record.original_url,
+    canonicalUrl: record.canonical_url ?? record.original_url,
+    originalContent: record.original_content,
+    excerpt: excerpt(record.original_content),
+    publishedAt: record.published_at,
+    capturedAt: record.captured_at,
+    notes: record.notes,
+    tags: uniqueText([...record.source_tags, ...organizationTags]),
+    organizationTags,
+    topics: uniqueText(record.topics),
+    associatedProjectIds: uniqueText([record.project_id, ...record.associated_project_ids]),
+    language: record.language,
+    processingStatus: processingStatus(metadata, record.processing_status),
+    reviewStatus: reviewStatus(metadata, record.review_status),
+    reviewedAt: record.reviewed_at,
+    attachments: attachmentReferences(record.attachments),
+    provenance: provenance(
+      metadata,
+      record.kind === "mention"
+        ? searchPlatform(record.platform) === "manual" ? "url" : "connector"
+        : record.original_url ? "url" : "manual",
+      record.captured_at,
+      record.external_id,
+    ),
+  };
+
+  if (record.kind === "mention") {
+    return {
+      ...base,
+      kind: "mention",
+      monitorId: record.monitor_id ?? "",
+      platform: searchPlatform(record.platform),
+      externalId: record.external_id,
+      engagement: Number(record.engagement),
+      sentiment: record.sentiment === "positive" || record.sentiment === "negative" ? record.sentiment : "neutral",
+    };
+  }
+
+  if (record.kind === "research") {
+    return {
+      ...base,
+      kind: "research",
+      itemType: record.item_type ?? "article",
+      collection: record.collection_name ?? "Unsorted",
+      keyFindings: record.key_findings,
+      aiSummary: record.ai_summary,
+    };
+  }
+
+  return {
+    ...base,
+    kind: "inspiration",
+    itemType: record.item_type ?? "reference",
+    brand: record.brand_name ?? "Personal workspace",
+    thumbnailUrl: record.thumbnail_url,
   };
 }

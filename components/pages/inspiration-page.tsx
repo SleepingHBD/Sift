@@ -3,6 +3,7 @@
 import { Bookmark, Cloud, ExternalLink, Grid2X2, Images, List, LoaderCircle, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
+import { EvidenceDeleteDialog } from "@/components/evidence/evidence-delete-dialog";
 import { Badge, Button, Card, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
 import { LibraryImportNotice } from "@/components/workspace/library-import-notice";
@@ -24,7 +25,7 @@ export function InspirationPage() {
   const [source, setSource] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState("");
+  const [deleteCandidateId, setDeleteCandidateId] = useState("");
   const [formError, setFormError] = useState("");
   const destinationProjectId = projects.some((project) => project.id === projectId)
     ? projectId
@@ -35,6 +36,8 @@ export function InspirationPage() {
     const haystack = `${item.title} ${item.brand} ${item.note} ${item.tags.join(" ")}`.toLowerCase();
     return matchesProject && haystack.includes(query.toLowerCase());
   }), [inspirationItems, projectFilter, query]);
+  const deleteCandidate = inspirationItems.find((item) => item.id === deleteCandidateId) ?? null;
+  const deleteProject = deleteCandidate ? projects.find((project) => project.id === deleteCandidate.projectId) ?? null : null;
 
   function openAdd() {
     if (!projects.length) {
@@ -60,18 +63,6 @@ export function InspirationPage() {
       setFormError(error instanceof Error ? error.message : "Inspiration could not be saved.");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function removeItem(id: string, itemTitle: string) {
-    if (!window.confirm(`Delete “${itemTitle}” from the cloud inspiration library?`)) return;
-    setDeletingId(id);
-    try {
-      await deleteInspiration(id);
-    } catch {
-      // AppProvider exposes the actionable error above the library.
-    } finally {
-      setDeletingId("");
     }
   }
 
@@ -127,7 +118,7 @@ export function InspirationPage() {
                   <small>{item.source} · {item.savedAt}</small>
                   <div className="library-item-actions">
                     {item.url ? <a href={item.url} target="_blank" rel="noreferrer"><ExternalLink size={13} />Open source</a> : null}
-                    <button type="button" disabled={deletingId === item.id} onClick={() => void removeItem(item.id, item.title)}>{deletingId === item.id ? <LoaderCircle className="spin" size={13} /> : <Trash2 size={13} />}Delete</button>
+                    <button type="button" disabled={!item.cloudId || !projects.find((project) => project.id === item.projectId)?.cloudId} title={!item.cloudId ? "This source does not have a cloud identity." : undefined} onClick={() => setDeleteCandidateId(item.id)}><Trash2 size={13} />Delete</button>
                   </div>
                 </div>
               </Card>
@@ -154,6 +145,7 @@ export function InspirationPage() {
           </form>
         </div>
       ) : null}
+      {deleteCandidate?.cloudId && deleteProject?.cloudId ? <EvidenceDeleteDialog identity={{ kind: "inspiration", itemId: deleteCandidate.cloudId, projectId: deleteProject.cloudId }} title={deleteCandidate.title} libraryLabel="inspiration" onClose={() => setDeleteCandidateId("")} onConfirm={() => deleteInspiration(deleteCandidate.id)} /> : null}
     </div>
   );
 }

@@ -381,8 +381,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   async function deleteInspiration(id: string) {
     const item = inspirationItems.find((candidate) => candidate.id === id);
     if (!item) throw new Error("The inspiration item could not be found.");
+    const project = projects.find((candidate) => candidate.id === item.projectId);
+    if (!project?.cloudId) throw new Error("The source project is not available in the cloud.");
+    const cloudProjectId = project.cloudId;
     await runWorkspaceMutation(async () => {
-      await deleteCloudInspiration(item);
+      await deleteCloudInspiration(item, cloudProjectId);
       setInspirationItems((current) => current.filter((candidate) => candidate.id !== id));
       setSavedIds((current) => {
         const next = current.filter((savedId) => savedId !== id);
@@ -437,8 +440,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   async function deleteResearch(id: string) {
     const item = researchItems.find((candidate) => candidate.id === id);
     if (!item) throw new Error("The research item could not be found.");
+    const project = projects.find((candidate) => candidate.id === item.projectId);
+    if (!project?.cloudId) throw new Error("The source project is not available in the cloud.");
+    const cloudProjectId = project.cloudId;
     await runWorkspaceMutation(async () => {
-      const cleanupWarning = await deleteCloudResearch(item);
+      const cleanupWarning = await deleteCloudResearch(item, cloudProjectId);
       setResearchItems((current) => current.filter((candidate) => candidate.id !== id));
       setAllProjects((current) => current.map((candidate) => candidate.id === item.projectId
         ? { ...candidate, counts: { ...candidate.counts, research: Math.max(0, candidate.counts.research - 1) } }
