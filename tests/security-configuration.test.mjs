@@ -284,3 +284,20 @@ test("Phase 3 strategist topics and notes are project-scoped, searchable, and RL
   assert.match(migration, /from public\.evidence_topic_assignments assignment/);
   assert.doesNotMatch(migration, /security definer/i);
 });
+
+test("Phase 3 acceptance remediation caches project access and removes topic links before evidence deletion", async () => {
+  const migration = await read("supabase/migrations/20260808160014_optimize_phase_3_evidence_access.sql");
+
+  assert.match(migration, /create or replace function private\.accessible_project_ids\(\)/);
+  assert.match(migration, /security definer[\s\S]*set search_path = ''/);
+  assert.match(migration, /revoke all on function private\.accessible_project_ids\(\)[\s\S]*from public, anon, authenticated, service_role/);
+  assert.match(migration, /id = any\(\(\(select private\.accessible_project_ids\(\)\)\)::uuid\[\]\)/);
+  assert.match(migration, /alter policy "project members manage mentions"/);
+  assert.match(migration, /alter policy "project members manage research_items"/);
+  assert.match(migration, /alter policy "project members manage inspiration_items"/);
+  assert.match(migration, /create or replace function public\.delete_evidence_item/);
+  assert.match(migration, /security invoker/);
+  assert.match(migration, /delete from public\.evidence_topic_assignments[\s\S]*delete from public\.research_items/);
+  assert.doesNotMatch(migration, /delete from public\.evidence_topic_assignments assignment\s+where not exists/);
+  assert.doesNotMatch(migration, /grant .*anon/i);
+});
