@@ -506,6 +506,258 @@ export type Database = {
           },
         ]
       }
+      evidence_assets: {
+        Row: {
+          asset_kind: string
+          bucket_id: string
+          byte_size: number
+          created_at: string
+          created_by: string
+          id: string
+          metadata: Json
+          mime_type: string
+          original_filename: string
+          processing_status: string
+          project_id: string
+          research_item_id: string
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          asset_kind: string
+          bucket_id?: string
+          byte_size: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          metadata?: Json
+          mime_type: string
+          original_filename: string
+          processing_status?: string
+          project_id: string
+          research_item_id: string
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          asset_kind?: string
+          bucket_id?: string
+          byte_size?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          metadata?: Json
+          mime_type?: string
+          original_filename?: string
+          processing_status?: string
+          project_id?: string
+          research_item_id?: string
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_assets_research_item_id_fkey"
+            columns: ["research_item_id"]
+            isOneToOne: false
+            referencedRelation: "research_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evidence_import_rows: {
+        Row: {
+          content_hash: string | null
+          created_at: string
+          duplicate_of: string | null
+          error_messages: string[]
+          id: string
+          import_run_id: string
+          project_id: string
+          research_item_id: string | null
+          row_number: number
+          source_title: string | null
+          status: string
+        }
+        Insert: {
+          content_hash?: string | null
+          created_at?: string
+          duplicate_of?: string | null
+          error_messages?: string[]
+          id?: string
+          import_run_id: string
+          project_id: string
+          research_item_id?: string | null
+          row_number: number
+          source_title?: string | null
+          status: string
+        }
+        Update: {
+          content_hash?: string | null
+          created_at?: string
+          duplicate_of?: string | null
+          error_messages?: string[]
+          id?: string
+          import_run_id?: string
+          project_id?: string
+          research_item_id?: string | null
+          row_number?: number
+          source_title?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_import_rows_duplicate_of_fkey"
+            columns: ["duplicate_of"]
+            isOneToOne: false
+            referencedRelation: "research_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_import_rows_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_import_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_import_rows_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_import_rows_research_item_id_fkey"
+            columns: ["research_item_id"]
+            isOneToOne: false
+            referencedRelation: "research_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evidence_import_runs: {
+        Row: {
+          accepted_rows: number
+          client_ref: string
+          completed_at: string
+          created_at: string
+          duplicate_policy: string
+          duplicate_rows: number
+          field_mapping: Json
+          filename: string
+          id: string
+          owner_id: string
+          project_id: string
+          rejected_rows: number
+          source_kind: string
+          status: string
+          total_rows: number
+          updated_at: string
+        }
+        Insert: {
+          accepted_rows?: number
+          client_ref: string
+          completed_at?: string
+          created_at?: string
+          duplicate_policy?: string
+          duplicate_rows?: number
+          field_mapping?: Json
+          filename: string
+          id?: string
+          owner_id?: string
+          project_id: string
+          rejected_rows?: number
+          source_kind?: string
+          status?: string
+          total_rows?: number
+          updated_at?: string
+        }
+        Update: {
+          accepted_rows?: number
+          client_ref?: string
+          completed_at?: string
+          created_at?: string
+          duplicate_policy?: string
+          duplicate_rows?: number
+          field_mapping?: Json
+          filename?: string
+          id?: string
+          owner_id?: string
+          project_id?: string
+          rejected_rows?: number
+          source_kind?: string
+          status?: string
+          total_rows?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_import_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evidence_saved_views: {
+        Row: {
+          created_at: string
+          group_by: string
+          id: string
+          kind_filter: string
+          name: string
+          owner_id: string
+          project_id: string | null
+          search_query: string
+          sort_order: string
+          updated_at: string
+          view_filter: string
+        }
+        Insert: {
+          created_at?: string
+          group_by?: string
+          id?: string
+          kind_filter?: string
+          name: string
+          owner_id?: string
+          project_id?: string | null
+          search_query?: string
+          sort_order?: string
+          updated_at?: string
+          view_filter?: string
+        }
+        Update: {
+          created_at?: string
+          group_by?: string
+          id?: string
+          kind_filter?: string
+          name?: string
+          owner_id?: string
+          project_id?: string | null
+          search_query?: string
+          sort_order?: string
+          updated_at?: string
+          view_filter?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_saved_views_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insight_sources: {
         Row: {
           claim_type: Database["public"]["Enums"]["claim_kind"]
@@ -1158,122 +1410,6 @@ export type Database = {
         }
         Relationships: []
       }
-      evidence_assets: {
-        Row: {
-          asset_kind: string
-          bucket_id: string
-          byte_size: number
-          created_at: string
-          created_by: string
-          id: string
-          metadata: Json
-          mime_type: string
-          original_filename: string
-          processing_status: string
-          project_id: string
-          research_item_id: string
-          storage_path: string
-          updated_at: string
-        }
-        Insert: {
-          asset_kind: string
-          bucket_id?: string
-          byte_size: number
-          created_at?: string
-          created_by?: string
-          id?: string
-          metadata?: Json
-          mime_type: string
-          original_filename: string
-          processing_status?: string
-          project_id: string
-          research_item_id: string
-          storage_path: string
-          updated_at?: string
-        }
-        Update: {
-          asset_kind?: string
-          bucket_id?: string
-          byte_size?: number
-          created_at?: string
-          created_by?: string
-          id?: string
-          metadata?: Json
-          mime_type?: string
-          original_filename?: string
-          processing_status?: string
-          project_id?: string
-          research_item_id?: string
-          storage_path?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "evidence_assets_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "evidence_assets_research_item_id_fkey"
-            columns: ["research_item_id"]
-            isOneToOne: false
-            referencedRelation: "research_items"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      evidence_saved_views: {
-        Row: {
-          created_at: string
-          group_by: string
-          id: string
-          kind_filter: string
-          name: string
-          owner_id: string
-          project_id: string | null
-          search_query: string
-          sort_order: string
-          updated_at: string
-          view_filter: string
-        }
-        Insert: {
-          created_at?: string
-          group_by?: string
-          id?: string
-          kind_filter?: string
-          name: string
-          owner_id?: string
-          project_id?: string | null
-          search_query?: string
-          sort_order?: string
-          updated_at?: string
-          view_filter?: string
-        }
-        Update: {
-          created_at?: string
-          group_by?: string
-          id?: string
-          kind_filter?: string
-          name?: string
-          owner_id?: string
-          project_id?: string | null
-          search_query?: string
-          sort_order?: string
-          updated_at?: string
-          view_filter?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "evidence_saved_views_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       research_items: {
         Row: {
           ai_summary: string | null
@@ -1792,6 +1928,17 @@ export type Database = {
           unreviewed_count: number
         }[]
       }
+      import_evidence_csv: {
+        Args: {
+          p_client_ref: string
+          p_duplicate_policy: string
+          p_field_mapping: Json
+          p_filename: string
+          p_project_id: string
+          p_rows: Json
+        }
+        Returns: Json
+      }
       list_evidence_relationships: {
         Args: {
           p_item_id: string
@@ -1806,6 +1953,14 @@ export type Database = {
           relationship_type: string
           target_id: string
           target_project_id: string
+        }[]
+      }
+      preview_evidence_csv_duplicates: {
+        Args: { p_project_id: string; p_rows: Json }
+        Returns: {
+          duplicate_of: string
+          reason: string
+          row_number: number
         }[]
       }
       search_evidence_page: {

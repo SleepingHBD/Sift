@@ -238,3 +238,29 @@ test("Phase 3 evidence deletion is RLS-invoker guarded and protects strategic ci
   assert.match(trendIdentity, /'trend'::text,[\s\S]*trend\.id,[\s\S]*trend\.id/);
   assert.doesNotMatch(trendIdentity, /security definer/i);
 });
+
+test("Phase 3 CSV imports are bounded, private, audited, and safe to retry", async () => {
+  const [migration, identifierFix] = await Promise.all([
+    read("supabase/migrations/20260808140433_phase_3_evidence_csv_import.sql"),
+    read("supabase/migrations/20260808140709_fix_evidence_csv_import_tag_identity.sql"),
+  ]);
+
+  assert.match(migration, /create table public\.evidence_import_runs/);
+  assert.match(migration, /create table public\.evidence_import_rows/);
+  assert.match(migration, /total_rows integer[\s\S]*between 0 and 500/);
+  assert.match(migration, /unique \(owner_id, client_ref\)/);
+  assert.match(migration, /alter table public\.evidence_import_runs enable row level security/);
+  assert.match(migration, /alter table public\.evidence_import_rows enable row level security/);
+  assert.match(migration, /as restrictive[\s\S]*is_anonymous/);
+  assert.match(migration, /security invoker/g);
+  assert.match(migration, /public\.can_access_project\(p_project_id\)/);
+  assert.match(migration, /revoke all on table public\.evidence_import_runs from public, anon, authenticated, service_role/);
+  assert.match(migration, /grant select, insert, update on table public\.evidence_import_runs to authenticated/);
+  assert.match(migration, /metadata ->> 'content_hash'/);
+  assert.match(migration, /where run\.owner_id = caller_id and run\.client_ref = p_client_ref/);
+  assert.match(migration, /'source_text', candidate_source_text/);
+  assert.doesNotMatch(migration, /raw_csv|csv_content|file_contents/);
+  assert.doesNotMatch(migration, /security definer/i);
+  assert.match(identifierFix, /resolved_tag_id/);
+  assert.doesNotMatch(identifierFix, /security definer/i);
+});

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Cloud, Inbox, LoaderCircle, Plus, Search, X } from "lucide-react";
+import { ArrowRight, Cloud, FileSpreadsheet, Inbox, LoaderCircle, Plus, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { EvidenceBulkToolbar, type EvidenceBulkFeedback } from "@/components/evidence/evidence-bulk-toolbar";
+import { EvidenceCsvImportDialog } from "@/components/evidence/evidence-csv-import-dialog";
 import { EvidenceDetailDrawer } from "@/components/evidence/evidence-detail-drawer";
 import { EvidenceSavedViews } from "@/components/evidence/evidence-saved-views";
 import { Badge, Button, Card, PageIntro } from "@/components/ui/primitives";
@@ -138,6 +139,7 @@ export function EvidencePage() {
   const [relationshipRetryVersion, setRelationshipRetryVersion] = useState(0);
   const [bulkPending, setBulkPending] = useState("");
   const [bulkNotice, setBulkNotice] = useState<EvidenceBulkFeedback | null>(null);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
   const searchRequestVersion = useRef(0);
 
   useEffect(() => {
@@ -475,7 +477,7 @@ export function EvidencePage() {
   return (
     <div className="page evidence-inbox-page">
       <PageIntro eyebrow="Evidence inbox" title="Review what you’ve collected." description="One traceable queue for conversations, research, social captures, files, and inspiration across your projects.">
-        {!projects.length ? <Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={16} />Create project</Button> : null}
+        {projects.length ? <><Button onClick={() => setCsvImportOpen(true)}><FileSpreadsheet size={16} />Import CSV</Button><Button variant="dark" onClick={() => openCaptureDialog("url")}><Plus size={16} />Capture evidence</Button></> : <Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={16} />Create project</Button>}
       </PageIntro>
 
       {workspaceError ? <div className="workspace-sync-notice workspace-sync-notice--error" role="alert"><div><strong>Cloud workspace needs attention</strong><span>{workspaceError}</span></div><div><Button size="sm" onClick={retryWorkspace}>Try again</Button><button type="button" aria-label="Dismiss error" onClick={clearWorkspaceError}>×</button></div></div> : null}
@@ -491,7 +493,7 @@ export function EvidencePage() {
       ) : evidenceStatus === "error" ? (
         <EmptyState icon={Cloud} title="Your evidence could not be searched." description={evidenceError || "The server-side evidence query did not complete."} actions={<Button variant="dark" onClick={() => setRetryVersion((current) => current + 1)}>Try again</Button>} />
       ) : statsStatus === "ready" && stats.total === 0 && projectFilter === "all" ? (
-        <EmptyState icon={Inbox} title="Your evidence inbox is empty." description="Capture a source, add research, save inspiration, or run a permitted Radar monitor. Each item will appear here with its original provenance." actions={<><Button variant="dark" onClick={() => openCaptureDialog("url")}><Plus size={15} />Capture evidence</Button><Link className="ui-button ui-button--secondary ui-button--md" href="/radar">Open Radar <ArrowRight size={14} /></Link></>} />
+        <EmptyState icon={Inbox} title="Your evidence inbox is empty." description="Capture a source, import a research spreadsheet, save inspiration, or run a permitted Radar monitor. Each item will appear here with its original provenance." actions={<><Button variant="dark" onClick={() => openCaptureDialog("url")}><Plus size={15} />Capture evidence</Button><Button onClick={() => setCsvImportOpen(true)}><FileSpreadsheet size={15} />Import CSV</Button><Link className="ui-button ui-button--secondary ui-button--md" href="/radar">Open Radar <ArrowRight size={14} /></Link></>} />
       ) : (
         <>
           <section className="evidence-inbox-summary" aria-label="Evidence inbox summary">
@@ -576,6 +578,7 @@ export function EvidencePage() {
       )}
 
       <EvidenceDetailDrawer evidence={selected} projectName={selected ? projectNames.get(selected.projectId) ?? "Project" : ""} associatedProjectNames={selected ? selected.associatedProjectIds.map((id) => projectNames.get(id)).filter((name): name is string => Boolean(name)) : []} assets={allAssets} relationships={relationships} relationshipStatus={relationshipStatus} relationshipError={relationshipError} onRetryRelationships={() => setRelationshipRetryVersion((current) => current + 1)} reviewPending={reviewPending} reviewError={reviewError} reviewSaved={reviewSaved} onReview={reviewEvidence} onClose={closeEvidence} />
+      {csvImportOpen ? <EvidenceCsvImportDialog projects={projects} initialProjectId={projectFilter === "all" ? undefined : projects.find((project) => projectEvidenceId(project) === projectFilter)?.id} onClose={() => setCsvImportOpen(false)} onImported={() => { retryWorkspace(); setRetryVersion((current) => current + 1); }} /> : null}
     </div>
   );
 }

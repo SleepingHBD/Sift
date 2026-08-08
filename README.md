@@ -13,9 +13,9 @@ It combines social-listening workflows, cultural research, inspiration, competit
 - Radar monitor creation with a simple guided query form and an advanced Boolean editor
 - Functional Radar collection through RSS/Atom feeds, manually supplied public URLs, and the official YouTube Data API
 - Cloud-backed Radar monitors, connector run history, normalized conversations, notes, saved and important markers, and evidence relationships with views for metrics, timelines, topics, spikes, source detail, and evidence
-- Cloud-backed Research and Inspiration libraries with project assignment, search, filtering, source links, relationship-aware protected deletion, and reviewed browser-data import
+- Cloud-backed Research and Inspiration libraries with project assignment, search, filtering, source links, relationship-aware protected deletion, CSV evidence import, and reviewed browser-data migration
 - Persistent evidence capture for project-scoped links, notes, social posts, screenshots, images, and PDFs, including secure URL metadata inspection, canonical duplicate warnings, private file previews, and manual-save fallback
-- Unified project evidence inbox across Radar mentions, Research, social captures, files, and Inspiration, with PostgreSQL full-text retrieval, stable cursor pagination, durable private saved views, filters, sorting, grouping, matched-term highlighting, review progress, durable single and bulk review states, shared tags, non-destructive project links, and a provenance-first detail drawer that shows downstream relationships
+- Unified project evidence inbox across Radar mentions, Research, social captures, files, CSV imports, and Inspiration, with PostgreSQL full-text retrieval, stable cursor pagination, durable private saved views, filters, sorting, grouping, matched-term highlighting, review progress, durable single and bulk review states, shared tags, non-destructive project links, and a provenance-first detail drawer that shows downstream relationships
 - Empty-state workspaces for brands, competitors, trends, briefs, and Strategy AI
 - GitHub authentication with a protected permanent-account workspace
 - Global search, responsive navigation, light and dark modes
@@ -53,6 +53,8 @@ Projects, Research, Inspiration, Radar monitors, connector-created conversations
 Research and Inspiration deletion first inspects tags, project links, saved markers, attachments, and strategic citations. Insight and brief citations protect a source from deletion until the citation is deliberately removed; non-strategic organization links are disclosed and removed atomically with the source. The original external webpage or social post is never affected.
 
 Screenshot, image, and PDF evidence is stored in the private `evidence-assets` Storage bucket. Uploads are limited to JPG, PNG, WebP, and PDF files of 20 MB or less. Storage paths are uploader- and project-scoped, access is checked through Row Level Security, and the Research library opens files with short-lived signed links rather than public URLs.
+
+CSV evidence import accepts a local file of up to 500 data rows or 5 MB, automatically suggests field mappings, previews validation and duplicates, and lets the strategist skip or deliberately retain matches. The raw CSV remains in the browser. Supabase receives only the mapped rows, imports accepted records into `research_items`, links shared tags, and stores a minimal RLS-protected run/row audit. A stable request UUID makes network retries idempotent.
 
 Social-post capture stores a strategist-selected link, platform, optional account, source text, selected comments, observed date, screenshot, and why-it-matters annotation in the same private Research workflow. These records are explicitly marked `strategist captured`; they are never presented as connector-collected conversations.
 
