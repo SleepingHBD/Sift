@@ -121,7 +121,7 @@ test("Phase 2 URL extraction is authenticated, RLS-scoped, rate-limited, and net
   const [handler, security, quota] = await Promise.all([
     read("supabase/functions/radar-connectors/index.ts"),
     read("supabase/functions/_shared/security.ts"),
-    read("supabase/migrations/20260808070000_phase_2_evidence_extraction_quota.sql"),
+    read("supabase/migrations/20260808092926_phase_2_evidence_extraction_quota.sql"),
   ]);
 
   assert.match(handler, /action === "extract-url"/);
