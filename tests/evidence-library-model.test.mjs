@@ -25,6 +25,8 @@ test("research rows retain project and client identity", () => {
     notes: null,
     collection_name: "Community",
     metadata: { tags: ["culture", "community"] },
+    review_status: "relevant",
+    reviewed_at: "2026-08-08T01:00:00.000Z",
     evidence_assets: [{
       id: "asset-1",
       project_id: "cloud-project",
@@ -48,6 +50,8 @@ test("research rows retain project and client identity", () => {
   assert.deepEqual(item.tags, ["culture", "community"]);
   assert.equal(item.assets?.[0].originalFilename, "signal.png");
   assert.equal(item.assets?.[0].projectId, "local-project");
+  assert.equal(item.reviewStatus, "relevant");
+  assert.equal(item.reviewedAt, "2026-08-08T01:00:00.000Z");
 });
 
 test("inspiration rows retain provenance and stable visual treatment", () => {
@@ -62,6 +66,8 @@ test("inspiration rows retain provenance and stable visual treatment", () => {
     notes: "A strong community mechanic.",
     auto_tags: ["community"],
     metadata: { source_label: "Personal notes", palette: "purple" },
+    review_status: "archived",
+    reviewed_at: "2026-08-08T01:30:00.000Z",
     created_at: "2026-08-08T00:00:00.000Z",
     updated_at: "2026-08-08T00:00:00.000Z",
   }, "local-project");
@@ -69,6 +75,8 @@ test("inspiration rows retain provenance and stable visual treatment", () => {
   assert.equal(item.source, "Personal notes");
   assert.equal(item.palette, "purple");
   assert.equal(item.projectId, "local-project");
+  assert.equal(item.reviewStatus, "archived");
+  assert.equal(item.reviewedAt, "2026-08-08T01:30:00.000Z");
 });
 
 test("library client references use distinct stable prefixes", () => {

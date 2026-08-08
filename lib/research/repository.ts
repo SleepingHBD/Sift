@@ -47,7 +47,7 @@ export interface ResearchSocialDraft {
   urlMetadata?: EvidenceUrlMetadata;
 }
 
-const researchSelect = "id,client_ref,project_id,title,url,author,publication,published_at,item_type,key_findings,notes,ai_summary,collection_name,metadata,created_at,updated_at";
+const researchSelect = "id,client_ref,project_id,title,url,author,publication,published_at,item_type,key_findings,notes,ai_summary,collection_name,metadata,review_status,reviewed_at,created_at,updated_at";
 const assetSelect = "id,project_id,research_item_id,bucket_id,storage_path,original_filename,mime_type,byte_size,asset_kind,processing_status,created_at";
 const researchSelectWithAssets = `${researchSelect},evidence_assets(${assetSelect})`;
 

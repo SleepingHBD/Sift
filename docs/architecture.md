@@ -48,6 +48,7 @@ GitHub Pages cannot protect an OpenAI or connector secret. Radar calls an authen
 | --- | --- |
 | `/` | What should I investigate or add next? |
 | `/radar` | What is moving in monitored conversations? |
+| `/evidence` | What has been collected, what needs review, and where did it come from? |
 | `/trends` | Which evidence-backed signals are emerging? |
 | `/brands` | What brand context should constrain the work? |
 | `/competitors` | What does each brand own and where is the gap? |
@@ -79,6 +80,10 @@ The authenticated shell exposes a persistent capture action. URL, note, screensh
 URL inspection runs through the authenticated `radar-connectors` Edge Function. The function verifies project access with the caller-scoped Supabase client, applies a separate service-only extraction quota, rejects private/local addresses and nonstandard ports, validates DNS results, follows a bounded number of manually checked redirects, and limits response type, size, and duration. Extracted titles, canonical URLs, author/publication details, dates, descriptions, and preview-image references are stored as provenance metadata; the original submitted URL remains unchanged. Project-scoped duplicate warnings compare original, final, and canonical URLs and can be overridden deliberately. If a source blocks extraction, the raw URL can still be saved with `extraction_status: skipped`.
 
 Strategist-captured social posts reuse the Research repository instead of pretending to be connector mentions. Their metadata stores the platform, optional account, selected caption and comments, observed date, and a visible `strategist` capture method. An optional screenshot follows the same private Storage, signed-link, rollback, and deletion path as other evidence assets.
+
+The Evidence Inbox is an application projection over those normalized references. It loads only records already authorized by project Row Level Security, combines them in memory without copying source content, and omits unassigned Personal Radar records from the project-level queue. Search covers preserved source text, strategist notes, authors, topics, tags, and provenance; the detail drawer keeps source evidence visibly separate from interpretation.
+
+Each source table now carries the same constrained `review_status` and optional `reviewed_at` fields. The browser updates only the selected source row and project ID, existing authenticated project RLS rechecks both the old and resulting row, and the UI changes state only after Supabase returns the saved value. Resetting to `unreviewed` clears the review timestamp. No generic evidence table, extra anonymous grant, or policy exception was introduced. Bulk review and server-side retrieval remain later Phase 3 increments.
 
 ## Processing pipeline
 

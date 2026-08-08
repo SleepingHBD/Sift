@@ -613,6 +613,8 @@ export type Database = {
           metadata: Json
           notes: string | null
           project_id: string
+          review_status: string
+          reviewed_at: string | null
           search_vector: unknown
           thumbnail_url: string | null
           title: string
@@ -631,6 +633,8 @@ export type Database = {
           metadata?: Json
           notes?: string | null
           project_id: string
+          review_status?: string
+          reviewed_at?: string | null
           search_vector?: unknown
           thumbnail_url?: string | null
           title: string
@@ -649,6 +653,8 @@ export type Database = {
           metadata?: Json
           notes?: string | null
           project_id?: string
+          review_status?: string
+          reviewed_at?: string | null
           search_vector?: unknown
           thumbnail_url?: string | null
           title?: string
@@ -804,6 +810,8 @@ export type Database = {
           platform: Database["public"]["Enums"]["source_kind"]
           project_id: string
           published_at: string | null
+          review_status: string
+          reviewed_at: string | null
           search_vector: unknown
           sentiment: Database["public"]["Enums"]["sentiment_kind"]
           sentiment_score: number | null
@@ -831,6 +839,8 @@ export type Database = {
           platform: Database["public"]["Enums"]["source_kind"]
           project_id: string
           published_at?: string | null
+          review_status?: string
+          reviewed_at?: string | null
           search_vector?: unknown
           sentiment?: Database["public"]["Enums"]["sentiment_kind"]
           sentiment_score?: number | null
@@ -858,6 +868,8 @@ export type Database = {
           platform?: Database["public"]["Enums"]["source_kind"]
           project_id?: string
           published_at?: string | null
+          review_status?: string
+          reviewed_at?: string | null
           search_vector?: unknown
           sentiment?: Database["public"]["Enums"]["sentiment_kind"]
           sentiment_score?: number | null
@@ -1228,6 +1240,8 @@ export type Database = {
           project_id: string
           publication: string | null
           published_at: string | null
+          review_status: string
+          reviewed_at: string | null
           search_vector: unknown
           title: string
           updated_at: string
@@ -1248,6 +1262,8 @@ export type Database = {
           project_id: string
           publication?: string | null
           published_at?: string | null
+          review_status?: string
+          reviewed_at?: string | null
           search_vector?: unknown
           title: string
           updated_at?: string
@@ -1268,6 +1284,8 @@ export type Database = {
           project_id?: string
           publication?: string | null
           published_at?: string | null
+          review_status?: string
+          reviewed_at?: string | null
           search_vector?: unknown
           title?: string
           updated_at?: string

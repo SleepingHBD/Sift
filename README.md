@@ -15,6 +15,7 @@ It combines social-listening workflows, cultural research, inspiration, competit
 - Cloud-backed Radar monitors, connector run history, normalized conversations, notes, saved and important markers, and evidence relationships with views for metrics, timelines, topics, spikes, source detail, and evidence
 - Cloud-backed Research and Inspiration libraries with project assignment, search, filtering, source links, deletion, and reviewed browser-data import
 - Persistent evidence capture for project-scoped links, notes, social posts, screenshots, images, and PDFs, including secure URL metadata inspection, canonical duplicate warnings, private file previews, and manual-save fallback
+- Unified project evidence inbox across Radar mentions, Research, social captures, files, and Inspiration, with source-text search, project/type views, provenance, matched-term highlighting, durable review states, and a shared detail drawer
 - Empty-state workspaces for brands, competitors, trends, briefs, and Strategy AI
 - GitHub authentication with a protected permanent-account workspace
 - Global search, responsive navigation, light and dark modes

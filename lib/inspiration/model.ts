@@ -16,6 +16,8 @@ export interface InspirationRow {
   metadata: unknown;
   created_at: string;
   updated_at: string;
+  review_status: "unreviewed" | "relevant" | "irrelevant" | "archived";
+  reviewed_at: string | null;
 }
 
 const palettes = ["blue", "acid", "coral", "purple", "green"];
@@ -57,6 +59,8 @@ export function inspirationFromRow(row: InspirationRow, projectClientRef: string
       : {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    reviewStatus: row.review_status,
+    reviewedAt: row.reviewed_at ?? undefined,
   };
 }
 

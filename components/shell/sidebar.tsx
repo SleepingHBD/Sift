@@ -7,6 +7,7 @@ import {
   FolderKanban,
   Home,
   Images,
+  Inbox,
   Library,
   PanelLeftClose,
   PanelLeftOpen,
@@ -23,6 +24,7 @@ import { cn } from "@/lib/utils";
 const primaryNav = [
   { label: "Home", href: "/", section: "home", icon: Home },
   { label: "Radar", href: "/radar", section: "radar", icon: Radio },
+  { label: "Evidence", href: "/evidence", section: "evidence", icon: Inbox },
   { label: "Trends", href: "/trends", section: "trends", icon: TrendingUp },
   { label: "Brands", href: "/brands", section: "brands", icon: Building2 },
   { label: "Competitors", href: "/competitors", section: "competitors", icon: Swords },

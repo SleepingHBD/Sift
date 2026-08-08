@@ -1,9 +1,9 @@
 import type { RadarMention } from "../radar/types.ts";
-import type { InspirationItem, ResearchItem, Sentiment } from "../types.ts";
+import type { EvidenceReviewStatus, InspirationItem, ResearchItem, Sentiment } from "../types.ts";
 
 export type EvidenceKind = "mention" | "research" | "inspiration";
 export type EvidenceCaptureMethod = "connector" | "url" | "manual" | "strategist" | "import" | "upload" | "unknown";
-export type EvidenceReviewStatus = "unreviewed" | "relevant" | "irrelevant" | "archived";
+export type { EvidenceReviewStatus } from "../types.ts";
 export type EvidenceProcessingStatus = "unprocessed" | "pending" | "processed" | "failed";
 
 export interface EvidenceAttachmentReference {
@@ -48,6 +48,7 @@ export interface EvidenceReferenceBase {
   language: string | null;
   processingStatus: EvidenceProcessingStatus;
   reviewStatus: EvidenceReviewStatus;
+  reviewedAt: string | null;
   attachments: EvidenceAttachmentReference[];
   provenance: EvidenceProvenance;
 }
@@ -115,8 +116,8 @@ function inferCaptureMethod(metadata: Record<string, unknown>, fallback: Evidenc
   return fallback;
 }
 
-function reviewStatus(metadata: Record<string, unknown>) {
-  return oneOf(metadata.review_status ?? metadata.reviewStatus, reviewStatuses) ?? "unreviewed";
+function reviewStatus(metadata: Record<string, unknown>, explicit?: EvidenceReviewStatus) {
+  return explicit ?? oneOf(metadata.review_status ?? metadata.reviewStatus, reviewStatuses) ?? "unreviewed";
 }
 
 function processingStatus(metadata: Record<string, unknown>, fallback: EvidenceProcessingStatus) {
@@ -222,7 +223,8 @@ export function radarMentionToEvidenceReference(
     topics: [...mention.topics],
     language: mention.language || null,
     processingStatus: processingStatus(metadata, "processed"),
-    reviewStatus: reviewStatus(metadata),
+    reviewStatus: reviewStatus(metadata, mention.reviewStatus),
+    reviewedAt: mention.reviewedAt ?? null,
     attachments: attachments(metadata),
     provenance: provenance(metadata, fallbackMethod, capturedAt, mention.externalId),
     monitorId: mention.monitorId,
@@ -258,7 +260,8 @@ export function researchItemToEvidenceReference(
     topics: [],
     language: text(metadata.language) ?? null,
     processingStatus: processingStatus(metadata, item.aiSummary ? "processed" : "unprocessed"),
-    reviewStatus: reviewStatus(metadata),
+    reviewStatus: reviewStatus(metadata, item.reviewStatus),
+    reviewedAt: item.reviewedAt ?? null,
     attachments: researchAttachments(item, metadata),
     provenance: provenance(metadata, originalUrl ? "url" : "manual", capturedAt, item.cloudId),
     itemType: item.type,
@@ -293,7 +296,8 @@ export function inspirationItemToEvidenceReference(
     topics: [],
     language: text(metadata.language) ?? null,
     processingStatus: processingStatus(metadata, originalContent ? "processed" : "unprocessed"),
-    reviewStatus: reviewStatus(metadata),
+    reviewStatus: reviewStatus(metadata, item.reviewStatus),
+    reviewedAt: item.reviewedAt ?? null,
     attachments: attachments(metadata),
     provenance: provenance(metadata, originalUrl ? "url" : "manual", capturedAt, item.cloudId),
     itemType: item.type,

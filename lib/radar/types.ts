@@ -1,4 +1,4 @@
-import type { Sentiment } from "@/lib/types";
+import type { EvidenceReviewStatus, Sentiment } from "@/lib/types";
 
 export type RadarSource =
   | "reddit"
@@ -74,6 +74,8 @@ export interface RadarMention {
   metadata: Record<string, unknown>;
   createdAt?: string;
   isImportant?: boolean;
+  reviewStatus?: EvidenceReviewStatus;
+  reviewedAt?: string;
 }
 
 export interface MonitorRun {

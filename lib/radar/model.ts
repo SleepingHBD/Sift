@@ -50,6 +50,8 @@ export interface MentionRow {
   keywords: string[];
   metadata: unknown;
   is_important: boolean;
+  review_status: "unreviewed" | "relevant" | "irrelevant" | "archived";
+  reviewed_at: string | null;
   created_at: string;
   sources?: { name?: string | null } | { name?: string | null }[] | null;
   mention_topics?: { topics?: { name?: string | null } | { name?: string | null }[] | null }[] | null;
@@ -178,6 +180,8 @@ export function radarMentionFromRow(row: MentionRow, monitor: MonitoringQuery): 
     metadata,
     createdAt: row.created_at,
     isImportant: row.is_important,
+    reviewStatus: row.review_status,
+    reviewedAt: row.reviewed_at ?? undefined,
   };
 }
 

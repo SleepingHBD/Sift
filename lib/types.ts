@@ -6,6 +6,7 @@ export type Lifecycle =
   | "Declining";
 
 export type Sentiment = "positive" | "neutral" | "negative";
+export type EvidenceReviewStatus = "unreviewed" | "relevant" | "irrelevant" | "archived";
 
 export interface Project {
   id: string;
@@ -75,6 +76,8 @@ export interface InspirationItem {
   metadata?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
+  reviewStatus?: EvidenceReviewStatus;
+  reviewedAt?: string;
 }
 
 export interface ResearchItem {
@@ -99,6 +102,8 @@ export interface ResearchItem {
   metadata?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
+  reviewStatus?: EvidenceReviewStatus;
+  reviewedAt?: string;
 }
 
 export interface EvidenceAsset {

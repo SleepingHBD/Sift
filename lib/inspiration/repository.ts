@@ -10,7 +10,7 @@ export interface InspirationDraft {
   note: string;
 }
 
-const inspirationSelect = "id,client_ref,project_id,title,item_type,url,thumbnail_url,brand_name,notes,extracted_text,auto_tags,metadata,created_at,updated_at";
+const inspirationSelect = "id,client_ref,project_id,title,item_type,url,thumbnail_url,brand_name,notes,extracted_text,auto_tags,metadata,review_status,reviewed_at,created_at,updated_at";
 
 function requireClient() {
   const client = createBrowserSupabaseClient();

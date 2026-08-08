@@ -148,3 +148,15 @@ test("Phase 2 file evidence is private, restricted, and project scoped", async (
   assert.match(migration, /project members upload evidence storage[\s\S]*\(storage\.foldername\(name\)\)\[1\] = \(select auth\.uid\(\)\)::text/);
   assert.doesNotMatch(migration, /for update[\s\S]*on storage\.objects/);
 });
+
+test("Phase 3 review state is constrained and additive across existing evidence sources", async () => {
+  const migration = await read("supabase/migrations/20260808112128_phase_3_evidence_review_status.sql");
+
+  assert.match(migration, /alter table public\.mentions[\s\S]*review_status text not null default 'unreviewed'/);
+  assert.match(migration, /alter table public\.research_items[\s\S]*review_status text not null default 'unreviewed'/);
+  assert.match(migration, /alter table public\.inspiration_items[\s\S]*review_status text not null default 'unreviewed'/);
+  assert.match(migration, /check \(review_status in \('unreviewed', 'relevant', 'irrelevant', 'archived'\)\)/);
+  assert.match(migration, /metadata ->> 'review_status'/);
+  assert.doesNotMatch(migration, /create table/);
+  assert.doesNotMatch(migration, /create policy|grant .*anon/i);
+});

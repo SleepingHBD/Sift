@@ -32,6 +32,8 @@ export interface ResearchRow {
   metadata: unknown;
   created_at: string;
   updated_at: string;
+  review_status: "unreviewed" | "relevant" | "irrelevant" | "archived";
+  reviewed_at: string | null;
   evidence_assets?: EvidenceAssetRow[] | null;
 }
 
@@ -81,6 +83,8 @@ export function researchFromRow(row: ResearchRow, projectClientRef: string): Res
       : {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    reviewStatus: row.review_status,
+    reviewedAt: row.reviewed_at ?? undefined,
   };
 }
 

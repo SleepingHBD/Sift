@@ -225,7 +225,7 @@ Make Supabase the durable source of truth and remove browser storage as the prim
 
 ## Phase 2 - Fast evidence capture
 
-Status: **Implementation complete; acceptance checkpoint pending.** The shared TypeScript `EvidenceReference` normalizes existing Radar, Research, and Inspiration records without introducing a duplicate evidence table. A persistent `Capture evidence` action saves links, notes, social posts, screenshots, images, and PDFs through the authenticated Research repository with explicit provenance and a rapid `Save & continue` flow. Authenticated metadata extraction, project-scoped canonical duplicate warnings, rate limits, network safeguards, private Storage with signed previews, coordinated file cleanup, and strategist-captured social context are implemented. One authenticated browser check of social capture and refresh persistence remains before Phase 2 is closed.
+Status: **Complete.** The shared TypeScript `EvidenceReference` normalizes existing Radar, Research, and Inspiration records without introducing a duplicate evidence table. A persistent `Capture evidence` action saves links, notes, social posts, screenshots, images, and PDFs through the authenticated Research repository with explicit provenance and a rapid `Save & continue` flow. Authenticated metadata extraction, project-scoped canonical duplicate warnings, rate limits, network safeguards, private Storage with signed previews, coordinated file cleanup, and strategist-captured social context are implemented. Authenticated browser acceptance confirmed manual fallback, cloud persistence, refresh hydration, source/context separation, and explicit strategist provenance.
 
 ### Goal
 
@@ -273,6 +273,8 @@ Make it effortless to save strategically useful material from sources that canno
 - Every saved item records how and when it entered Sift.
 
 ## Phase 3 - Evidence inbox, search, and organization
+
+Status: **In progress.** The unified project evidence inbox now combines authorized Radar mentions, Research, social captures, files, and Inspiration without duplicating source records. It includes project/type filters, all/needs-review/recent views, contextual cross-field search with matched-term highlighting, conservative provenance labels, partial Radar failure handling, and a common evidence detail drawer. Durable `unreviewed`, `relevant`, `irrelevant`, and `archived` states now persist on the original source tables through verified project-scoped Supabase updates, with review timestamps and explicit single-item controls. Bulk organization, durable saved views, server-side full-text search, cursor pagination, relationships, and imports remain in later increments.
 
 ### Goal
 
@@ -586,15 +588,13 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0 and 1 are complete. The next development cycle is Phase 2, beginning with the smallest complete fast-capture slice:
+Phases 0, 1, and 2 are complete. Phase 3 is proceeding in small, testable increments:
 
-1. Define the shared evidence reference and capture provenance contracts.
-2. Add a global `Capture evidence` action with a URL-first quick flow.
-3. Persist captured URLs and notes through the authenticated repository boundary.
-4. Add duplicate detection, extraction failure handling, and explicit project assignment. **Completed.**
-5. Apply the extraction quota migration, deploy the updated authenticated Edge Function, and verify refresh, privacy, provenance, and deletion. **Completed.**
-6. Add the private evidence-assets bucket, file metadata repository, signed previews, and coordinated deletion. **Completed and accepted.**
-7. Add strategist-captured social posts with platform inference, selected source text and comments, observed date, optional private screenshot, duplicate handling, and explicit non-connector provenance. **Implemented locally; authenticated browser acceptance remains.**
+1. Create a project evidence inbox over the shared evidence reference contract, with search, core filters, provenance, and a common detail drawer. **Completed.**
+2. Add persistent review states through an additive migration and explicit single-item review actions. **Implemented; authenticated browser acceptance remains.**
+3. Add bulk review and organization actions with safe partial-failure reporting.
+4. Move growing inbox queries to server-side full-text retrieval and cursor pagination.
+5. Add durable saved views, relationship visibility, protected deletion warnings, and CSV import history.
 
 ## Definition of a successful first strategist release
 

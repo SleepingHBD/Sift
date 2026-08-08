@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { AppView } from "@/components/app-view";
 
-const sections = ["radar", "trends", "brands", "competitors", "inspiration", "research", "strategy-ai", "briefs", "projects", "settings"];
+const sections = ["radar", "evidence", "trends", "brands", "competitors", "inspiration", "research", "strategy-ai", "briefs", "projects", "settings"];
 
 export function generateStaticParams() {
   return sections.map((section) => ({ section }));

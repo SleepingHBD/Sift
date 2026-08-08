@@ -87,6 +87,8 @@ test("Research evidence separates quoted source text from strategist notes", () 
     summary: "This matters because belonging is becoming a category driver.",
     keyFindings: "This matters because belonging is becoming a category driver.",
     collection: "Community",
+    reviewStatus: "irrelevant",
+    reviewedAt: "2026-08-08T02:30:00.000Z",
     createdAt: "2026-08-08T02:00:00.000Z",
     metadata: {
       capture_method: "strategist",
@@ -100,7 +102,8 @@ test("Research evidence separates quoted source text from strategist notes", () 
   assert.equal(evidence.projectClientRef, "project-local");
   assert.equal(evidence.originalContent, "Participants described the space as somewhere they could belong.");
   assert.equal(evidence.notes, "This matters because belonging is becoming a category driver.");
-  assert.equal(evidence.reviewStatus, "relevant");
+  assert.equal(evidence.reviewStatus, "irrelevant");
+  assert.equal(evidence.reviewedAt, "2026-08-08T02:30:00.000Z");
   assert.equal(evidence.provenance.captureMethod, "strategist");
   assert.equal(evidence.attachments[0].path, "project-cloud/research.pdf");
 });
