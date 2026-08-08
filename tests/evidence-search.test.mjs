@@ -58,6 +58,8 @@ test("server search records retain source identity, organization, and provenance
   assert.deepEqual(evidence.tags, ["community", "social infrastructure"]);
   assert.deepEqual(evidence.organizationTopics, ["Belonging rituals"]);
   assert.deepEqual(evidence.associatedProjectIds, ["project-1", "project-2"]);
+  assert.equal(evidence.initialInterpretation, "Connection matters.");
+  assert.equal(evidence.notes, "Watch the social ritual.");
   assert.equal(evidence.provenance.captureMethod, "strategist");
   assert.equal(evidence.reviewStatus, "relevant");
 });

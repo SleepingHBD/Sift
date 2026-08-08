@@ -10,7 +10,7 @@ Outcome: **Accepted.** Functional, security, deletion-integrity, scale, and buil
 
 ## Passed
 
-- `106/106` automated tests.
+- `107/107` automated tests.
 - TypeScript type checking, ESLint, and the production build.
 - Authenticated cross-kind search across Radar mentions, Research, and Inspiration.
 - Durable review state, strategist notes, and project-scoped strategist topics.
@@ -61,8 +61,24 @@ Post-remediation checks:
 
 ## Final verification
 
-- Automated tests: `106/106` passed.
+- Automated tests: `107/107` passed.
 - TypeScript: passed.
 - ESLint: passed.
 - Next.js production build: passed.
 - Live migration history and local migration version match at `20260808160014`.
+
+## Post-acceptance clarity correction
+
+A real-use review found that the Evidence detail drawer presented a research item's capture-time `key_findings` as though it were a later strategist note whenever `notes` was empty. The stored data was already separate, so no user records or database columns required migration.
+
+The interface now presents three explicit layers:
+
+1. **Source evidence** — preserved material from the source.
+2. **Initial interpretation** — the strategist's capture-time reason for saving it, stored in `research_items.key_findings`.
+3. **Working strategist notes** — later, editable analysis stored independently in `research_items.notes`.
+
+Search continues to include all three layers. Regression coverage verifies that later note edits do not replace the initial interpretation.
+
+The same real-use review also exposed a deletion-discoverability gap. Research and Inspiration sources can now open the existing guarded **Delete source** flow directly from their Evidence detail drawer. The dialog rechecks relationships, blocks sources cited by insights or briefs, and removes only permitted user-curated sources. Radar mentions remain unavailable for individual deletion from the project Evidence inbox.
+
+An authenticated local follow-up captured a disposable note, saved an initial interpretation and later working note, classified it, assigned a strategist topic, refreshed, searched both interpretation and notes, and deleted the source through the new drawer action. The inbox now refreshes automatically when Research or Inspiration is added or removed while Evidence is already open. The temporary source and its orphan test topic were removed and verified absent.

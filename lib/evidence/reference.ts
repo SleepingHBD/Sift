@@ -42,6 +42,7 @@ export interface EvidenceReferenceBase {
   excerpt: string | null;
   publishedAt: string | null;
   capturedAt: string;
+  initialInterpretation: string | null;
   notes: string | null;
   tags: string[];
   organizationTags: string[];
@@ -266,6 +267,7 @@ export function radarMentionToEvidenceReference(
     excerpt: excerpt(mention.content),
     publishedAt: mention.publishedAt,
     capturedAt,
+    initialInterpretation: null,
     notes: text(metadata.strategist_note) ?? null,
     tags: [...mention.keywords],
     organizationTopics: [],
@@ -304,7 +306,8 @@ export function researchItemToEvidenceReference(
     excerpt: excerpt(sourceText),
     publishedAt: item.publishedAt ?? null,
     capturedAt,
-    notes: item.notes ?? item.keyFindings ?? item.summary ?? null,
+    initialInterpretation: item.keyFindings ?? null,
+    notes: item.notes ?? null,
     tags: [...item.tags],
     organizationTopics: [],
     topics: [],
@@ -341,6 +344,7 @@ export function inspirationItemToEvidenceReference(
     excerpt: excerpt(originalContent),
     publishedAt: text(metadata.published_at ?? metadata.publishedAt) ?? null,
     capturedAt,
+    initialInterpretation: text(metadata.initial_interpretation ?? metadata.initialInterpretation) ?? null,
     notes: item.note || null,
     tags: [...item.tags],
     organizationTopics: [],
@@ -396,6 +400,9 @@ export function evidenceSearchRecordToReference(record: EvidenceSearchRecord): E
     excerpt: excerpt(record.original_content),
     publishedAt: record.published_at,
     capturedAt: record.captured_at,
+    initialInterpretation: record.kind === "research"
+      ? record.key_findings
+      : text(metadata.initial_interpretation ?? metadata.initialInterpretation) ?? null,
     notes: record.notes,
     tags: uniqueText([...record.source_tags, ...organizationTags]),
     organizationTags,

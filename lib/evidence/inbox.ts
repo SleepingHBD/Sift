@@ -121,6 +121,7 @@ export function filterEvidenceInbox(items: EvidenceReference[], filters: Evidenc
       item.sourceLabel,
       item.originalContent,
       item.excerpt,
+      item.initialInterpretation,
       item.notes,
       item.language,
       item.provenance.captureMethod,

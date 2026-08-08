@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  canDeleteEvidenceFromLibrary,
   relationshipTypeLabel,
   summarizeEvidenceRelationships,
 } from "../lib/evidence/relationship-model.ts";
@@ -34,4 +35,10 @@ test("relationship labels explain their strategic role", () => {
   assert.equal(relationshipTypeLabel("brief"), "Creative brief");
   assert.equal(relationshipTypeLabel("asset"), "Private attachment");
   assert.equal(relationshipTypeLabel("saved"), "Saved connection");
+});
+
+test("library deletion is available only for user-curated evidence sources", () => {
+  assert.equal(canDeleteEvidenceFromLibrary("research"), true);
+  assert.equal(canDeleteEvidenceFromLibrary("inspiration"), true);
+  assert.equal(canDeleteEvidenceFromLibrary("mention"), false);
 });

@@ -1,12 +1,12 @@
 "use client";
 
-import { Archive, Check, CircleX, ExternalLink, FileText, Link2, LoaderCircle, Network, RotateCcw, Save, Shapes, ShieldAlert, X } from "lucide-react";
+import { Archive, Check, CircleX, ExternalLink, FileText, Link2, LoaderCircle, Network, RotateCcw, Save, Shapes, ShieldAlert, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PrivateEvidenceAsset } from "@/components/evidence/private-evidence-asset";
 import { Badge } from "@/components/ui/primitives";
 import { captureMethodLabel, evidenceKindLabel, evidenceReviewLabel } from "@/lib/evidence/inbox";
 import type { EvidenceReference } from "@/lib/evidence/reference";
-import { relationshipTypeLabel, type EvidenceRelationshipSummary } from "@/lib/evidence/relationships";
+import { canDeleteEvidenceFromLibrary, relationshipTypeLabel, type EvidenceRelationshipSummary } from "@/lib/evidence/relationships";
 import type { EvidenceAsset, EvidenceReviewStatus } from "@/lib/types";
 import { formatNumber } from "@/lib/utils";
 
@@ -42,6 +42,7 @@ export function EvidenceDetailDrawer({
   topicPending,
   topicError,
   onTopics,
+  onDelete,
   onClose,
 }: {
   evidence: EvidenceReference | null;
@@ -63,6 +64,7 @@ export function EvidenceDetailDrawer({
   topicPending: boolean;
   topicError: string;
   onTopics: (mode: "add" | "remove", topics: string) => Promise<boolean>;
+  onDelete: () => void;
   onClose: () => void;
 }) {
   const [noteDraft, setNoteDraft] = useState(evidence?.notes ?? "");
@@ -125,9 +127,18 @@ export function EvidenceDetailDrawer({
           {evidence.kind === "mention" ? <div className="inbox-detail-drawer__signal"><span>{evidence.sentiment} sentiment</span><strong>{formatNumber(evidence.engagement)} estimated engagement</strong></div> : null}
         </section>
 
+        {evidence.kind === "research" || evidence.initialInterpretation ? (
+          <section className="inbox-detail-drawer__section" aria-labelledby="initial-interpretation-heading">
+            <div className="inbox-detail-drawer__editor-heading"><div><p className="drawer-section-label" id="initial-interpretation-heading">Initial interpretation</p><span>Why this source may matter, recorded when it entered Sift.</span></div></div>
+            <div className="inbox-detail-drawer__interpretation">
+              {evidence.initialInterpretation ? <p>{evidence.initialInterpretation}</p> : <p className="inbox-detail-drawer__muted">No initial interpretation was recorded for this source.</p>}
+            </div>
+          </section>
+        ) : null}
+
         <section className="inbox-detail-drawer__section inbox-detail-drawer__context inbox-detail-drawer__editor" aria-labelledby="strategist-note-heading">
-          <div className="inbox-detail-drawer__editor-heading"><div><p className="drawer-section-label" id="strategist-note-heading">Strategist notes</p><span>Your interpretation stays separate from the preserved source text.</span></div>{noteSaved ? <Badge>Saved to cloud</Badge> : null}</div>
-          <textarea value={noteDraft} maxLength={10_000} disabled={notePending} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Record why this matters, a tension to investigate, or a question to revisit." />
+          <div className="inbox-detail-drawer__editor-heading"><div><p className="drawer-section-label" id="strategist-note-heading">Working strategist notes</p><span>Evolving analysis added during review; separate from the capture-time interpretation.</span></div>{noteSaved ? <Badge>Saved to cloud</Badge> : null}</div>
+          <textarea value={noteDraft} maxLength={10_000} disabled={notePending} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Add a later thought, question, tension, connection, or follow-up here." />
           <div className="inbox-detail-drawer__editor-actions"><small>{noteDraft.length.toLocaleString()} / 10,000</small><button type="button" disabled={notePending || noteDraft.trim() === (evidence.notes ?? "")} onClick={() => void onSaveNote(noteDraft)}>{notePending ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}Save note</button></div>
           {noteError ? <p className="form-error" role="alert">{noteError}</p> : null}
         </section>
@@ -161,6 +172,13 @@ export function EvidenceDetailDrawer({
           {relationshipStatus === "ready" && relationships.items.length ? <ul>{relationships.items.map((relationship) => <li key={`${relationship.type}-${relationship.id}`}><span className="inbox-detail-drawer__relationship-icon"><Link2 size={14} /></span><span><strong>{relationship.label}</strong><small>{relationshipTypeLabel(relationship.type)}</small></span>{relationship.blocking ? <Badge>Strategic citation</Badge> : null}</li>)}</ul> : null}
           {relationshipStatus === "ready" && relationships.blockingCount ? <p className="inbox-detail-drawer__relationship-protection"><ShieldAlert size={14} />This source is protected from deletion while these strategic citations remain.</p> : null}
         </section>
+
+        {canDeleteEvidenceFromLibrary(evidence.kind) ? (
+          <section className="inbox-detail-drawer__section inbox-detail-drawer__source-management" aria-labelledby="source-management-heading">
+            <div><p className="drawer-section-label" id="source-management-heading">Source management</p><span>Delete this source from Sift after checking its citations and other connections.</span></div>
+            <button type="button" onClick={onDelete}><Trash2 size={14} />Delete source</button>
+          </section>
+        ) : null}
 
         <section className="inbox-detail-drawer__section">
           <p className="drawer-section-label">Provenance</p>

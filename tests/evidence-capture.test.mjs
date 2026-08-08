@@ -34,7 +34,7 @@ test("quick URL capture needs only a project and valid source", () => {
   assert.equal(result.ok, true);
 });
 
-test("manual notes preserve original text separately from why it matters", () => {
+test("manual notes preserve original text separately from the initial interpretation", () => {
   const result = prepareQuickCapture({
     mode: "note",
     projectId: "project-1",

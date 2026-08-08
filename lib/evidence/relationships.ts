@@ -2,6 +2,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
 import type { EvidenceKind } from "@/lib/evidence/reference";
 import {
+  canDeleteEvidenceFromLibrary,
   relationshipTypeLabel,
   summarizeEvidenceRelationships,
   type EvidenceIdentity,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/evidence/relationship-model";
 
 export {
+  canDeleteEvidenceFromLibrary,
   relationshipTypeLabel,
   summarizeEvidenceRelationships,
   type EvidenceIdentity,
@@ -60,7 +62,7 @@ export async function listEvidenceRelationships(identity: EvidenceIdentity): Pro
 
 export async function deleteEvidenceItem(identity: EvidenceIdentity) {
   requireIdentity(identity);
-  if (identity.kind === "mention") throw new Error("Radar mentions cannot be deleted individually from the evidence library.");
+  if (!canDeleteEvidenceFromLibrary(identity.kind)) throw new Error("Radar mentions cannot be deleted individually from the evidence library.");
   const { data, error } = await requireClient().rpc("delete_evidence_item", {
     p_kind: identity.kind,
     p_item_id: identity.itemId,

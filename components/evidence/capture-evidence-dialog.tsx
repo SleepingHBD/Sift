@@ -509,7 +509,7 @@ export function CaptureEvidenceDialog() {
             )}
 
             <button className="capture-details-toggle" type="button" aria-expanded={detailsOpen} onClick={() => setDetailsOpen((current) => !current)}>
-              <span><strong>{mode === "social" ? "Add post details & context" : "Add context"}</strong><small>{mode === "social" ? "Optional account, text, comments, screenshot, and strategic value" : "Optional title and why it matters"}</small></span>
+              <span><strong>{mode === "social" ? "Add post details & context" : "Add context"}</strong><small>{mode === "social" ? "Optional source details and an initial interpretation" : "Optional title and initial interpretation"}</small></span>
               {detailsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
@@ -519,7 +519,7 @@ export function CaptureEvidenceDialog() {
                   <>
                     <div className="capture-section-guide">
                       <strong>Source evidence</strong>
-                      <span>Record what the post and its audience actually said. Keep your interpretation for “Why it matters.”</span>
+                      <span>Record what the post and its audience actually said. Keep your own reading in “Initial interpretation.”</span>
                     </div>
                     <div className="capture-social-meta">
                       <label><span>Account / author</span><input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="@account or author name" /><small className="capture-field-hint">The public username or creator responsible for the post.</small></label>
@@ -545,7 +545,7 @@ export function CaptureEvidenceDialog() {
                   </>
                 ) : null}
                 <label><span>Title</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={mode === "url" ? "Uses the website name if left empty" : mode === "social" ? "e.g. TikTok post about running clubs as social spaces" : mode === "note" ? "Uses the first line if left empty" : "Uses the filename if left empty"} />{mode === "social" ? <small className="capture-field-hint">A short, searchable description. Leave blank to use the platform and account.</small> : null}</label>
-                <label><span>Why it matters</span><textarea rows={3} value={whyItMatters} onChange={(event) => setWhyItMatters(event.target.value)} placeholder={mode === "social" ? "What behaviour, tension, shift, or question does this evidence suggest?" : "The strategic value, tension, or question this raises"} />{mode === "social" ? <small className="capture-field-hint">Your interpretation—not part of the original post. Sift keeps it separate from source evidence.</small> : null}</label>
+                <label><span>Initial interpretation</span><textarea rows={3} value={whyItMatters} onChange={(event) => setWhyItMatters(event.target.value)} placeholder="Why might this matter? Note a behaviour, tension, shift, or question to investigate." /><small className="capture-field-hint">Your capture-time reading. Sift preserves it separately from both source evidence and later working notes.</small></label>
               </div>
             ) : null}
 

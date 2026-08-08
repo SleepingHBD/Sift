@@ -55,6 +55,8 @@ const research = {
   date: "08 Aug 2026",
   tags: ["belonging"],
   summary: "The ritual matters because it offers low-pressure connection.",
+  keyFindings: "The ritual matters because it offers low-pressure connection.",
+  notes: "Compare this behaviour with the weekend interviews.",
   collection: "Unsorted",
   createdAt: "2026-08-08T02:00:00.000Z",
   metadata: { source_text: "Participants meet after class to eat together.", review_status: "relevant" },
@@ -106,7 +108,7 @@ test("the inbox deduplicates the same source identity", () => {
   assert.equal(dataset.items.length, 2);
 });
 
-test("search and filters work across source text, notes, tags, kind, and project", () => {
+test("search and filters work across source text, interpretations, notes, tags, kind, and project", () => {
   const { items } = buildEvidenceInbox({
     projects: [project],
     radarRecords: [{ mention: mention(), projectClientRef: "project-local" }],
@@ -116,6 +118,12 @@ test("search and filters work across source text, notes, tags, kind, and project
 
   const bySourceText = filterEvidenceInbox(items, { query: "after class", projectId: "all", kind: "all", view: "all" });
   assert.deepEqual(bySourceText.map((item) => item.id), ["research-cloud"]);
+
+  const byInterpretation = filterEvidenceInbox(items, { query: "low-pressure connection", projectId: "all", kind: "research", view: "all" });
+  assert.deepEqual(byInterpretation.map((item) => item.id), ["research-cloud"]);
+
+  const byWorkingNote = filterEvidenceInbox(items, { query: "weekend interviews", projectId: "all", kind: "research", view: "all" });
+  assert.deepEqual(byWorkingNote.map((item) => item.id), ["research-cloud"]);
 
   const byNote = filterEvidenceInbox(items, { query: "spatial expression", projectId: "all", kind: "inspiration", view: "all" });
   assert.deepEqual(byNote.map((item) => item.id), ["inspiration-cloud"]);

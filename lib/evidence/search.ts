@@ -192,8 +192,21 @@ export async function searchEvidencePage(request: EvidenceSearchRequest = {}): P
   const rows = (data ?? []) as RpcEvidenceRow[];
   const hasMore = rows.length > pageSize;
   const visible = rows.slice(0, pageSize);
+  let records = visible.map((row) => evidenceRecord(row.evidence));
+  const researchIds = records.flatMap((record) => record.kind === "research" ? [record.item_id] : []);
+  if (researchIds.length) {
+    const { data: workingNotes, error: workingNotesError } = await client
+      .from("research_items")
+      .select("id,notes")
+      .in("id", researchIds);
+    if (workingNotesError) throw new Error(`Working strategist notes could not be loaded: ${workingNotesError.message}`);
+    const workingNotesById = new Map((workingNotes ?? []).map((row) => [row.id, row.notes]));
+    records = records.map((record) => record.kind === "research"
+      ? { ...record, notes: workingNotesById.get(record.item_id) ?? null }
+      : record);
+  }
   return {
-    items: visible.map((row) => evidenceSearchRecordToReference(evidenceRecord(row.evidence))),
+    items: records.map((record) => evidenceSearchRecordToReference(record)),
     hasMore,
     nextCursor: hasMore && visible.length ? encodeEvidenceCursor(visible[visible.length - 1].cursor_value) : null,
   };

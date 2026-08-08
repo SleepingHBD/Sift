@@ -37,6 +37,7 @@ test("Radar evidence keeps original conversation content and connector provenanc
   assert.equal(evidence.id, "mention-cloud");
   assert.equal(evidence.projectId, "project-cloud");
   assert.equal(evidence.originalContent, "A useful observed conversation about community.");
+  assert.equal(evidence.initialInterpretation, null);
   assert.equal(evidence.notes, null);
   assert.equal(evidence.provenance.captureMethod, "connector");
   assert.equal(evidence.provenance.connectorRunId, "run-1");
@@ -72,7 +73,7 @@ test("manual Radar sources are labelled URL captures rather than connectors", ()
   assert.equal(evidence.provenance.captureMethod, "url");
 });
 
-test("Research evidence separates quoted source text from strategist notes", () => {
+test("Research evidence separates source text, initial interpretation, and working notes", () => {
   const evidence = researchItemToEvidenceReference({
     id: "research-local",
     cloudId: "research-cloud",
@@ -86,6 +87,7 @@ test("Research evidence separates quoted source text from strategist notes", () 
     tags: ["community"],
     summary: "This matters because belonging is becoming a category driver.",
     keyFindings: "This matters because belonging is becoming a category driver.",
+    notes: "Compare this with the interview material during synthesis.",
     collection: "Community",
     reviewStatus: "irrelevant",
     reviewedAt: "2026-08-08T02:30:00.000Z",
@@ -101,7 +103,8 @@ test("Research evidence separates quoted source text from strategist notes", () 
   assert.equal(evidence.projectId, "project-cloud");
   assert.equal(evidence.projectClientRef, "project-local");
   assert.equal(evidence.originalContent, "Participants described the space as somewhere they could belong.");
-  assert.equal(evidence.notes, "This matters because belonging is becoming a category driver.");
+  assert.equal(evidence.initialInterpretation, "This matters because belonging is becoming a category driver.");
+  assert.equal(evidence.notes, "Compare this with the interview material during synthesis.");
   assert.equal(evidence.reviewStatus, "irrelevant");
   assert.equal(evidence.reviewedAt, "2026-08-08T02:30:00.000Z");
   assert.equal(evidence.provenance.captureMethod, "strategist");
@@ -149,6 +152,8 @@ test("strategist-captured social evidence stays distinct from connector collecti
 
   assert.equal(evidence.provenance.captureMethod, "strategist");
   assert.equal(evidence.originalContent, "Selected post caption.");
+  assert.equal(evidence.initialInterpretation, "The comments reveal a stronger community motivation.");
+  assert.equal(evidence.notes, null);
   assert.equal(evidence.author, "@account");
   assert.equal(evidence.sourceLabel, "Instagram");
   assert.equal(evidence.attachments[0].path, "user/project/research/screenshot.png");
@@ -175,6 +180,7 @@ test("Inspiration evidence preserves imported origin and extracted material", ()
   }, { cloudProjectId: "project-cloud" });
 
   assert.equal(evidence.originalContent, "A campaign invited neighbours to build the work together.");
+  assert.equal(evidence.initialInterpretation, null);
   assert.equal(evidence.notes, "Worth revisiting for participation design.");
   assert.equal(evidence.provenance.captureMethod, "import");
   assert.equal(evidence.processingStatus, "processed");

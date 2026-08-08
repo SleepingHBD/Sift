@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { EvidenceBulkToolbar, type EvidenceBulkFeedback } from "@/components/evidence/evidence-bulk-toolbar";
 import { EvidenceCsvImportDialog } from "@/components/evidence/evidence-csv-import-dialog";
+import { EvidenceDeleteDialog } from "@/components/evidence/evidence-delete-dialog";
 import { EvidenceDetailDrawer } from "@/components/evidence/evidence-detail-drawer";
 import { EvidenceSavedViews } from "@/components/evidence/evidence-saved-views";
 import { Badge, Button, Card, PageIntro } from "@/components/ui/primitives";
@@ -100,7 +101,10 @@ function applyReviewUpdates(
 export function EvidencePage() {
   const {
     projects,
+    inspirationItems,
     researchItems,
+    deleteInspiration,
+    deleteResearch,
     workspaceStatus,
     workspaceError,
     retryWorkspace,
@@ -132,6 +136,7 @@ export function EvidencePage() {
   const [savedViewPending, setSavedViewPending] = useState("");
   const [savedViewNotice, setSavedViewNotice] = useState<{ tone: "success" | "error"; message: string } | null>(null);
   const [selectedKey, setSelectedKey] = useState("");
+  const [deleteCandidate, setDeleteCandidate] = useState<EvidenceReference | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [reviewPending, setReviewPending] = useState<EvidenceReviewStatus | null>(null);
   const [reviewError, setReviewError] = useState("");
@@ -190,7 +195,7 @@ export function EvidencePage() {
       });
     }, 0);
     return () => { active = false; window.clearTimeout(loadTimer); };
-  }, [kindFilter, projectFilter, projects.length, retryVersion, searchTerm, sort, view, workspaceStatus]);
+  }, [inspirationItems.length, kindFilter, projectFilter, projects.length, researchItems.length, retryVersion, searchTerm, sort, view, workspaceStatus]);
 
   useEffect(() => {
     if (workspaceStatus !== "ready" || !projects.length) return;
@@ -208,7 +213,7 @@ export function EvidencePage() {
       });
     }, 0);
     return () => { active = false; window.clearTimeout(loadTimer); };
-  }, [projectFilter, projects.length, retryVersion, workspaceStatus]);
+  }, [inspirationItems.length, projectFilter, projects.length, researchItems.length, retryVersion, workspaceStatus]);
 
   useEffect(() => {
     if (workspaceStatus !== "ready" || !projects.length) return;
@@ -544,6 +549,31 @@ export function EvidencePage() {
     setTopicError("");
   }
 
+  async function deleteEvidenceCandidate() {
+    if (!deleteCandidate?.cloudId) throw new Error("This source does not have a complete cloud identity.");
+    const key = evidenceKey(deleteCandidate);
+    if (deleteCandidate.kind === "research") {
+      const source = researchItems.find((item) => item.cloudId === deleteCandidate.cloudId);
+      if (!source) throw new Error("The original Research record could not be found.");
+      await deleteResearch(source.id);
+    } else if (deleteCandidate.kind === "inspiration") {
+      const source = inspirationItems.find((item) => item.cloudId === deleteCandidate.cloudId);
+      if (!source) throw new Error("The original Inspiration record could not be found.");
+      await deleteInspiration(source.id);
+    } else {
+      throw new Error("Radar mentions cannot be deleted individually from the Evidence inbox.");
+    }
+
+    setItems((current) => current.filter((item) => evidenceKey(item) !== key));
+    setSelectedKeys((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+    closeEvidence();
+    setRetryVersion((current) => current + 1);
+  }
+
   return (
     <div className="page evidence-inbox-page">
       <PageIntro eyebrow="Evidence inbox" title="Review what you’ve collected." description="One traceable queue for conversations, research, social captures, files, and inspiration across your projects.">
@@ -599,7 +629,7 @@ export function EvidencePage() {
           />
 
           <div className="evidence-inbox-toolbar">
-            <label className="evidence-inbox-search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search source text, notes, authors, topics, and tags" /></label>
+            <label className="evidence-inbox-search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search evidence, interpretations, notes, authors, topics, and tags" /></label>
             <select aria-label="Filter evidence by project" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}><option value="all">All projects</option>{projects.map((project) => <option key={project.id} value={projectEvidenceId(project)}>{project.name}</option>)}</select>
             <select aria-label="Filter evidence by type" value={kindFilter} onChange={(event) => setKindFilter(event.target.value as EvidenceInboxKindFilter)}><option value="all">All evidence types</option><option value="mention">Radar mentions</option><option value="research">Research & captures</option><option value="inspiration">Inspiration</option></select>
             <select aria-label="Sort evidence" value={sort} onChange={(event) => setSort(event.target.value as EvidenceInboxSort)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="recently-reviewed">Recently reviewed</option><option value="source">Source A–Z</option><option value="project">Source project A–Z</option></select>
@@ -647,7 +677,8 @@ export function EvidencePage() {
         </>
       )}
 
-      <EvidenceDetailDrawer key={selected ? evidenceKey(selected) : "empty-evidence"} evidence={selected} projectName={selected ? projectNames.get(selected.projectId) ?? "Project" : ""} associatedProjectNames={selected ? selected.associatedProjectIds.map((id) => projectNames.get(id)).filter((name): name is string => Boolean(name)) : []} assets={allAssets} relationships={relationships} relationshipStatus={relationshipStatus} relationshipError={relationshipError} onRetryRelationships={() => setRelationshipRetryVersion((current) => current + 1)} reviewPending={reviewPending} reviewError={reviewError} reviewSaved={reviewSaved} onReview={reviewEvidence} notePending={notePending} noteError={noteError} noteSaved={noteSaved} onSaveNote={saveEvidenceNote} topicPending={topicPending} topicError={topicError} onTopics={updateSelectedTopics} onClose={closeEvidence} />
+      <EvidenceDetailDrawer key={selected ? evidenceKey(selected) : "empty-evidence"} evidence={selected} projectName={selected ? projectNames.get(selected.projectId) ?? "Project" : ""} associatedProjectNames={selected ? selected.associatedProjectIds.map((id) => projectNames.get(id)).filter((name): name is string => Boolean(name)) : []} assets={allAssets} relationships={relationships} relationshipStatus={relationshipStatus} relationshipError={relationshipError} onRetryRelationships={() => setRelationshipRetryVersion((current) => current + 1)} reviewPending={reviewPending} reviewError={reviewError} reviewSaved={reviewSaved} onReview={reviewEvidence} notePending={notePending} noteError={noteError} noteSaved={noteSaved} onSaveNote={saveEvidenceNote} topicPending={topicPending} topicError={topicError} onTopics={updateSelectedTopics} onDelete={() => { if (selected) setDeleteCandidate(selected); }} onClose={closeEvidence} />
+      {deleteCandidate?.cloudId && deleteCandidate.kind !== "mention" ? <EvidenceDeleteDialog identity={{ kind: deleteCandidate.kind, itemId: deleteCandidate.cloudId, projectId: deleteCandidate.projectId }} title={deleteCandidate.title} libraryLabel={deleteCandidate.kind} onClose={() => setDeleteCandidate(null)} onConfirm={deleteEvidenceCandidate} /> : null}
       {csvImportOpen ? <EvidenceCsvImportDialog projects={projects} initialProjectId={projectFilter === "all" ? undefined : projects.find((project) => projectEvidenceId(project) === projectFilter)?.id} onClose={() => setCsvImportOpen(false)} onImported={() => { retryWorkspace(); setRetryVersion((current) => current + 1); }} /> : null}
     </div>
   );

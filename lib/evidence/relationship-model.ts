@@ -24,6 +24,10 @@ export interface EvidenceRelationshipSummary {
   removableCount: number;
 }
 
+export function canDeleteEvidenceFromLibrary(kind: EvidenceKind) {
+  return kind === "research" || kind === "inspiration";
+}
+
 export function summarizeEvidenceRelationships(items: EvidenceRelationship[]): EvidenceRelationshipSummary {
   const sorted = [...items].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.type.localeCompare(b.type) || a.label.localeCompare(b.label));
   return {
