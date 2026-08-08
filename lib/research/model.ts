@@ -7,10 +7,13 @@ export interface ResearchRow {
   project_id: string;
   title: string;
   url: string | null;
+  author: string | null;
   publication: string | null;
+  published_at: string | null;
   item_type: string;
   key_findings: string | null;
   notes: string | null;
+  ai_summary: string | null;
   collection_name: string | null;
   metadata: unknown;
   created_at: string;
@@ -40,6 +43,14 @@ export function researchFromRow(row: ResearchRow, projectClientRef: string): Res
     tags: stringArrayFromMetadata(row.metadata, "tags"),
     summary: row.key_findings ?? row.notes ?? "",
     collection: row.collection_name ?? "Unsorted",
+    author: row.author ?? undefined,
+    publishedAt: row.published_at ?? undefined,
+    notes: row.notes ?? undefined,
+    keyFindings: row.key_findings ?? undefined,
+    aiSummary: row.ai_summary ?? undefined,
+    metadata: row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? row.metadata as Record<string, unknown>
+      : {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

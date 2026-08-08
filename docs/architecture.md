@@ -66,6 +66,18 @@ Connector states are `live`, `not-connected`, or `coming-later`. A source is nev
 
 The current secure runtime implements RSS/Atom feeds, user-supplied public pages, and YouTube's official Data API. Source URLs and monitor definitions originate in the client; credentials and network retrieval remain server-side.
 
+## Evidence reference contract
+
+Radar mentions, Research items, and Inspiration items remain in their purpose-built tables. Sift normalizes them at the application boundary through the discriminated `EvidenceReference` union in `lib/evidence/reference.ts`; it does not duplicate source records in a generic evidence table.
+
+Every normalized reference carries a stable record and project identity, evidence kind, original source and content where available, separate strategist notes, capture and publication times, tags/topics, processing and review state, attachment references, and inspectable provenance metadata. Kind-specific fields such as Radar engagement or a Research collection remain available without weakening the common citation contract.
+
+Existing records infer capture provenance conservatively from stored metadata and source type. Missing original text, run IDs, hashes, or attachments remain absent instead of being fabricated. Phase 2 capture writes will populate these fields; the later evidence-inbox phase can add dedicated review columns if actual query paths require them.
+
+The authenticated shell exposes a persistent URL-first capture action. URL and note captures write through the existing project-scoped Research repository, record `global_capture` plus an explicit capture method in metadata, and keep original note text separate from the strategist's optional “why it matters” annotation. This avoids a browser-only capture queue and keeps Row Level Security as the ownership boundary.
+
+URL inspection runs through the authenticated `radar-connectors` Edge Function. The function verifies project access with the caller-scoped Supabase client, applies a separate service-only extraction quota, rejects private/local addresses and nonstandard ports, validates DNS results, follows a bounded number of manually checked redirects, and limits response type, size, and duration. Extracted titles, canonical URLs, author/publication details, dates, descriptions, and preview-image references are stored as provenance metadata; the original submitted URL remains unchanged. Project-scoped duplicate warnings compare original, final, and canonical URLs and can be overridden deliberately. If a source blocks extraction, the raw URL can still be saved with `extraction_status: skipped`.
+
 ## Processing pipeline
 
 ```text

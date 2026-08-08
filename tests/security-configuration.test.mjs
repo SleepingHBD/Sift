@@ -116,3 +116,22 @@ test("Phase 1 covers the remaining relationship foreign keys", async () => {
   assert.match(migration, /project_members_user_id_idx/);
   assert.match(migration, /trend_mentions_mention_id_idx/);
 });
+
+test("Phase 2 URL extraction is authenticated, RLS-scoped, rate-limited, and network constrained", async () => {
+  const [handler, security, quota] = await Promise.all([
+    read("supabase/functions/radar-connectors/index.ts"),
+    read("supabase/functions/_shared/security.ts"),
+    read("supabase/migrations/20260808070000_phase_2_evidence_extraction_quota.sql"),
+  ]);
+
+  assert.match(handler, /action === "extract-url"/);
+  assert.match(handler, /context\.supabase\.from\("projects"\)/);
+  assert.match(handler, /consumeEvidenceExtractionQuota/);
+  assert.match(security, /resolveDns/);
+  assert.match(security, /redirect: "manual"/);
+  assert.match(security, /Private or local network URLs are not allowed/);
+  assert.match(quota, /minute_limit constant integer := 15/);
+  assert.match(quota, /day_limit constant integer := 300/);
+  assert.match(quota, /grant execute[\s\S]*to service_role/);
+  assert.doesNotMatch(quota, /grant execute[^;]+to authenticated/);
+});

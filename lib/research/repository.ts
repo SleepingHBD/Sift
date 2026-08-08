@@ -1,4 +1,6 @@
 import { normalizeSource } from "@/lib/evidence/source";
+import type { EvidenceCaptureMethod } from "@/lib/evidence/reference";
+import type { EvidenceUrlMetadata } from "@/lib/evidence/url-extraction";
 import { createResearchClientRef, researchFromRow, type ResearchRow } from "@/lib/research/model";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { Project, ResearchItem } from "@/lib/types";
@@ -8,9 +10,13 @@ export interface ResearchDraft {
   type: string;
   source: string;
   summary: string;
+  sourceText?: string;
+  captureMethod?: EvidenceCaptureMethod;
+  captureOrigin?: "research_form" | "global_capture";
+  urlMetadata?: EvidenceUrlMetadata;
 }
 
-const researchSelect = "id,client_ref,project_id,title,url,publication,item_type,key_findings,notes,collection_name,metadata,created_at,updated_at";
+const researchSelect = "id,client_ref,project_id,title,url,author,publication,published_at,item_type,key_findings,notes,ai_summary,collection_name,metadata,created_at,updated_at";
 
 function requireClient() {
   const client = createBrowserSupabaseClient();
@@ -49,6 +55,8 @@ export async function createCloudResearch(project: Project, input: ResearchDraft
   const cloudProjectId = requireCloudProject(project);
   const clientRef = createResearchClientRef();
   const source = normalizeSource(input.source);
+  const sourceText = input.sourceText?.trim();
+  const urlMetadata = input.urlMetadata;
   const { data, error } = await client
     .from("research_items")
     .insert({
@@ -56,11 +64,27 @@ export async function createCloudResearch(project: Project, input: ResearchDraft
       project_id: cloudProjectId,
       title: input.title.trim(),
       url: source.url,
-      publication: source.label,
+      author: urlMetadata?.author ?? null,
+      publication: urlMetadata?.publication || source.label,
+      published_at: urlMetadata?.publishedAt?.slice(0, 10) ?? null,
       item_type: input.type,
       key_findings: input.summary.trim() || null,
       collection_name: "Unsorted",
-      metadata: { sift_origin: "research_form", source_label: source.label },
+      metadata: {
+        sift_origin: input.captureOrigin ?? "research_form",
+        capture_method: input.captureMethod ?? (source.url ? "url" : "manual"),
+        source_label: source.label,
+        extraction_status: urlMetadata ? "complete" : input.captureMethod === "url" ? "skipped" : "not_requested",
+        ...(urlMetadata ? {
+          original_url: urlMetadata.originalUrl,
+          final_url: urlMetadata.finalUrl,
+          canonical_url: urlMetadata.canonicalUrl,
+          description: urlMetadata.description ?? null,
+          preview_image: urlMetadata.previewImage ?? null,
+          extracted_at: urlMetadata.extractedAt,
+        } : {}),
+        ...(sourceText ? { source_text: sourceText } : {}),
+      },
     })
     .select(researchSelect)
     .single();
@@ -93,6 +117,7 @@ export async function importLocalResearch(localItems: ResearchItem[], project: P
       collection_name: localItem.collection?.trim() || "Unsorted",
       metadata: {
         sift_origin: "browser_import",
+        capture_method: "import",
         source_label: source.label,
         tags: localItem.tags ?? [],
         legacy_saved_date: localItem.date || null,

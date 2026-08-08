@@ -225,6 +225,8 @@ Make Supabase the durable source of truth and remove browser storage as the prim
 
 ## Phase 2 - Fast evidence capture
 
+Status: **In progress.** The shared TypeScript `EvidenceReference` normalizes existing Radar, Research, and Inspiration records without introducing a duplicate evidence table. A persistent URL-first `Capture evidence` action saves links and notes through the authenticated Research repository with explicit provenance and a rapid `Save & continue` flow. Authenticated metadata extraction, project-scoped canonical duplicate warnings, rate limits, network safeguards, and a manual-save fallback are implemented. Private screenshots, documents, and richer social capture remain in the next increments.
+
 ### Goal
 
 Make it effortless to save strategically useful material from sources that cannot be monitored comprehensively.
@@ -589,8 +591,8 @@ Phases 0 and 1 are complete. The next development cycle is Phase 2, beginning wi
 1. Define the shared evidence reference and capture provenance contracts.
 2. Add a global `Capture evidence` action with a URL-first quick flow.
 3. Persist captured URLs and notes through the authenticated repository boundary.
-4. Add duplicate detection, extraction failure handling, and explicit project assignment.
-5. Verify refresh, privacy, provenance, and deletion before adding file uploads or a browser extension.
+4. Add duplicate detection, extraction failure handling, and explicit project assignment. **Implemented locally.**
+5. Apply the extraction quota migration, deploy the updated authenticated Edge Function, and verify refresh, privacy, provenance, and deletion before adding file uploads or a browser extension.
 
 ## Definition of a successful first strategist release
 

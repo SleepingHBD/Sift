@@ -10,7 +10,7 @@ export interface InspirationDraft {
   note: string;
 }
 
-const inspirationSelect = "id,client_ref,project_id,title,item_type,url,brand_name,notes,auto_tags,metadata,created_at,updated_at";
+const inspirationSelect = "id,client_ref,project_id,title,item_type,url,thumbnail_url,brand_name,notes,extracted_text,auto_tags,metadata,created_at,updated_at";
 
 function requireClient() {
   const client = createBrowserSupabaseClient();
@@ -59,7 +59,11 @@ export async function createCloudInspiration(project: Project, input: Inspiratio
       url: source.url,
       brand_name: project.brand.trim() || null,
       notes: input.note.trim() || null,
-      metadata: { sift_origin: "inspiration_form", source_label: source.label },
+      metadata: {
+        sift_origin: "inspiration_form",
+        capture_method: source.url ? "url" : "manual",
+        source_label: source.label,
+      },
     })
     .select(inspirationSelect)
     .single();
@@ -92,6 +96,7 @@ export async function importLocalInspiration(localItems: InspirationItem[], proj
       auto_tags: localItem.tags ?? [],
       metadata: {
         sift_origin: "browser_import",
+        capture_method: "import",
         source_label: source.url ? source.label : localItem.source?.trim() || null,
         palette: localItem.palette || null,
         legacy_saved_date: localItem.savedAt || null,

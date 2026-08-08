@@ -42,6 +42,12 @@ export interface DeleteMonitorRequest {
   project: ProjectInput | null;
 }
 
+export interface ExtractUrlRequest {
+  action: "extract-url";
+  projectId: string;
+  url: string;
+}
+
 export interface NormalizedMention {
   id: string;
   platform: ConnectorSource;

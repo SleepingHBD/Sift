@@ -1,7 +1,9 @@
 import { withSupabase } from "npm:@supabase/server@1.4.1";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { deleteStoredMonitor, persistCollection } from "../_shared/database.ts";
 import { createConnectorRegistry } from "../_shared/registry.ts";
-import type { ConnectorSource, DeleteMonitorRequest, NormalizedMention, ProjectInput, RunRequest, SourceRunResult } from "../_shared/types.ts";
+import type { ConnectorSource, DeleteMonitorRequest, ExtractUrlRequest, NormalizedMention, ProjectInput, RunRequest, SourceRunResult } from "../_shared/types.ts";
+import { comparableUrl, extractUrlMetadata } from "../_shared/url-metadata.ts";
 
 export default {
   fetch: withSupabase({ auth: "user" }, async (request, context) => {
@@ -17,6 +19,28 @@ export default {
       }
       const body = JSON.parse(rawBody);
       const userId = authenticatedUserId(context);
+      if (isExtractUrlAction(body)) {
+        const input = validateExtractUrlRequest(body);
+        const access = await context.supabase.from("projects").select("id").eq("id", input.projectId).maybeSingle();
+        if (access.error) throw new Error(`Project access could not be verified: ${access.error.message}`);
+        if (!access.data) return Response.json({ error: "The selected project is not available to this account." }, { status: 403 });
+
+        const quota = await consumeEvidenceExtractionQuota(context.supabaseAdmin, userId);
+        if (!quota.allowed) {
+          return Response.json(
+            { error: "Link inspection limit reached. You can still save the URL without metadata.", retryAfterSeconds: quota.retryAfterSeconds },
+            { status: 429, headers: { "Retry-After": String(quota.retryAfterSeconds) } },
+          );
+        }
+
+        const metadata = await extractUrlMetadata(input.url);
+        const duplicate = await findDuplicateEvidence(context.supabase, input.projectId, [
+          metadata.originalUrl,
+          metadata.finalUrl,
+          metadata.canonicalUrl,
+        ]);
+        return Response.json({ metadata, duplicate });
+      }
       if (isDeleteMonitorAction(body)) {
         const input = validateDeleteMonitorRequest(body);
         const result = await deleteStoredMonitor(context.supabaseAdmin, userId, input.monitorId, input.project);
@@ -119,6 +143,22 @@ async function consumeRadarQuota(
   };
 }
 
+async function consumeEvidenceExtractionQuota(
+  supabase: { rpc: (name: string, parameters: Record<string, unknown>) => { single: () => Promise<{ data: unknown; error: unknown }> } },
+  userId: string,
+): Promise<RadarQuota> {
+  const { data, error } = await supabase.rpc("consume_evidence_extraction_quota", { target_user_id: userId }).single();
+  if (error) throw error;
+  if (!data || typeof data !== "object") throw new Error("The evidence extraction quota response was invalid.");
+  const row = data as Record<string, unknown>;
+  return {
+    allowed: row.allowed === true,
+    retryAfterSeconds: Math.max(0, Number(row.retry_after_seconds) || 0),
+    remainingMinute: Math.max(0, Number(row.remaining_minute) || 0),
+    remainingDay: Math.max(0, Number(row.remaining_day) || 0),
+  };
+}
+
 function authenticatedUserId(context: { authMode: string; userClaims: Record<string, unknown> }) {
   if (context.authMode !== "user") throw new Error("An authenticated user session is required.");
   const userId = String(context.userClaims.sub || context.userClaims.id || "");
@@ -170,6 +210,23 @@ function isDeleteMonitorAction(value: unknown) {
   return Boolean(value && typeof value === "object" && "action" in value && value.action === "delete-monitor");
 }
 
+function isExtractUrlAction(value: unknown) {
+  return Boolean(value && typeof value === "object" && "action" in value && value.action === "extract-url");
+}
+
+function validateExtractUrlRequest(value: unknown): ExtractUrlRequest {
+  if (!value || typeof value !== "object") throw new Error("A link inspection request is required.");
+  const candidate = value as Partial<ExtractUrlRequest>;
+  const projectId = String(candidate.projectId || "").trim();
+  const url = String(candidate.url || "").trim();
+  if (candidate.action !== "extract-url" || !projectId || !url) throw new Error("The link inspection request is incomplete.");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId)) {
+    throw new Error("The project reference is invalid.");
+  }
+  if (url.length > 4_000) throw new Error("The source URL is too long.");
+  return { action: "extract-url", projectId, url };
+}
+
 function validateDeleteMonitorRequest(value: unknown): DeleteMonitorRequest {
   if (!value || typeof value !== "object") throw new Error("A monitor deletion request is required.");
   const candidate = value as Partial<DeleteMonitorRequest>;
@@ -207,4 +264,40 @@ function deduplicateMentions(mentions: NormalizedMention[]) {
   const unique = new Map<string, NormalizedMention>();
   mentions.forEach((mention) => unique.set(`${mention.platform}:${mention.externalId}`, mention));
   return [...unique.values()];
+}
+
+async function findDuplicateEvidence(client: SupabaseClient, projectId: string, candidates: string[]) {
+  const fingerprints = new Set(candidates.map(comparableUrl).filter(Boolean));
+  if (!fingerprints.size) return null;
+
+  const pageSize = 500;
+  for (let page = 0; page < 20; page += 1) {
+    const { data, error } = await client
+      .from("research_items")
+      .select("id,client_ref,title,url,metadata,created_at")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .range(page * pageSize, ((page + 1) * pageSize) - 1);
+    if (error) throw new Error(`Duplicate evidence check failed: ${error.message || "Unknown database error."}`);
+    const rows = Array.isArray(data) ? data as Record<string, unknown>[] : [];
+    for (const row of rows) {
+      const metadata = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? row.metadata as Record<string, unknown>
+        : {};
+      const savedUrls = [row.url, metadata.original_url, metadata.final_url, metadata.canonical_url]
+        .filter((value): value is string => typeof value === "string")
+        .map(comparableUrl);
+      if (savedUrls.some((url) => fingerprints.has(url))) {
+        return {
+          id: String(row.id || ""),
+          clientRef: typeof row.client_ref === "string" ? row.client_ref : null,
+          title: String(row.title || "Saved evidence"),
+          url: typeof row.url === "string" ? row.url : null,
+          createdAt: typeof row.created_at === "string" ? row.created_at : null,
+        };
+      }
+    }
+    if (rows.length < pageSize) break;
+  }
+  return null;
 }

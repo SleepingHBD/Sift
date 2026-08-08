@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, ChevronDown, Menu, Moon, Search, Sun } from "lucide-react";
+import { Bell, ChevronDown, Menu, Moon, Plus, Search, Sun } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useApp } from "@/components/app-provider";
 
@@ -13,6 +13,7 @@ export function Topbar() {
     activeProjectId,
     setActiveProjectId,
     setSearchOpen,
+    setCaptureDialogOpen,
     setMobileNavOpen,
     projects,
   } = useApp();
@@ -38,6 +39,10 @@ export function Topbar() {
       </div>
 
       <div className="topbar__actions">
+        <button className="topbar-capture-button" onClick={() => setCaptureDialogOpen(true)} aria-label="Capture evidence" title="Capture evidence">
+          <Plus size={16} />
+          <span>Capture evidence</span>
+        </button>
         <button className="global-search-button" onClick={() => setSearchOpen(true)}>
           <Search size={16} />
           <span>Search everything</span>

@@ -70,6 +70,9 @@ export interface InspirationItem {
   palette: string;
   savedAt: string;
   note: string;
+  thumbnailUrl?: string;
+  extractedText?: string;
+  metadata?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -87,6 +90,12 @@ export interface ResearchItem {
   tags: string[];
   summary: string;
   collection: string;
+  author?: string;
+  publishedAt?: string;
+  notes?: string;
+  keyFindings?: string;
+  aiSummary?: string;
+  metadata?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
 }

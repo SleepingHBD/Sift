@@ -8,8 +8,10 @@ export interface InspirationRow {
   title: string;
   item_type: string;
   url: string | null;
+  thumbnail_url: string | null;
   brand_name: string | null;
   notes: string | null;
+  extracted_text: string | null;
   auto_tags: string[];
   metadata: unknown;
   created_at: string;
@@ -48,6 +50,11 @@ export function inspirationFromRow(row: InspirationRow, projectClientRef: string
     palette: stringFromMetadata(row.metadata, "palette") || stablePalette(clientRef),
     savedAt: formatDate(row.created_at),
     note: row.notes ?? "",
+    thumbnailUrl: row.thumbnail_url ?? undefined,
+    extractedText: row.extracted_text ?? undefined,
+    metadata: row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? row.metadata as Record<string, unknown>
+      : {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

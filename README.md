@@ -14,6 +14,7 @@ It combines social-listening workflows, cultural research, inspiration, competit
 - Functional Radar collection through RSS/Atom feeds, manually supplied public URLs, and the official YouTube Data API
 - Cloud-backed Radar monitors, connector run history, normalized conversations, notes, saved and important markers, and evidence relationships with views for metrics, timelines, topics, spikes, source detail, and evidence
 - Cloud-backed Research and Inspiration libraries with project assignment, search, filtering, source links, deletion, and reviewed browser-data import
+- Persistent evidence capture for project-scoped links and notes, including secure URL metadata inspection, canonical duplicate warnings, and manual-save fallback
 - Empty-state workspaces for brands, competitors, trends, briefs, and Strategy AI
 - GitHub authentication with a protected permanent-account workspace
 - Global search, responsive navigation, light and dark modes
@@ -87,7 +88,7 @@ Connector contracts live in `lib/connectors`, while the deployable runtime is in
 
 The implemented sources are RSS/Atom feeds, manually supplied public URLs, and YouTube video search with public top-level comments through the official API. Manual imports reject local/private network targets, non-web protocols, nonstandard ports, oversized responses, and excessive redirects. Reddit and other social platforms remain unavailable until official access is configured. Sift must not scrape sources in violation of their terms.
 
-The static client never receives connector credentials. Monitor runs execute in the authenticated Supabase Edge Function and the database remains protected by project-scoped Row Level Security.
+The static client never receives connector credentials. Monitor runs and URL metadata inspection execute in the authenticated Supabase Edge Function and the database remains protected by project-scoped Row Level Security. URL inspection applies project access checks, a separate extraction quota, private-network and redirect protections, response limits, and an explicit raw-link fallback when a page cannot be read.
 
 ## Strategy AI on GitHub Pages
 

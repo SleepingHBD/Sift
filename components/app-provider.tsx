@@ -31,6 +31,8 @@ import {
   workspaceStorageKeys,
 } from "@/lib/workspace-storage";
 import { describeWorkspaceError } from "@/lib/workspace-error";
+import type { EvidenceCaptureMethod } from "@/lib/evidence/reference";
+import type { EvidenceUrlMetadata } from "@/lib/evidence/url-extraction";
 
 type Theme = "light" | "dark";
 export type WorkspaceStatus = "idle" | "loading" | "ready" | "error";
@@ -57,6 +59,10 @@ export interface NewResearchInput {
   type: string;
   source: string;
   summary: string;
+  sourceText?: string;
+  captureMethod?: EvidenceCaptureMethod;
+  captureOrigin?: "research_form" | "global_capture";
+  urlMetadata?: EvidenceUrlMetadata;
 }
 
 interface AppContextValue {
@@ -100,6 +106,8 @@ interface AppContextValue {
   removeSavedIds: (ids: string[]) => void;
   searchOpen: boolean;
   setSearchOpen: (value: boolean) => void;
+  captureDialogOpen: boolean;
+  setCaptureDialogOpen: (value: boolean) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -127,6 +135,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [projectDialogOpen, setProjectDialogOpenState] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [captureDialogOpen, setCaptureDialogOpen] = useState(false);
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>("idle");
   const [workspaceError, setWorkspaceError] = useState("");
   const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
@@ -160,6 +169,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setProjectDialogOpenState(false);
       setEditingProjectId("");
       setSearchOpen(false);
+      setCaptureDialogOpen(false);
       setPendingProjectImports([]);
       setPendingInspirationImports([]);
       setPendingResearchImports([]);
@@ -230,6 +240,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setMobileNavOpen(false);
         setProjectDialogOpenState(false);
         setEditingProjectId("");
+        setCaptureDialogOpen(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -477,6 +488,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     searchOpen,
     setSearchOpen,
+    captureDialogOpen,
+    setCaptureDialogOpen,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

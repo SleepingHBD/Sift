@@ -1,6 +1,10 @@
 const MAX_BYTES = 2_000_000;
 const MAX_REDIRECTS = 3;
 
+type DenoDnsRuntime = {
+  resolveDns?: (hostname: string, recordType: "A" | "AAAA") => Promise<string[]>;
+};
+
 export interface PublicDocument {
   finalUrl: string;
   text: string;
@@ -27,6 +31,7 @@ export function assertPublicUrl(input: string) {
 
 async function fetchWithRedirects(url: URL, acceptedTypes: string[], depth: number): Promise<PublicDocument> {
   if (depth > MAX_REDIRECTS) throw new Error("The source redirected too many times.");
+  await assertPublicDns(url.hostname);
   const response = await fetch(url, {
     redirect: "manual",
     signal: AbortSignal.timeout(12_000),
@@ -50,10 +55,10 @@ async function fetchWithRedirects(url: URL, acceptedTypes: string[], depth: numb
   return { finalUrl: url.toString(), text: new TextDecoder().decode(bytes), contentType };
 }
 
-function isBlockedHostname(hostname: string) {
+export function isBlockedHostname(hostname: string) {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return true;
-  if (host === "::1" || host === "::" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80:")) return true;
+  if (host.includes(":")) return isBlockedIpv6(host);
   const parts = host.split(".").map(Number);
   if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
   const [a, b] = parts;
@@ -66,4 +71,41 @@ function isBlockedHostname(hostname: string) {
     || (a === 192 && b === 168)
     || (a === 198 && (b === 18 || b === 19))
     || a >= 224;
+}
+
+async function assertPublicDns(hostname: string) {
+  if (isBlockedHostname(hostname)) throw new Error("Private or local network URLs are not allowed.");
+  if (isIpLiteral(hostname)) return;
+
+  const runtime = (globalThis as typeof globalThis & { Deno?: DenoDnsRuntime }).Deno;
+  if (!runtime?.resolveDns) throw new Error("The server could not validate the source network address.");
+  const lookups = await Promise.allSettled([
+    runtime.resolveDns(hostname, "A"),
+    runtime.resolveDns(hostname, "AAAA"),
+  ]);
+  const addresses = lookups.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+  if (!addresses.length) throw new Error("The source hostname could not be resolved.");
+  if (addresses.some(isBlockedHostname)) throw new Error("The source resolves to a private or local network address.");
+}
+
+function isIpLiteral(hostname: string) {
+  const host = hostname.replace(/^\[|\]$/g, "");
+  return host.includes(":") || host.split(".").every((part) => /^\d+$/.test(part));
+}
+
+function isBlockedIpv6(host: string) {
+  const normalized = host.toLowerCase();
+  if (normalized === "::" || normalized === "::1") return true;
+  if (/^(fc|fd)/.test(normalized) || /^fe[89ab]/.test(normalized)) return true;
+  if (normalized.startsWith("2001:db8:")) return true;
+
+  const mapped = normalized.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mapped) return isBlockedHostname(mapped[1]);
+  const mappedHex = normalized.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (mappedHex) {
+    const high = Number.parseInt(mappedHex[1], 16);
+    const low = Number.parseInt(mappedHex[2], 16);
+    return isBlockedHostname(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`);
+  }
+  return false;
 }
