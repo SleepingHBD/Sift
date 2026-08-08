@@ -24,6 +24,9 @@ export interface QueryBuilderState {
 
 export interface MonitoringQuery {
   id: string;
+  cloudId?: string;
+  clientRef?: string;
+  cloudProjectId?: string;
   name: string;
   query: string;
   description: string;
@@ -44,6 +47,9 @@ export interface MonitoringQuery {
 
 export interface RadarMention {
   id: string;
+  cloudId?: string;
+  cloudMonitorId?: string;
+  cloudProjectId?: string;
   monitorId: string;
   platform: RadarSource;
   sourceLabel: string;
@@ -66,10 +72,14 @@ export interface RadarMention {
   keywords: string[];
   relevance: number;
   metadata: Record<string, unknown>;
+  createdAt?: string;
+  isImportant?: boolean;
 }
 
 export interface MonitorRun {
   id: string;
+  cloudId?: string;
+  clientRef?: string;
   monitorId: string;
   connectorIds: RadarSource[];
   status: "running" | "completed" | "failed";
@@ -165,9 +175,11 @@ export type EvidenceDestination = "insight" | "new-insight" | "research" | "insp
 
 export interface RadarEvidenceLink {
   id: string;
+  cloudId?: string;
   mentionId: string;
   destination: EvidenceDestination;
   destinationId?: string;
+  destinationCloudId?: string;
   destinationLabel: string;
   note?: string;
   createdAt: string;

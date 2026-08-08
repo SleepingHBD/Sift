@@ -9,11 +9,11 @@ It combines social-listening workflows, cultural research, inspiration, competit
 ## Current application
 
 - Blank-slate command center with guided onboarding and purposeful empty states
-- Project creation and local project switching
+- Cloud-backed project creation, editing, switching, archiving, restoring, and deletion
 - Radar monitor creation with a simple guided query form and an advanced Boolean editor
 - Functional Radar collection through RSS/Atom feeds, manually supplied public URLs, and the official YouTube Data API
-- Radar views for metrics, timelines, topics, spikes, mentions, source detail, and evidence
-- Research and inspiration libraries with browser-local creation and search
+- Cloud-backed Radar monitors, connector run history, normalized conversations, notes, saved and important markers, and evidence relationships with views for metrics, timelines, topics, spikes, source detail, and evidence
+- Cloud-backed Research and Inspiration libraries with project assignment, search, filtering, source links, deletion, and reviewed browser-data import
 - Empty-state workspaces for brands, competitors, trends, briefs, and Strategy AI
 - GitHub authentication with a protected permanent-account workspace
 - Global search, responsive navigation, light and dark modes
@@ -46,9 +46,11 @@ The production build is written to `out/`.
 
 ## Current persistence
 
-The GitHub Pages build currently stores client-created projects, monitors, collected Radar records, research, inspiration, notes, saves, and evidence links in user-scoped browser storage on the current device. Private routes hydrate those caches only for a verified permanent Sift user. This lets a completed connector run remain usable immediately and offline on that device without exposing one account's cached workspace to another account on the same browser.
+Projects, Research, Inspiration, Radar monitors, connector-created conversations, run history, notes, saved and important markers, and evidence relationships are now cloud-first. After GitHub sign-in, the application hydrates these records from Supabase under project Row Level Security. Creates and deletes write through the authenticated Data API; connector collection remains behind the JWT-protected Edge Function. New records derive their owner or creator from the verified JWT rather than accepting an identity from the browser.
 
-Connector runs also write projects, monitor definitions, run audits, sources, normalized mentions, sentiment, keywords, topics, and mention-topic links to Supabase. GitHub OAuth is the only supported sign-in method; anonymous access, email/password access, manual identity linking, and new registrations are disabled in the personal production workspace. If cloud persistence fails after collection, Radar labels the condition and keeps the retrieved records in the signed-in user's device cache.
+If older project, research, inspiration, or Radar records are found in browser storage, the relevant page offers a downloadable JSON backup plus an idempotent cloud import. Research and Inspiration imports require an explicit destination project because legacy browser items did not store that relationship. Local payloads are removed only after Supabase confirms the cloud write and reload. Theme, connector configuration, and the active-project selection remain local preferences for now.
+
+Radar annotations use authenticated, per-user repositories. Older device-scoped notes, saved markers, important marks, and evidence links are offered as a reviewed, retry-safe import and are cleared only after cloud verification. Monitor definitions, run audits, sources, normalized mentions, sentiment, keywords, topics, and mention-topic links hydrate from Supabase; the newest 5,000 conversations are loaded with a transparent truncation notice while older rows remain stored. GitHub OAuth is the only supported sign-in method; anonymous access, email/password access, manual identity linking, and new registrations are disabled in the personal production workspace. If connector cloud persistence fails after collection, Radar labels the retrieved response as temporary and does not claim it was durably saved.
 
 ## Supabase setup
 

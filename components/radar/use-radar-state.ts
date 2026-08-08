@@ -1,10 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
+import {
+  createCloudEvidenceLink,
+  deleteCloudEvidenceLink,
+  importLocalRadarAnnotations,
+  listCloudRadarAnnotations,
+  saveCloudMentionNote,
+  setCloudMentionImportant,
+  setCloudMentionSaved,
+  type LocalRadarAnnotationPayload,
+  type RadarAnnotationContext,
+  type RadarAnnotationSnapshot,
+} from "@/lib/radar/annotation-repository";
 import { defaultRadarConnectorSettings, mergeRadarMentions, type RadarConnectorSettings } from "@/lib/radar/connector-service";
+import { createCloudMonitor, importLocalRadar, listCloudRadar, saveCloudMonitorRun, type LocalRadarPayload, type RadarCloudSnapshot } from "@/lib/radar/repository";
 import type { MonitorRun, MonitoringQuery, RadarEvidenceLink, RadarMention } from "@/lib/radar/types";
-import { prepareUserWorkspaceStorage, userWorkspaceStorageKey, workspaceStorageKeys } from "@/lib/workspace-storage";
+import type { InspirationItem, Project, ResearchItem } from "@/lib/types";
+import {
+  clearMigratedRadarAnnotationStorage,
+  clearMigratedRadarStorage,
+  prepareUserWorkspaceStorage,
+  userWorkspaceStorageKey,
+  workspaceStorageKeys,
+} from "@/lib/workspace-storage";
 
 const storageKeys = {
   monitors: workspaceStorageKeys.radarMonitors,
@@ -14,6 +34,7 @@ const storageKeys = {
   evidence: workspaceStorageKeys.radarEvidence,
   notes: workspaceStorageKeys.radarNotes,
   important: workspaceStorageKeys.radarImportant,
+  saved: workspaceStorageKeys.savedItems,
 };
 
 function read<T>(key: string, fallback: T): T {
@@ -25,157 +46,282 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
-export function useRadarState() {
-  const { status, user } = useAuth();
-  const workspaceUserId = status === "authenticated" ? user?.id ?? "" : "";
+function localRadarPayload(userId: string): LocalRadarPayload | null {
+  const payload = {
+    monitors: read<MonitoringQuery[]>(userWorkspaceStorageKey(userId, storageKeys.monitors), []),
+    mentionsByMonitor: read<Record<string, RadarMention[]>>(userWorkspaceStorageKey(userId, storageKeys.mentions), {}),
+    runs: read<MonitorRun[]>(userWorkspaceStorageKey(userId, storageKeys.runs), []),
+  };
+  return payload.monitors.length || Object.values(payload.mentionsByMonitor).some((items) => items.length) || payload.runs.length ? payload : null;
+}
+
+function localRadarAnnotations(userId: string, validMentionIds: Set<string>): LocalRadarAnnotationPayload | null {
+  const evidenceLinks = read<RadarEvidenceLink[]>(userWorkspaceStorageKey(userId, storageKeys.evidence), [])
+    .filter((link) => validMentionIds.has(link.mentionId));
+  const notes = Object.fromEntries(
+    Object.entries(read<Record<string, string>>(userWorkspaceStorageKey(userId, storageKeys.notes), {}))
+      .filter(([mentionId, note]) => validMentionIds.has(mentionId) && note.trim()),
+  );
+  const importantIds = read<string[]>(userWorkspaceStorageKey(userId, storageKeys.important), [])
+    .filter((mentionId) => validMentionIds.has(mentionId));
+  const savedIds = read<string[]>(userWorkspaceStorageKey(userId, storageKeys.saved), [])
+    .filter((mentionId) => validMentionIds.has(mentionId));
+  const payload = { savedIds, importantIds, notes, evidenceLinks };
+  return savedIds.length || importantIds.length || Object.keys(notes).length || evidenceLinks.length ? payload : null;
+}
+
+function mentionIdsFrom(...collections: Array<Record<string, RadarMention[]> | undefined>) {
+  return new Set(collections.flatMap((collection) => Object.values(collection ?? {}).flat().map((mention) => mention.id)));
+}
+
+export function useRadarState(
+  projects: Project[],
+  researchItems: ResearchItem[],
+  inspirationItems: InspirationItem[],
+  onLocalSavedIdsMigrated?: (ids: string[]) => void,
+) {
+  const { status: authStatus, user } = useAuth();
+  const workspaceUserId = authStatus === "authenticated" ? user?.id ?? "" : "";
+  const annotationContext: RadarAnnotationContext = { projects, researchItems, inspirationItems };
   const [monitors, setMonitors] = useState<MonitoringQuery[]>([]);
   const [mentionsByMonitor, setMentionsByMonitor] = useState<Record<string, RadarMention[]>>({});
   const [runs, setRuns] = useState<MonitorRun[]>([]);
   const [connectorSettings, setConnectorSettings] = useState<RadarConnectorSettings>(defaultRadarConnectorSettings);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [evidenceLinks, setEvidenceLinks] = useState<RadarEvidenceLink[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [importantIds, setImportantIds] = useState<string[]>([]);
+  const [cloudStatus, setCloudStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [cloudError, setCloudError] = useState("");
+  const [annotationError, setAnnotationError] = useState("");
+  const [historyTruncated, setHistoryTruncated] = useState(false);
+  const [pendingLocalRadar, setPendingLocalRadar] = useState<LocalRadarPayload | null>(null);
+  const [pendingLocalAnnotations, setPendingLocalAnnotations] = useState<LocalRadarAnnotationPayload | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
-  function scopedKey(legacyKey: string) {
-    return userWorkspaceStorageKey(workspaceUserId, legacyKey);
-  }
+  const scopedKey = useCallback((legacyKey: string) => userWorkspaceStorageKey(workspaceUserId, legacyKey), [workspaceUserId]);
+  const persist = useCallback((legacyKey: string, value: unknown) => {
+    if (workspaceUserId) window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, legacyKey), JSON.stringify(value));
+  }, [workspaceUserId]);
 
-  function persist(legacyKey: string, value: unknown) {
+  const applySnapshot = useCallback((snapshot: RadarCloudSnapshot) => {
+    setMonitors(snapshot.monitors);
+    setMentionsByMonitor(snapshot.mentionsByMonitor);
+    setRuns(snapshot.runs);
+    setHistoryTruncated(snapshot.truncated);
+  }, []);
+
+  const applyAnnotationSnapshot = useCallback((snapshot: RadarAnnotationSnapshot) => {
+    setSavedIds(snapshot.savedIds);
+    setEvidenceLinks(snapshot.evidenceLinks);
+    setNotes(snapshot.notes);
+    setImportantIds(snapshot.importantIds);
+  }, []);
+
+  const refreshCloud = useCallback(async () => {
     if (!workspaceUserId) return;
-    window.localStorage.setItem(scopedKey(legacyKey), JSON.stringify(value));
-  }
+    const snapshot = await listCloudRadar(projects);
+    const annotations = await listCloudRadarAnnotations(snapshot.mentionsByMonitor);
+    applySnapshot(snapshot);
+    applyAnnotationSnapshot(annotations);
+  }, [applyAnnotationSnapshot, applySnapshot, projects, workspaceUserId]);
 
   useEffect(() => {
-    const hydration = window.setTimeout(() => {
+    let cancelled = false;
+    const hydrate = async () => {
       setMonitors([]);
       setMentionsByMonitor({});
       setRuns([]);
-      setConnectorSettings(defaultRadarConnectorSettings);
+      setSavedIds([]);
       setEvidenceLinks([]);
       setNotes({});
       setImportantIds([]);
-      if (!workspaceUserId) return;
+      setHistoryTruncated(false);
+      setCloudError("");
+      setAnnotationError("");
+      setPendingLocalRadar(null);
+      setPendingLocalAnnotations(null);
+      if (!workspaceUserId) {
+        setCloudStatus(authStatus === "loading" ? "loading" : "ready");
+        return;
+      }
 
       prepareUserWorkspaceStorage(window.localStorage, workspaceUserId);
-      setMonitors(read<MonitoringQuery[]>(userWorkspaceStorageKey(workspaceUserId, storageKeys.monitors), []));
-      setMentionsByMonitor(read<Record<string, RadarMention[]>>(userWorkspaceStorageKey(workspaceUserId, storageKeys.mentions), {}));
-      setRuns(read<MonitorRun[]>(userWorkspaceStorageKey(workspaceUserId, storageKeys.runs), []));
-      setConnectorSettings(read<RadarConnectorSettings>(userWorkspaceStorageKey(workspaceUserId, storageKeys.connectorSettings), defaultRadarConnectorSettings));
-      setEvidenceLinks(read<RadarEvidenceLink[]>(userWorkspaceStorageKey(workspaceUserId, storageKeys.evidence), []));
-      setNotes(read<Record<string, string>>(userWorkspaceStorageKey(workspaceUserId, storageKeys.notes), {}));
-      setImportantIds(read<string[]>(userWorkspaceStorageKey(workspaceUserId, storageKeys.important), []));
-    }, 0);
-    return () => window.clearTimeout(hydration);
-  }, [workspaceUserId]);
+      setConnectorSettings(read<RadarConnectorSettings>(scopedKey(storageKeys.connectorSettings), defaultRadarConnectorSettings));
+      const localCore = localRadarPayload(workspaceUserId);
+      setPendingLocalRadar(localCore);
+      setCloudStatus("loading");
+      try {
+        const snapshot = await listCloudRadar(projects);
+        const annotations = await listCloudRadarAnnotations(snapshot.mentionsByMonitor);
+        if (cancelled) return;
+        applySnapshot(snapshot);
+        applyAnnotationSnapshot(annotations);
+        setPendingLocalAnnotations(localRadarAnnotations(
+          workspaceUserId,
+          mentionIdsFrom(snapshot.mentionsByMonitor, localCore?.mentionsByMonitor),
+        ));
+        setCloudStatus("ready");
+      } catch (error) {
+        if (cancelled) return;
+        setCloudError(error instanceof Error ? error.message : "Radar could not be loaded.");
+        setCloudStatus("error");
+      }
+    };
+    void hydrate();
+    return () => { cancelled = true; };
+  }, [applyAnnotationSnapshot, applySnapshot, authStatus, projects, reloadToken, scopedKey, workspaceUserId]);
 
-  function addMonitor(monitor: MonitoringQuery) {
-    if (!workspaceUserId) return;
-    setMonitors((current) => {
-      const next = [...current, monitor];
-      persist(storageKeys.monitors, next);
-      return next;
-    });
+  function findMention(mentionId: string) {
+    return Object.values(mentionsByMonitor).flat().find((mention) => mention.id === mentionId);
+  }
+
+  async function addMonitor(monitor: MonitoringQuery) {
+    const created = await createCloudMonitor(monitor, projects);
+    setMonitors((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+    setMentionsByMonitor((current) => ({ ...current, [created.id]: current[created.id] ?? [] }));
+    return created;
   }
 
   function removeMonitor(monitorId: string) {
-    if (!workspaceUserId) return;
     const mentionIds = new Set((mentionsByMonitor[monitorId] ?? []).map((mention) => mention.id));
-    setMonitors((current) => {
-      const next = current.filter((monitor) => monitor.id !== monitorId);
-      persist(storageKeys.monitors, next);
-      return next;
-    });
-    setMentionsByMonitor((current) => {
-      const next = { ...current };
-      delete next[monitorId];
-      persist(storageKeys.mentions, next);
-      return next;
-    });
-    setRuns((current) => {
-      const next = current.filter((run) => run.monitorId !== monitorId);
-      persist(storageKeys.runs, next);
-      return next;
-    });
-    setEvidenceLinks((current) => {
-      const next = current.filter((link) => !mentionIds.has(link.mentionId));
-      persist(storageKeys.evidence, next);
-      return next;
-    });
-    setNotes((current) => {
-      const next = Object.fromEntries(Object.entries(current).filter(([mentionId]) => !mentionIds.has(mentionId)));
-      persist(storageKeys.notes, next);
-      return next;
-    });
-    setImportantIds((current) => {
-      const next = current.filter((mentionId) => !mentionIds.has(mentionId));
-      persist(storageKeys.important, next);
-      return next;
-    });
+    setMonitors((current) => current.filter((monitor) => monitor.id !== monitorId));
+    setMentionsByMonitor((current) => { const next = { ...current }; delete next[monitorId]; return next; });
+    setRuns((current) => current.filter((run) => run.monitorId !== monitorId));
+    setSavedIds((current) => current.filter((mentionId) => !mentionIds.has(mentionId)));
+    setEvidenceLinks((current) => current.filter((link) => !mentionIds.has(link.mentionId)));
+    setNotes((current) => Object.fromEntries(Object.entries(current).filter(([mentionId]) => !mentionIds.has(mentionId))));
+    setImportantIds((current) => current.filter((mentionId) => !mentionIds.has(mentionId)));
   }
 
   function saveConnectorSettings(settings: RadarConnectorSettings) {
-    if (!workspaceUserId) return;
-    const cleaned = {
-      rssFeedUrls: uniqueHttpUrls(settings.rssFeedUrls),
-      manualUrls: uniqueHttpUrls(settings.manualUrls),
-      youtubeEnabled: settings.youtubeEnabled,
-    };
+    const cleaned = { rssFeedUrls: uniqueHttpUrls(settings.rssFeedUrls), manualUrls: uniqueHttpUrls(settings.manualUrls), youtubeEnabled: settings.youtubeEnabled };
     setConnectorSettings(cleaned);
     persist(storageKeys.connectorSettings, cleaned);
   }
 
-  function completeMonitorRun(monitorId: string, mentions: RadarMention[], run: MonitorRun) {
-    if (!workspaceUserId) return;
-    setMentionsByMonitor((current) => {
-      const merged = mergeRadarMentions(current[monitorId] ?? [], mentions);
-      const next = { ...current, [monitorId]: merged };
-      persist(storageKeys.mentions, next);
-      return next;
-    });
-    setMonitors((current) => {
-      const next = current.map((monitor) => monitor.id === monitorId
-        ? { ...monitor, dataMode: mentions.length || monitor.dataMode === "live" ? "live" as const : "empty" as const, status: "active" as const, lastRunAt: run.completedAt }
-        : monitor);
-      persist(storageKeys.monitors, next);
-      return next;
-    });
-    recordMonitorRun(run);
+  async function completeMonitorRun(monitorId: string, mentions: RadarMention[], run: MonitorRun) {
+    if (run.persisted) {
+      await refreshCloud();
+      return;
+    }
+    setMentionsByMonitor((current) => ({ ...current, [monitorId]: mergeRadarMentions(current[monitorId] ?? [], mentions) }));
+    setMonitors((current) => current.map((monitor) => monitor.id === monitorId ? { ...monitor, dataMode: mentions.length ? "live" : monitor.dataMode, status: "active", lastRunAt: run.completedAt } : monitor));
+    setRuns((current) => [run, ...current].slice(0, 100));
   }
 
-  function recordMonitorRun(run: MonitorRun) {
-    if (!workspaceUserId) return;
-    setRuns((current) => {
-      const next = [run, ...current].slice(0, 100);
-      persist(storageKeys.runs, next);
-      return next;
-    });
+  async function recordMonitorRun(run: MonitorRun) {
+    const monitor = monitors.find((item) => item.id === run.monitorId);
+    setRuns((current) => [run, ...current].slice(0, 100));
+    if (monitor) await saveCloudMonitorRun(run, monitor);
   }
 
-  function addEvidenceLink(link: RadarEvidenceLink) {
-    if (!workspaceUserId) return;
-    setEvidenceLinks((current) => {
-      const next = [...current.filter((item) => !(item.mentionId === link.mentionId && item.destination === link.destination && item.destinationId === link.destinationId)), link];
-      persist(storageKeys.evidence, next);
-      return next;
-    });
+  async function importPendingRadar() {
+    if (!pendingLocalRadar && !pendingLocalAnnotations) return 0;
+    const snapshot = pendingLocalRadar
+      ? await importLocalRadar(pendingLocalRadar, projects)
+      : await listCloudRadar(projects);
+    const annotations = pendingLocalAnnotations
+      ? await importLocalRadarAnnotations(pendingLocalAnnotations, snapshot.mentionsByMonitor, annotationContext)
+      : await listCloudRadarAnnotations(snapshot.mentionsByMonitor);
+    applySnapshot(snapshot);
+    applyAnnotationSnapshot(annotations);
+
+    if (pendingLocalRadar) clearMigratedRadarStorage(window.localStorage, workspaceUserId);
+    if (pendingLocalAnnotations) {
+      const migratedMentionIds = [...mentionIdsFrom(snapshot.mentionsByMonitor)];
+      clearMigratedRadarAnnotationStorage(window.localStorage, workspaceUserId, migratedMentionIds);
+      onLocalSavedIdsMigrated?.(pendingLocalAnnotations.savedIds);
+    }
+    const count = (pendingLocalRadar?.monitors.length ?? 0)
+      + (pendingLocalAnnotations?.savedIds.length ?? 0)
+      + (pendingLocalAnnotations?.importantIds.length ?? 0)
+      + Object.keys(pendingLocalAnnotations?.notes ?? {}).length
+      + (pendingLocalAnnotations?.evidenceLinks.length ?? 0);
+    setPendingLocalRadar(null);
+    setPendingLocalAnnotations(null);
+    setCloudStatus("ready");
+    return count;
   }
 
-  function saveNote(mentionId: string, note: string) {
-    if (!workspaceUserId) return;
-    setNotes((current) => {
-      const next = { ...current, [mentionId]: note };
-      persist(storageKeys.notes, next);
-      return next;
-    });
+  async function toggleSaved(mentionId: string) {
+    const mention = findMention(mentionId);
+    if (!mention) return;
+    const nextSaved = !savedIds.includes(mentionId);
+    setAnnotationError("");
+    try {
+      await setCloudMentionSaved(mention, nextSaved);
+      setSavedIds((current) => nextSaved ? [...new Set([...current, mentionId])] : current.filter((id) => id !== mentionId));
+    } catch (error) {
+      setAnnotationError(error instanceof Error ? error.message : "The saved marker could not be updated.");
+    }
   }
 
-  function toggleImportant(mentionId: string) {
-    if (!workspaceUserId) return;
-    setImportantIds((current) => {
-      const next = current.includes(mentionId) ? current.filter((id) => id !== mentionId) : [...current, mentionId];
-      persist(storageKeys.important, next);
-      return next;
-    });
+  async function addEvidenceLink(link: RadarEvidenceLink) {
+    const mention = findMention(link.mentionId);
+    if (!mention) throw new Error("The source mention is no longer available.");
+    setAnnotationError("");
+    try {
+      const created = await createCloudEvidenceLink(mention, link, annotationContext);
+      if (!created) throw new Error("The evidence relationship could not be read after saving.");
+      setEvidenceLinks((current) => [
+        ...current.filter((item) => !(item.mentionId === created.mentionId && item.destination === created.destination && item.destinationCloudId === created.destinationCloudId)),
+        created,
+      ]);
+      return created;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Evidence could not be linked.";
+      setAnnotationError(message);
+      throw new Error(message);
+    }
+  }
+
+  async function removeEvidenceLink(link: RadarEvidenceLink) {
+    setAnnotationError("");
+    try {
+      await deleteCloudEvidenceLink(link);
+      setEvidenceLinks((current) => current.filter((item) => item.id !== link.id));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Evidence relationship could not be removed.";
+      setAnnotationError(message);
+      throw new Error(message);
+    }
+  }
+
+  async function saveNote(mentionId: string, note: string) {
+    const mention = findMention(mentionId);
+    if (!mention) throw new Error("The source mention is no longer available.");
+    setAnnotationError("");
+    try {
+      await saveCloudMentionNote(mention, note);
+      setNotes((current) => {
+        const next = { ...current };
+        if (note.trim()) next[mentionId] = note.trim();
+        else delete next[mentionId];
+        return next;
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The note could not be saved.";
+      setAnnotationError(message);
+      throw new Error(message);
+    }
+  }
+
+  async function toggleImportant(mentionId: string) {
+    const mention = findMention(mentionId);
+    if (!mention) return;
+    const nextImportant = !importantIds.includes(mentionId);
+    setAnnotationError("");
+    try {
+      await setCloudMentionImportant(mention, nextImportant);
+      setImportantIds((current) => nextImportant ? [...new Set([...current, mentionId])] : current.filter((id) => id !== mentionId));
+      setMentionsByMonitor((current) => Object.fromEntries(Object.entries(current).map(([monitorId, mentions]) => [
+        monitorId,
+        mentions.map((item) => item.id === mentionId ? { ...item, isImportant: nextImportant } : item),
+      ])));
+    } catch (error) {
+      setAnnotationError(error instanceof Error ? error.message : "Importance could not be updated.");
+    }
   }
 
   return {
@@ -188,12 +334,24 @@ export function useRadarState() {
     saveConnectorSettings,
     completeMonitorRun,
     recordMonitorRun,
+    savedIds,
+    toggleSaved,
     evidenceLinks,
     addEvidenceLink,
+    removeEvidenceLink,
     notes,
     saveNote,
     importantIds,
     toggleImportant,
+    annotationError,
+    clearAnnotationError: () => setAnnotationError(""),
+    cloudStatus,
+    cloudError,
+    retryCloud: () => setReloadToken((value) => value + 1),
+    historyTruncated,
+    pendingLocalRadar,
+    pendingLocalAnnotations,
+    importPendingRadar,
   };
 }
 

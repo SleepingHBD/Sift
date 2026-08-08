@@ -1,14 +1,15 @@
 "use client";
 
-import { Check, ChevronDown, Code2, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { Check, ChevronDown, Code2, LoaderCircle, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { Badge, Button } from "@/components/ui/primitives";
 import { createDraftMonitor, radarConnectors } from "@/lib/radar/connectors";
 import { buildBooleanQuery, interpretMonitoringIntent, splitTerms, validateBooleanQuery } from "@/lib/radar/query-builder";
+import { createMonitorClientRef } from "@/lib/radar/model";
 import type { MonitoringQuery, RadarSource } from "@/lib/radar/types";
 
-export function MonitorDialog({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (monitor: MonitoringQuery) => void }) {
+export function MonitorDialog({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (monitor: MonitoringQuery) => Promise<void> }) {
   const { projects } = useApp();
   const [intent, setIntent] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -26,6 +27,7 @@ export function MonitorDialog({ open, onClose, onCreate }: { open: boolean; onCl
   const [market, setMarket] = useState("");
   const [sources, setSources] = useState<RadarSource[]>([]);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const interpretation = useMemo(() => interpretMonitoringIntent(intent), [intent]);
   const resolvedMarket = market.trim() || interpretation.market;
@@ -64,11 +66,11 @@ export function MonitorDialog({ open, onClose, onCreate }: { open: boolean; onCl
     setError("");
   }
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (!finalQuery) { setError("Describe the conversation you want to monitor."); return; }
     if (!validation.valid) { setError(validation.errors[0]); return; }
-    const monitor = createDraftMonitor(`monitor-${Date.now()}`, {
+    const monitor = createDraftMonitor(createMonitorClientRef(), {
       name: effectiveName,
       query: finalQuery,
       description: description.trim() || (intent.trim() ? `Monitoring intent: ${intent.trim()}` : ""),
@@ -83,9 +85,17 @@ export function MonitorDialog({ open, onClose, onCreate }: { open: boolean; onCl
       builder,
       status: "draft",
     });
-    onCreate(monitor);
-    resetForm();
-    onClose();
+    setSaving(true);
+    setError("");
+    try {
+      await onCreate(monitor);
+      resetForm();
+      onClose();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The monitor could not be saved.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function toggleSource(source: RadarSource) {
@@ -163,7 +173,7 @@ export function MonitorDialog({ open, onClose, onCreate }: { open: boolean; onCl
           {error ? <p className="form-error">{error}</p> : null}
         </div>
 
-        <footer><span>New monitors start empty and collect data only after a genuine source is connected.</span><div><Button type="button" onClick={onClose}>Cancel</Button><Button type="submit" variant="dark" disabled={!canSubmit}>Create monitor</Button></div></footer>
+        <footer><span>New monitors are saved to your private cloud workspace and start empty.</span><div><Button type="button" disabled={saving} onClick={onClose}>Cancel</Button><Button type="submit" variant="dark" disabled={!canSubmit || saving}>{saving ? <LoaderCircle className="spin" size={14} /> : null}{saving ? "Saving…" : "Create monitor"}</Button></div></footer>
       </form>
     </div>
   );

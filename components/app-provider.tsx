@@ -1,11 +1,38 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
+import {
+  createCloudInspiration,
+  deleteCloudInspiration,
+  importLocalInspiration,
+  listCloudInspiration,
+} from "@/lib/inspiration/repository";
+import {
+  createCloudProject,
+  deleteCloudProject,
+  importLocalProjects,
+  listCloudProjects,
+  setCloudProjectArchived,
+  updateCloudProject,
+} from "@/lib/projects/repository";
+import {
+  createCloudResearch,
+  deleteCloudResearch,
+  importLocalResearch,
+  listCloudResearch,
+} from "@/lib/research/repository";
 import type { InspirationItem, Project, ResearchItem } from "@/lib/types";
-import { prepareUserWorkspaceStorage, userWorkspaceStorageKey, workspaceStorageKeys } from "@/lib/workspace-storage";
+import {
+  clearMigratedLibraryStorage,
+  clearMigratedProjectStorage,
+  prepareUserWorkspaceStorage,
+  userWorkspaceStorageKey,
+  workspaceStorageKeys,
+} from "@/lib/workspace-storage";
 
 type Theme = "light" | "dark";
+export type WorkspaceStatus = "idle" | "loading" | "ready" | "error";
 
 export interface NewProjectInput {
   name: string;
@@ -16,6 +43,7 @@ export interface NewProjectInput {
 }
 
 export interface NewInspirationInput {
+  projectId: string;
   title: string;
   type: string;
   source: string;
@@ -23,6 +51,7 @@ export interface NewInspirationInput {
 }
 
 export interface NewResearchInput {
+  projectId: string;
   title: string;
   type: string;
   source: string;
@@ -37,15 +66,34 @@ interface AppContextValue {
   theme: Theme;
   toggleTheme: () => void;
   projects: Project[];
-  createProject: (input: NewProjectInput) => Project;
+  archivedProjects: Project[];
+  createProject: (input: NewProjectInput) => Promise<Project>;
+  updateProject: (id: string, input: NewProjectInput) => Promise<Project>;
+  archiveProject: (id: string) => Promise<void>;
+  restoreProject: (id: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   projectDialogOpen: boolean;
   setProjectDialogOpen: (value: boolean) => void;
+  editingProject: Project | null;
+  openProjectEditor: (id: string) => void;
+  workspaceStatus: WorkspaceStatus;
+  workspaceError: string;
+  clearWorkspaceError: () => void;
+  retryWorkspace: () => void;
+  pendingProjectImports: Project[];
+  importPendingProjects: () => Promise<number>;
+  pendingInspirationImports: InspirationItem[];
+  importPendingInspiration: (projectId: string) => Promise<number>;
+  pendingResearchImports: ResearchItem[];
+  importPendingResearch: (projectId: string) => Promise<number>;
   activeProjectId: string;
   setActiveProjectId: (value: string) => void;
   inspirationItems: InspirationItem[];
-  addInspiration: (input: NewInspirationInput) => InspirationItem;
+  addInspiration: (input: NewInspirationInput) => Promise<InspirationItem>;
+  deleteInspiration: (id: string) => Promise<void>;
   researchItems: ResearchItem[];
-  addResearch: (input: NewResearchInput) => ResearchItem;
+  addResearch: (input: NewResearchInput) => Promise<ResearchItem>;
+  deleteResearch: (id: string) => Promise<void>;
   savedIds: string[];
   toggleSaved: (id: string) => void;
   removeSavedIds: (ids: string[]) => void;
@@ -54,7 +102,6 @@ interface AppContextValue {
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
-const projectColors = ["#dfff4f", "#93b8ff", "#ff7d68", "#bd9cff", "#72e99b"];
 
 function parseStored<T>(key: string, fallback: T): T {
   try {
@@ -71,13 +118,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [inspirationItems, setInspirationItems] = useState<InspirationItem[]>([]);
   const [researchItems, setResearchItems] = useState<ResearchItem[]>([]);
   const [activeProjectId, setActiveProjectIdState] = useState("");
   const [savedIds, setSavedIds] = useState<string[]>([]);
-  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [projectDialogOpen, setProjectDialogOpenState] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>("idle");
+  const [workspaceError, setWorkspaceError] = useState("");
+  const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
+  const [pendingProjectImports, setPendingProjectImports] = useState<Project[]>([]);
+  const [pendingInspirationImports, setPendingInspirationImports] = useState<InspirationItem[]>([]);
+  const [pendingResearchImports, setPendingResearchImports] = useState<ResearchItem[]>([]);
+
+  const projects = useMemo(() => allProjects.filter((project) => project.status !== "archived"), [allProjects]);
+  const archivedProjects = useMemo(() => allProjects.filter((project) => project.status === "archived"), [allProjects]);
+  const editingProject = allProjects.find((project) => project.id === editingProjectId) ?? null;
 
   useEffect(() => {
     const hydratePreferences = window.setTimeout(() => {
@@ -91,29 +149,74 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let active = true;
     const hydrateWorkspace = window.setTimeout(() => {
-      setProjects([]);
+      setAllProjects([]);
       setInspirationItems([]);
       setResearchItems([]);
       setSavedIds([]);
       setActiveProjectIdState("");
-      setProjectDialogOpen(false);
+      setProjectDialogOpenState(false);
+      setEditingProjectId("");
       setSearchOpen(false);
-      if (!workspaceUserId) return;
+      setPendingProjectImports([]);
+      setPendingInspirationImports([]);
+      setPendingResearchImports([]);
+      setWorkspaceError("");
+
+      if (!workspaceUserId) {
+        setWorkspaceStatus("idle");
+        return;
+      }
 
       prepareUserWorkspaceStorage(window.localStorage, workspaceUserId);
       const scoped = (legacyKey: string) => userWorkspaceStorageKey(workspaceUserId, legacyKey);
-      const storedProjects = parseStored<Project[]>(scoped(workspaceStorageKeys.projects), []);
-      setProjects(storedProjects);
-      setInspirationItems(parseStored<InspirationItem[]>(scoped(workspaceStorageKeys.inspiration), []));
-      setResearchItems(parseStored<ResearchItem[]>(scoped(workspaceStorageKeys.research), []));
+      const localProjects = parseStored<Project[]>(scoped(workspaceStorageKeys.projects), []);
+      const localInspiration = parseStored<InspirationItem[]>(scoped(workspaceStorageKeys.inspiration), []);
+      const localResearch = parseStored<ResearchItem[]>(scoped(workspaceStorageKeys.research), []);
       setSavedIds(parseStored<string[]>(scoped(workspaceStorageKeys.savedItems), []));
+      setWorkspaceStatus("loading");
 
-      const storedActive = window.localStorage.getItem(scoped(workspaceStorageKeys.activeProject)) ?? "";
-      setActiveProjectIdState(storedProjects.some((project) => project.id === storedActive) ? storedActive : storedProjects[0]?.id ?? "");
+      void listCloudProjects().then(async (cloudProjects) => {
+        const [cloudResearch, cloudInspiration] = await Promise.all([
+          listCloudResearch(cloudProjects),
+          listCloudInspiration(cloudProjects),
+        ]);
+        if (!active) return;
+        const cloudProjectRefs = new Set(cloudProjects.map((project) => project.clientRef ?? project.id));
+        const cloudResearchRefs = new Set(cloudResearch.map((item) => item.clientRef ?? item.id));
+        const cloudInspirationRefs = new Set(cloudInspiration.map((item) => item.clientRef ?? item.id));
+        const pendingProjects = localProjects.filter((project) => !cloudProjectRefs.has(project.clientRef ?? project.id));
+        const pendingResearch = localResearch.filter((item) => !cloudResearchRefs.has(item.clientRef ?? item.id));
+        const pendingInspiration = localInspiration.filter((item) => !cloudInspirationRefs.has(item.clientRef ?? item.id));
+        const activeCloudProjects = cloudProjects.filter((project) => project.status !== "archived");
+        const storedActive = window.localStorage.getItem(scoped(workspaceStorageKeys.activeProject)) ?? "";
+        setAllProjects(cloudProjects);
+        setResearchItems(cloudResearch);
+        setInspirationItems(cloudInspiration);
+        setPendingProjectImports(pendingProjects);
+        setPendingResearchImports(pendingResearch);
+        setPendingInspirationImports(pendingInspiration);
+        setActiveProjectIdState(activeCloudProjects.some((project) => project.id === storedActive) ? storedActive : activeCloudProjects[0]?.id ?? "");
+        if (!pendingProjects.length && localProjects.length) clearMigratedProjectStorage(window.localStorage, workspaceUserId);
+        if (!pendingResearch.length && localResearch.length) clearMigratedLibraryStorage(window.localStorage, workspaceUserId, "research");
+        if (!pendingInspiration.length && localInspiration.length) clearMigratedLibraryStorage(window.localStorage, workspaceUserId, "inspiration");
+        setWorkspaceStatus("ready");
+      }).catch((loadError: unknown) => {
+        if (!active) return;
+        setPendingProjectImports(localProjects);
+        setPendingResearchImports(localResearch);
+        setPendingInspirationImports(localInspiration);
+        setWorkspaceError(loadError instanceof Error ? loadError.message : "The workspace could not be loaded from Supabase.");
+        setWorkspaceStatus("error");
+      });
     }, 0);
-    return () => window.clearTimeout(hydrateWorkspace);
-  }, [workspaceUserId]);
+
+    return () => {
+      active = false;
+      window.clearTimeout(hydrateWorkspace);
+    };
+  }, [workspaceReloadToken, workspaceUserId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -124,69 +227,180 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (event.key === "Escape") {
         setSearchOpen(false);
         setMobileNavOpen(false);
-        setProjectDialogOpen(false);
+        setProjectDialogOpenState(false);
+        setEditingProjectId("");
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  function createProject(input: NewProjectInput) {
+  async function runWorkspaceMutation<T>(operation: () => Promise<T>) {
+    setWorkspaceError("");
+    try {
+      return await operation();
+    } catch (mutationError) {
+      setWorkspaceError(mutationError instanceof Error ? mutationError.message : "The workspace change could not be saved.");
+      throw mutationError;
+    }
+  }
+
+  async function createProject(input: NewProjectInput) {
     if (!workspaceUserId) throw new Error("Sign in with GitHub before creating a project.");
-    const project: Project = {
-      id: `project-${Date.now()}`,
-      name: input.name.trim(),
-      brand: input.brand.trim(),
-      market: input.market.trim(),
-      focus: input.description.trim(),
-      description: input.description.trim(),
-      competitors: input.competitors,
-      accent: projectColors[projects.length % projectColors.length],
-      counts: { mentions: 0, research: 0, insights: 0 },
-    };
-    const next = [...projects, project];
-    setProjects(next);
-    setActiveProjectIdState(project.id);
-    window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.projects), JSON.stringify(next));
-    window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.activeProject), project.id);
-    return project;
+    return runWorkspaceMutation(async () => {
+      const project = await createCloudProject(input);
+      setAllProjects((current) => [...current, project]);
+      setActiveProjectIdState(project.id);
+      window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.activeProject), project.id);
+      return project;
+    });
   }
 
-  function addInspiration(input: NewInspirationInput) {
+  async function updateProject(id: string, input: NewProjectInput) {
+    const project = allProjects.find((item) => item.id === id);
+    if (!project) throw new Error("The project could not be found.");
+    return runWorkspaceMutation(async () => {
+      const updated = await updateCloudProject(project, input);
+      setAllProjects((current) => current.map((item) => item.id === id ? updated : item));
+      return updated;
+    });
+  }
+
+  async function changeProjectArchiveState(id: string, archived: boolean) {
+    const project = allProjects.find((item) => item.id === id);
+    if (!project) throw new Error("The project could not be found.");
+    await runWorkspaceMutation(async () => {
+      const updated = await setCloudProjectArchived(project, archived);
+      setAllProjects((current) => current.map((item) => item.id === id ? updated : item));
+      if (archived && activeProjectId === id) {
+        const nextActive = projects.find((item) => item.id !== id)?.id ?? "";
+        setActiveProjectIdState(nextActive);
+        window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.activeProject), nextActive);
+      } else if (!archived && !activeProjectId) {
+        setActiveProjectIdState(id);
+        window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.activeProject), id);
+      }
+    });
+  }
+
+  async function deleteProject(id: string) {
+    const project = allProjects.find((item) => item.id === id);
+    if (!project) throw new Error("The project could not be found.");
+    await runWorkspaceMutation(async () => {
+      await deleteCloudProject(project);
+      setAllProjects((current) => current.filter((item) => item.id !== id));
+      setResearchItems((current) => current.filter((item) => item.projectId !== id));
+      setInspirationItems((current) => current.filter((item) => item.projectId !== id));
+      if (activeProjectId === id) {
+        const nextActive = projects.find((item) => item.id !== id)?.id ?? "";
+        setActiveProjectIdState(nextActive);
+        window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.activeProject), nextActive);
+      }
+    });
+  }
+
+  async function importPendingProjects() {
+    if (!workspaceUserId || !pendingProjectImports.length) return 0;
+    setWorkspaceStatus("loading");
+    setWorkspaceError("");
+    try {
+      const importedProjects = await importLocalProjects(pendingProjectImports);
+      const importedCount = pendingProjectImports.length;
+      setAllProjects(importedProjects);
+      setPendingProjectImports([]);
+      clearMigratedProjectStorage(window.localStorage, workspaceUserId);
+      if (!activeProjectId) {
+        const firstActive = importedProjects.find((project) => project.status !== "archived")?.id ?? "";
+        setActiveProjectIdState(firstActive);
+      }
+      setWorkspaceStatus("ready");
+      return importedCount;
+    } catch (importError) {
+      setWorkspaceError(importError instanceof Error ? importError.message : "Local projects could not be imported.");
+      setWorkspaceStatus("error");
+      throw importError;
+    }
+  }
+
+  async function addInspiration(input: NewInspirationInput) {
     if (!workspaceUserId) throw new Error("Sign in with GitHub before adding inspiration.");
-    const item: InspirationItem = {
-      id: `inspiration-${Date.now()}`,
-      brand: "Personal workspace",
-      title: input.title.trim(),
-      type: input.type,
-      source: input.source.trim() || "Personal note",
-      tags: [],
-      palette: "blue",
-      savedAt: "Just now",
-      note: input.note.trim(),
-    };
-    const next = [...inspirationItems, item];
-    setInspirationItems(next);
-    window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.inspiration), JSON.stringify(next));
-    return item;
+    const project = projects.find((item) => item.id === input.projectId);
+    if (!project) throw new Error("Choose a project before saving inspiration.");
+    return runWorkspaceMutation(async () => {
+      const item = await createCloudInspiration(project, input);
+      setInspirationItems((current) => [item, ...current]);
+      return item;
+    });
   }
 
-  function addResearch(input: NewResearchInput) {
+  async function deleteInspiration(id: string) {
+    const item = inspirationItems.find((candidate) => candidate.id === id);
+    if (!item) throw new Error("The inspiration item could not be found.");
+    await runWorkspaceMutation(async () => {
+      await deleteCloudInspiration(item);
+      setInspirationItems((current) => current.filter((candidate) => candidate.id !== id));
+      setSavedIds((current) => {
+        const next = current.filter((savedId) => savedId !== id);
+        window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.savedItems), JSON.stringify(next));
+        return next;
+      });
+    });
+  }
+
+  async function addResearch(input: NewResearchInput) {
     if (!workspaceUserId) throw new Error("Sign in with GitHub before adding research.");
-    const item: ResearchItem = {
-      id: `research-${Date.now()}`,
-      title: input.title.trim(),
-      publication: input.source.trim() || "Personal research",
-      type: input.type,
-      date: new Date().toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" }),
-      tags: [],
-      summary: input.summary.trim(),
-      collection: "Unsorted",
-    };
-    const next = [...researchItems, item];
-    setResearchItems(next);
-    window.localStorage.setItem(userWorkspaceStorageKey(workspaceUserId, workspaceStorageKeys.research), JSON.stringify(next));
-    return item;
+    const project = projects.find((item) => item.id === input.projectId);
+    if (!project) throw new Error("Choose a project before saving research.");
+    return runWorkspaceMutation(async () => {
+      const item = await createCloudResearch(project, input);
+      setResearchItems((current) => [item, ...current]);
+      setAllProjects((current) => current.map((candidate) => candidate.id === project.id
+        ? { ...candidate, counts: { ...candidate.counts, research: candidate.counts.research + 1 } }
+        : candidate));
+      return item;
+    });
+  }
+
+  async function deleteResearch(id: string) {
+    const item = researchItems.find((candidate) => candidate.id === id);
+    if (!item) throw new Error("The research item could not be found.");
+    await runWorkspaceMutation(async () => {
+      await deleteCloudResearch(item);
+      setResearchItems((current) => current.filter((candidate) => candidate.id !== id));
+      setAllProjects((current) => current.map((candidate) => candidate.id === item.projectId
+        ? { ...candidate, counts: { ...candidate.counts, research: Math.max(0, candidate.counts.research - 1) } }
+        : candidate));
+    });
+  }
+
+  async function importPendingResearch(projectId: string) {
+    const project = projects.find((item) => item.id === projectId);
+    if (!workspaceUserId || !project || !pendingResearchImports.length) return 0;
+    return runWorkspaceMutation(async () => {
+      await importLocalResearch(pendingResearchImports, project);
+      const importedCount = pendingResearchImports.length;
+      const cloudResearch = await listCloudResearch(allProjects);
+      setResearchItems(cloudResearch);
+      setAllProjects((current) => current.map((candidate) => candidate.id === project.id
+        ? { ...candidate, counts: { ...candidate.counts, research: cloudResearch.filter((item) => item.projectId === project.id).length } }
+        : candidate));
+      setPendingResearchImports([]);
+      clearMigratedLibraryStorage(window.localStorage, workspaceUserId, "research");
+      return importedCount;
+    });
+  }
+
+  async function importPendingInspiration(projectId: string) {
+    const project = projects.find((item) => item.id === projectId);
+    if (!workspaceUserId || !project || !pendingInspirationImports.length) return 0;
+    return runWorkspaceMutation(async () => {
+      await importLocalInspiration(pendingInspirationImports, project);
+      const importedCount = pendingInspirationImports.length;
+      setInspirationItems(await listCloudInspiration(allProjects));
+      setPendingInspirationImports([]);
+      clearMigratedLibraryStorage(window.localStorage, workspaceUserId, "inspiration");
+      return importedCount;
+    });
   }
 
   const value: AppContextValue = {
@@ -202,9 +416,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.localStorage.setItem("sift-theme", next);
     },
     projects,
+    archivedProjects,
     createProject,
+    updateProject,
+    archiveProject: (id) => changeProjectArchiveState(id, true),
+    restoreProject: (id) => changeProjectArchiveState(id, false),
+    deleteProject,
     projectDialogOpen,
-    setProjectDialogOpen,
+    setProjectDialogOpen: (value) => {
+      setProjectDialogOpenState(value);
+      setEditingProjectId("");
+    },
+    editingProject,
+    openProjectEditor: (id) => {
+      setEditingProjectId(id);
+      setProjectDialogOpenState(true);
+    },
+    workspaceStatus,
+    workspaceError,
+    clearWorkspaceError: () => setWorkspaceError(""),
+    retryWorkspace: () => setWorkspaceReloadToken((token) => token + 1),
+    pendingProjectImports,
+    importPendingProjects,
+    pendingInspirationImports,
+    importPendingInspiration,
+    pendingResearchImports,
+    importPendingResearch,
     activeProjectId,
     setActiveProjectId: (id) => {
       if (!workspaceUserId) return;
@@ -213,8 +450,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     inspirationItems,
     addInspiration,
+    deleteInspiration,
     researchItems,
     addResearch,
+    deleteResearch,
     savedIds,
     toggleSaved: (id) => {
       if (!workspaceUserId) return;

@@ -1,68 +1,82 @@
 "use client";
 
-import { BookOpen, FileText, FolderKanban, Lightbulb, Plus, X } from "lucide-react";
+import { BookOpen, FolderKanban, Images, Lightbulb, X } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { Badge, Button } from "@/components/ui/primitives";
 import type { EvidenceDestination, RadarEvidenceLink, RadarMention } from "@/lib/radar/types";
 
 const destinations: { id: EvidenceDestination; label: string; description: string; icon: typeof Lightbulb }[] = [
-  { id: "insight", label: "Existing insight", description: "Attach this source to an insight already in the workspace.", icon: Lightbulb },
-  { id: "new-insight", label: "New insight", description: "Create an insight starting point with this mention as evidence.", icon: Plus },
-  { id: "research", label: "Research collection", description: "Keep the mention in a named research theme.", icon: BookOpen },
+  { id: "new-insight", label: "Insight seed", description: "Keep a research-backed starting point for the future insight builder.", icon: Lightbulb },
+  { id: "research", label: "Research item", description: "Connect this source to research already saved in the workspace.", icon: BookOpen },
+  { id: "inspiration", label: "Inspiration item", description: "Connect the conversation to a saved creative reference.", icon: Images },
   { id: "project", label: "Project", description: "Associate the evidence with a project workspace.", icon: FolderKanban },
-  { id: "brief", label: "Brief", description: "Attach the mention to a working creative brief.", icon: FileText },
 ];
 
-export function EvidenceDialog({ mention, onClose, onSave }: { mention: RadarMention | null; onClose: () => void; onSave: (link: RadarEvidenceLink) => void }) {
-  const { projects, researchItems } = useApp();
-  const [destination, setDestination] = useState<EvidenceDestination>("insight");
+interface EvidenceDialogProps {
+  mention: RadarMention | null;
+  onClose: () => void;
+  onSave: (link: RadarEvidenceLink) => Promise<RadarEvidenceLink>;
+}
+
+export function EvidenceDialog({ mention, onClose, onSave }: EvidenceDialogProps) {
+  const { projects, researchItems, inspirationItems } = useApp();
+  const [destination, setDestination] = useState<EvidenceDestination>("new-insight");
   const [targetId, setTargetId] = useState("");
   const [newInsight, setNewInsight] = useState("");
   const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const targetOptions = useMemo(() => {
-    if (destination === "insight") return [];
     if (destination === "research") return researchItems.map((item) => ({ id: item.id, label: item.title }));
+    if (destination === "inspiration") return inspirationItems.map((item) => ({ id: item.id, label: item.title }));
     if (destination === "project") return projects.map((item) => ({ id: item.id, label: item.name }));
-    if (destination === "brief") return [];
     return [];
-  }, [destination, projects, researchItems]);
+  }, [destination, inspirationItems, projects, researchItems]);
 
   if (!mention) return null;
 
   function chooseDestination(next: EvidenceDestination) {
     setDestination(next);
-    if (next === "insight") setTargetId("");
+    setError("");
     if (next === "research") setTargetId(researchItems[0]?.id ?? "");
-    if (next === "project") setTargetId(projects[0]?.id ?? "");
-    if (next === "brief") setTargetId("");
-    if (next === "new-insight") setTargetId("");
+    else if (next === "inspiration") setTargetId(inspirationItems[0]?.id ?? "");
+    else if (next === "project") setTargetId(projects[0]?.id ?? "");
+    else setTargetId("");
   }
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!mention) return;
+    if (!mention || saving) return;
     const label = destination === "new-insight" ? newInsight.trim() : targetOptions.find((item) => item.id === targetId)?.label;
     if (!label) return;
-    onSave({
-      id: `evidence-${Date.now()}`,
-      mentionId: mention.id,
-      destination,
-      destinationId: destination === "new-insight" ? undefined : targetId,
-      destinationLabel: label,
-      note: note.trim() || undefined,
-      createdAt: new Date().toISOString(),
-    });
-    onClose();
+    setSaving(true);
+    setError("");
+    try {
+      await onSave({
+        id: `evidence-${Date.now()}`,
+        mentionId: mention.id,
+        destination,
+        destinationId: destination === "new-insight" ? undefined : targetId,
+        destinationLabel: label,
+        note: note.trim() || undefined,
+        createdAt: new Date().toISOString(),
+      });
+      onClose();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Evidence could not be linked.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="radar-overlay" role="dialog" aria-modal="true" aria-labelledby="evidence-dialog-title">
       <button className="radar-overlay__scrim" onClick={onClose} aria-label="Close evidence dialog" />
-      <form className="evidence-dialog" onSubmit={submit}>
+      <form className="evidence-dialog" onSubmit={(event) => void submit(event)}>
         <header><div><p className="eyebrow">Use as evidence</p><h2 id="evidence-dialog-title">Where should this source contribute?</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>
-        <div className="evidence-dialog__source"><p>“{mention.content}”</p><span>{mention.sourceLabel} · {mention.author}</span></div>
+        <div className="evidence-dialog__source"><p>&ldquo;{mention.content}&rdquo;</p><span>{mention.sourceLabel} &middot; {mention.author}</span></div>
         <div className="evidence-destination-grid">
           {destinations.map((item) => {
             const Icon = item.icon;
@@ -75,7 +89,8 @@ export function EvidenceDialog({ mention, onClose, onSave }: { mention: RadarMen
           <label className="evidence-target-field"><span>Destination</span><select value={targetId} onChange={(event) => setTargetId(event.target.value)} disabled={!targetOptions.length}><option value="">{targetOptions.length ? "Choose a destination" : "No destinations available"}</option>{targetOptions.map((option) => <option value={option.id} key={option.id}>{option.label}</option>)}</select></label>
         )}
         <label className="evidence-target-field"><span>Evidence note</span><textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Why is this mention useful?" /></label>
-        <footer><span>The original mention ID and excerpt remain attached.</span><div><Button type="button" onClick={onClose}>Cancel</Button><Button type="submit" variant="dark" disabled={destination === "new-insight" ? !newInsight.trim() : !targetId}>Link evidence</Button></div></footer>
+        {error ? <p className="form-error" role="alert">{error}</p> : null}
+        <footer><span>The original mention and excerpt remain attached in Supabase.</span><div><Button type="button" onClick={onClose} disabled={saving}>Cancel</Button><Button type="submit" variant="dark" disabled={saving || (destination === "new-insight" ? !newInsight.trim() : !targetId)}>{saving ? "Linking..." : "Link evidence"}</Button></div></footer>
       </form>
     </div>
   );

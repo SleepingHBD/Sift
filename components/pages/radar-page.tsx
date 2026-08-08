@@ -23,6 +23,7 @@ import { EvidenceDialog } from "@/components/radar/evidence-dialog";
 import { MentionDetailDrawer } from "@/components/radar/mention-detail-drawer";
 import { MentionFeed } from "@/components/radar/mention-feed";
 import { MonitorDialog } from "@/components/radar/monitor-dialog";
+import { RadarImportNotice } from "@/components/radar/radar-import-notice";
 import { RadarSentimentChart, RadarSourceChart, RadarVolumeChart } from "@/components/radar/radar-charts";
 import { RadarEvidenceView } from "@/components/radar/radar-evidence-view";
 import { SourceDrawer } from "@/components/radar/source-drawer";
@@ -34,7 +35,7 @@ import { Badge, Button, Card, Metric, PageIntro, SectionHeader } from "@/compone
 import { EmptyState } from "@/components/workspace/empty-state";
 import { deleteRadarMonitor, enrichConnectorMentions, getRunnableSources, isRadarConnectorBackendConfigured, runRadarConnectors } from "@/lib/radar/connector-service";
 import { buildRadarAnalytics } from "@/lib/radar/processing";
-import type { DateRangeKey, EvidenceDestination, MonitorRun, MonitoringQuery, RadarEvidenceLink, RadarMention } from "@/lib/radar/types";
+import type { DateRangeKey, EvidenceDestination, MonitorRun, MonitoringQuery, RadarMention } from "@/lib/radar/types";
 import { formatNumber } from "@/lib/utils";
 
 type RadarView = "overview" | "topics" | "mentions" | "evidence";
@@ -48,8 +49,8 @@ const rangeLabels: { id: DateRangeKey; label: string }[] = [
 ];
 
 export function RadarPage() {
-  const { savedIds, toggleSaved, removeSavedIds, projects } = useApp();
-  const { monitors, addMonitor, removeMonitor, mentionsByMonitor, runs, connectorSettings, saveConnectorSettings, completeMonitorRun, recordMonitorRun, evidenceLinks, addEvidenceLink, notes, saveNote, importantIds, toggleImportant } = useRadarState();
+  const { removeSavedIds, projects, researchItems, inspirationItems } = useApp();
+  const { monitors, addMonitor, removeMonitor, mentionsByMonitor, connectorSettings, saveConnectorSettings, completeMonitorRun, recordMonitorRun, savedIds, toggleSaved, evidenceLinks, addEvidenceLink, removeEvidenceLink, notes, saveNote, importantIds, toggleImportant, annotationError, clearAnnotationError, cloudStatus, cloudError, retryCloud, historyTruncated, pendingLocalRadar, pendingLocalAnnotations, importPendingRadar } = useRadarState(projects, researchItems, inspirationItems, removeSavedIds);
   const [activeMonitorId, setActiveMonitorId] = useState("");
   const [activeView, setActiveView] = useState<RadarView>("overview");
   const [dateRange, setDateRange] = useState<DateRangeKey>("30d");
@@ -111,9 +112,9 @@ export function RadarPage() {
     setSelectedSpikeId("");
   }
 
-  function createMonitor(monitor: MonitoringQuery) {
-    addMonitor(monitor);
-    selectMonitor(monitor.id);
+  async function createMonitor(monitor: MonitoringQuery) {
+    const created = await addMonitor(monitor);
+    selectMonitor(created.id);
   }
 
   function inspectSource(source: string) {
@@ -129,8 +130,8 @@ export function RadarPage() {
     window.setTimeout(() => document.getElementById("mention-feed")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }
 
-  function quickEvidenceLink(mention: RadarMention, destination: EvidenceDestination, label: string) {
-    addEvidenceLink({ id: `evidence-${Date.now()}`, mentionId: mention.id, destination, destinationLabel: label, createdAt: new Date().toISOString() });
+  async function quickEvidenceLink(mention: RadarMention, destination: EvidenceDestination, label: string) {
+    await addEvidenceLink({ id: `evidence-${Date.now()}`, mentionId: mention.id, destination, destinationLabel: label, createdAt: new Date().toISOString() });
   }
 
   async function runMonitor() {
@@ -159,12 +160,12 @@ export function RadarPage() {
         persisted: result.persisted,
         sourceResults: result.sourceResults,
       };
-      completeMonitorRun(activeMonitor.id, processed, run);
+      await completeMonitorRun(activeMonitor.id, processed, run);
       const failedSources = result.sourceResults.filter((source) => source.status === "failed");
       setRunNotice({
         tone: failedSources.length || !result.persisted ? "error" : "success",
         message: processed.length
-          ? `Collected ${processed.length} genuine source record${processed.length === 1 ? "" : "s"}.${failedSources.length ? ` ${failedSources.length} source failed; open Sources for details.` : ""}${!result.persisted ? ` Records are saved on this device, but cloud persistence failed${result.persistenceError ? `: ${result.persistenceError}` : "."}` : ""}`
+          ? `Collected ${processed.length} genuine source record${processed.length === 1 ? "" : "s"}.${failedSources.length ? ` ${failedSources.length} source failed; open Sources for details.` : ""}${!result.persisted ? ` These results are temporary and may be lost because cloud persistence failed${result.persistenceError ? `: ${result.persistenceError}` : "."}` : ""}`
           : !result.persisted
             ? `The source run completed, but cloud persistence failed${result.persistenceError ? `: ${result.persistenceError}` : "."}`
             : failedSources.length
@@ -174,7 +175,7 @@ export function RadarPage() {
     } catch (error) {
       const completedAt = new Date().toISOString();
       const message = error instanceof Error ? error.message : "The monitor run failed.";
-      recordMonitorRun({
+      await recordMonitorRun({
         id: `run-${Date.now()}`,
         monitorId: activeMonitor.id,
         connectorIds: runnableSources,
@@ -186,7 +187,7 @@ export function RadarPage() {
         persisted: false,
         sourceResults: runnableSources.map((source) => ({ source, status: "failed", count: 0, message })),
         error: message,
-      });
+      }).catch(() => undefined);
       setRunNotice({ tone: "error", message });
     } finally {
       setRunState("idle");
@@ -198,20 +199,17 @@ export function RadarPage() {
     const monitorId = activeMonitor.id;
     const mentionIds = (mentionsByMonitor[monitorId] ?? []).map((mention) => mention.id);
     const nextMonitor = monitors.find((monitor) => monitor.id !== monitorId);
-    const hasPersistedData = runs.some((run) => run.monitorId === monitorId && run.persisted);
     setDeleteState("deleting");
     setDeleteError("");
 
     try {
-      if (hasPersistedData) {
-        if (!backendConfigured) throw new Error("Connect Supabase before deleting this monitor's cloud records.");
-        await deleteRadarMonitor(monitorId, monitorProject ? {
-          id: monitorProject.id,
-          name: monitorProject.name,
-          description: monitorProject.description,
-          market: monitorProject.market,
-        } : undefined);
-      }
+      if (!backendConfigured) throw new Error("Connect Supabase before deleting this cloud monitor.");
+      await deleteRadarMonitor(monitorId, monitorProject ? {
+        id: monitorProject.id,
+        name: monitorProject.name,
+        description: monitorProject.description,
+        market: monitorProject.market,
+      } : undefined);
       removeSavedIds(mentionIds);
       removeMonitor(monitorId);
       setActiveMonitorId(nextMonitor?.id ?? "");
@@ -232,6 +230,24 @@ export function RadarPage() {
     }
   }
 
+  if (cloudStatus === "loading") {
+    return (
+      <div className="page radar-page-v3">
+        <PageIntro eyebrow="Radar / Social listening" title="Read the room." description="Loading your private listening workspace from Supabase." />
+        <EmptyState icon={RefreshCw} eyebrow="Cloud workspace" title="Loading Radar…" description="Sift is retrieving your monitors, conversation history, topics, and run records." />
+      </div>
+    );
+  }
+
+  if (cloudStatus === "error") {
+    return (
+      <div className="page radar-page-v3">
+        <PageIntro eyebrow="Radar / Social listening" title="Radar could not be loaded." description="Sift will not replace unavailable cloud data with an empty or browser-only workspace." />
+        <EmptyState icon={Radio} eyebrow="Cloud connection" title="Your Radar data is still in Supabase." description={cloudError || "The authenticated Radar repository is temporarily unavailable."} actions={<Button variant="dark" onClick={retryCloud}><RefreshCw size={15} />Try again</Button>} />
+      </div>
+    );
+  }
+
   if (!activeMonitor) {
     return (
       <div className="page radar-page-v3">
@@ -243,6 +259,7 @@ export function RadarPage() {
           <Button onClick={() => setSourceDrawerOpen(true)}><Settings2 size={15} />Sources</Button>
           <Button variant="dark" onClick={() => setMonitorDialogOpen(true)}><Plus size={16} />Create monitor</Button>
         </PageIntro>
+        {pendingLocalRadar || pendingLocalAnnotations ? <RadarImportNotice payload={pendingLocalRadar} annotations={pendingLocalAnnotations} onImport={importPendingRadar} /> : null}
         <EmptyState
           icon={Radio}
           eyebrow="Your listening workspace"
@@ -271,6 +288,10 @@ export function RadarPage() {
         <Button onClick={() => setSourceDrawerOpen(true)}><Settings2 size={15} />Sources</Button>
         <Button variant="dark" onClick={() => setMonitorDialogOpen(true)}><Plus size={16} />New monitor</Button>
       </PageIntro>
+
+      {pendingLocalRadar || pendingLocalAnnotations ? <RadarImportNotice payload={pendingLocalRadar} annotations={pendingLocalAnnotations} onImport={importPendingRadar} /> : null}
+      {historyTruncated ? <div className="radar-run-notice" role="status"><span>Radar loaded the newest 5,000 conversations. Older records remain safely stored in Supabase.</span></div> : null}
+      {annotationError ? <div className="radar-run-notice radar-run-notice--error" role="alert"><span>{annotationError}</span><button onClick={clearAnnotationError} aria-label="Dismiss Radar save error">×</button></div> : null}
 
       <Card className="monitor-command-bar monitor-command-bar--calm">
         <div className="monitor-command-bar__select">
@@ -387,8 +408,8 @@ export function RadarPage() {
       <DeleteMonitorDialog open={deleteDialogOpen} monitor={activeMonitor} mentionCount={allMentions.length} deleting={deleteState === "deleting"} error={deleteError} onClose={() => { if (deleteState !== "deleting") { setDeleteDialogOpen(false); setDeleteError(""); } }} onConfirm={confirmDeleteMonitor} />
       <SourceDrawer open={sourceDrawerOpen} onClose={() => setSourceDrawerOpen(false)} settings={connectorSettings} onSave={saveConnectorSettings} backendConfigured={backendConfigured} />
       <SpikeDrawer spike={selectedSpike} mentions={analytics.currentMentions} onClose={() => setSelectedSpikeId("")} onOpenMention={(mention) => { setSelectedSpikeId(""); setSelectedMention(mention); }} />
-      <MentionDetailDrawer mention={selectedMention} related={relatedMentions} note={selectedMention ? notes[selectedMention.id] ?? "" : ""} links={selectedMention ? evidenceLinks.filter((link) => link.mentionId === selectedMention.id) : []} saved={Boolean(selectedMention && savedIds.includes(selectedMention.id))} important={Boolean(selectedMention && importantIds.includes(selectedMention.id))} onClose={() => setSelectedMention(null)} onSaveNote={(note) => selectedMention && saveNote(selectedMention.id, note)} onToggleSaved={() => selectedMention && toggleSaved(selectedMention.id)} onToggleImportant={() => selectedMention && toggleImportant(selectedMention.id)} onUseEvidence={() => selectedMention && setEvidenceMention(selectedMention)} onOpenRelated={setSelectedMention} onFilterKeyword={inspectKeyword} />
-      <EvidenceDialog mention={evidenceMention} onClose={() => setEvidenceMention(null)} onSave={(link: RadarEvidenceLink) => addEvidenceLink(link)} />
+      <MentionDetailDrawer mention={selectedMention} related={relatedMentions} note={selectedMention ? notes[selectedMention.id] ?? "" : ""} links={selectedMention ? evidenceLinks.filter((link) => link.mentionId === selectedMention.id) : []} saved={Boolean(selectedMention && savedIds.includes(selectedMention.id))} important={Boolean(selectedMention && importantIds.includes(selectedMention.id))} onClose={() => setSelectedMention(null)} onSaveNote={(note) => selectedMention ? saveNote(selectedMention.id, note) : Promise.resolve()} onRemoveEvidence={removeEvidenceLink} onToggleSaved={() => { if (selectedMention) void toggleSaved(selectedMention.id); }} onToggleImportant={() => { if (selectedMention) void toggleImportant(selectedMention.id); }} onUseEvidence={() => selectedMention && setEvidenceMention(selectedMention)} onOpenRelated={setSelectedMention} onFilterKeyword={inspectKeyword} />
+      <EvidenceDialog mention={evidenceMention} onClose={() => setEvidenceMention(null)} onSave={addEvidenceLink} />
     </div>
   );
 }

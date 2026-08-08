@@ -49,7 +49,7 @@ export function enrichConnectorMentions(mentions: NormalizedMention[], monitor: 
       sentimentScore: sentiment.score,
       topics: assignTopics(mention.content),
       keywords,
-      relevance: calculateRelevance(mention.content, monitor),
+      relevance: calculateRadarRelevance(mention.content, monitor),
       metadata: mention.metadata,
     };
   });
@@ -61,7 +61,7 @@ export function mergeRadarMentions(existing: RadarMention[], incoming: RadarMent
   return [...merged.values()].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 }
 
-function calculateRelevance(content: string, monitor: MonitoringQuery) {
+export function calculateRadarRelevance(content: string, monitor: MonitoringQuery) {
   const normalized = content.toLowerCase();
   const included = [...monitor.builder.includeAll, ...monitor.builder.includeAny].filter(Boolean);
   if (!included.length) return 70;

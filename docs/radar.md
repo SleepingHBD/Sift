@@ -20,7 +20,7 @@ monitor definition
 
 The default monitor form asks only for a topic and monitor name. An optional advanced editor supports `AND`, `OR`, `NOT`, exact phrases, parentheses, exclusions, project context, language, market, and requested sources.
 
-New monitor definitions persist to user-scoped browser storage and start with no records. A run requires the permanent GitHub-backed Supabase session, invokes the JWT-protected connector function, stores the normalized response locally, and writes the run and its evidence to PostgreSQL through Row Level Security. The server enforces atomic limits of six Radar runs per minute and 100 per day for the permanent user.
+New monitor definitions persist immediately to the authenticated Supabase workspace and start with no records. A run invokes the JWT-protected connector function, writes normalized evidence and an auditable run to PostgreSQL through Row Level Security, then reloads the authoritative cloud rows. The server enforces atomic limits of six Radar runs per minute and 100 per day for the permanent user.
 
 ## Normalized mentions
 
@@ -44,4 +44,6 @@ Each source reports completed or failed independently, so one unavailable feed d
 
 ## Persistence boundary
 
-The static client keeps collected mentions in the current device's browser storage for immediate analysis. The authenticated Edge Function also maps client project and monitor references to UUID-backed PostgreSQL rows and persists sources, mentions, monitor runs, sentiment, keywords, topics, and topic relationships. If cloud persistence fails, the client explicitly reports that only device persistence succeeded.
+Supabase is the source of truth for monitor definitions, collected mentions, topics, and run history. Stable client references make monitor and legacy run imports safe to retry. Reads use keyset pagination and currently hydrate the newest 5,000 conversations with an explicit truncation notice; older evidence remains in PostgreSQL. A cloud read failure produces a retry state instead of a misleading empty workspace. If connector persistence fails, retrieved records remain temporary in memory and the interface says they may be lost.
+
+Older browser Radar payloads are never imported silently. Radar offers a JSON backup and reviewed import, verifies the cloud reload, and only then removes the corresponding local monitor, mention, run, note, saved-marker, important-marker, and evidence-link payloads. Radar annotations are stored per user in Supabase: `mention_notes` owns notes, `mentions.is_important` owns importance, and `saved_items` owns saved markers and evidence destinations.

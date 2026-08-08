@@ -10,7 +10,8 @@ The current application is a statically exported Next.js app for GitHub Pages. N
 
 ```text
 Next.js static client
-  ├─ browser-local personal repository
+  ├─ Supabase project, research, and inspiration repositories
+  ├─ browser-local migration candidates and UI preferences
   ├─ page modules and reusable intelligence components
   ├─ normalized connector contracts
   └─ authenticated Supabase boundary
@@ -24,13 +25,22 @@ GitHub Pages cannot protect an OpenAI or connector secret. Radar calls an authen
 
 ## Data ownership
 
-- Personal projects, research, inspiration, saves, Radar monitors, notes, important marks, and evidence relationships have dedicated browser-storage keys.
+- Projects are cloud-first and hydrate from Supabase after the permanent GitHub session is verified.
+- Project create, update, archive, restore, and delete operations use the authenticated Data API under Row Level Security. The database derives `owner_id` from `auth.uid()` when a project is created.
+- Stable `client_ref` values and a unique `(owner_id, client_ref)` constraint make browser-project imports safe to retry.
+- Research and Inspiration hydrate from project-scoped Supabase repositories. Their stable client references and unique `(project_id, client_ref)` constraints make browser imports safe to retry.
+- New Research and Inspiration records derive `created_by` from `auth.uid()` and require an accessible destination project; the browser never supplies a user ID.
+- Brand/client context and competitors remain relational records; project cards use database-derived mention, research, and insight counts.
+- Radar monitors, connector-created mentions, topics, and monitor runs hydrate from authenticated Supabase repositories. Stable monitor and run references plus cursor indexes support retry-safe browser migration and bounded cloud reads.
+- Saved markers, Radar notes, important marks, and evidence relationships hydrate through authenticated per-user repositories. Their old browser keys exist only as reviewed migration inputs.
 - The interface does not seed records or infer analytics when the workspace is empty.
 - Connector runs use the verified permanent Supabase user and write through `owner_id`, project membership checks, and Row Level Security.
 - Workspace routes require a verified, non-anonymous session. The Account route remains public for sign-in and recovery.
 - GitHub is the only enabled sign-in provider. Anonymous access, manual identity linking, email authentication, and new account registration are disabled in the personal production project.
-- Device caches are scoped to the Supabase user ID; legacy unscoped records can be claimed only once by the account that completes the migration.
-- Local records make the static interface resilient, but the application distinguishes device persistence from authenticated cloud persistence.
+- Device migration candidates are scoped to the Supabase user ID; legacy unscoped records can be claimed only once by the account that completes the migration.
+- The Projects page previews local records, offers a JSON backup, imports idempotently, and clears project payloads only after cloud verification.
+- The Research and Inspiration pages apply the same reviewed migration rule and require the user to choose the correct project for legacy items before import.
+- Radar applies the same backup-before-import rule, preserves project and evidence associations, and clears core or annotation caches only after the corresponding cloud copy reloads successfully.
 
 ## Primary routes
 

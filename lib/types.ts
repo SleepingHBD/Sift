@@ -9,6 +9,8 @@ export type Sentiment = "positive" | "neutral" | "negative";
 
 export interface Project {
   id: string;
+  cloudId?: string;
+  clientRef?: string;
   name: string;
   brand: string;
   market: string;
@@ -17,6 +19,9 @@ export interface Project {
   competitors?: string[];
   accent: string;
   counts: { mentions: number; research: number; insights: number };
+  status?: "active" | "archived";
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Trend {
@@ -53,25 +58,37 @@ export interface Mention {
 
 export interface InspirationItem {
   id: string;
+  cloudId?: string;
+  clientRef?: string;
+  projectId: string;
   brand: string;
   title: string;
   type: string;
   source: string;
+  url?: string;
   tags: string[];
   palette: string;
   savedAt: string;
   note: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ResearchItem {
   id: string;
+  cloudId?: string;
+  clientRef?: string;
+  projectId: string;
   title: string;
   publication: string;
+  url?: string;
   type: string;
   date: string;
   tags: string[];
   summary: string;
   collection: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Competitor {

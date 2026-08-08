@@ -32,7 +32,7 @@ interface MentionFeedProps {
   onToggleSaved: (mentionId: string) => void;
   onToggleImportant: (mentionId: string) => void;
   onUseEvidence: (mention: RadarMention) => void;
-  onQuickLink: (mention: RadarMention, destination: EvidenceDestination, label: string) => void;
+  onQuickLink: (mention: RadarMention, destination: EvidenceDestination, label: string) => Promise<void>;
 }
 
 export function MentionFeed({ mentions, topics, sourceFilter, topicFilter, keywordFilter, projectLabel, savedIds, importantIds, onSourceFilter, onTopicFilter, onKeywordFilter, onOpenMention, onToggleSaved, onToggleImportant, onUseEvidence, onQuickLink }: MentionFeedProps) {
@@ -65,10 +65,14 @@ export function MentionFeed({ mentions, topics, sourceFilter, topicFilter, keywo
     });
   }, [keywordFilter, mentions, minimumEngagement, search, sentiment, sort, sourceFilter, topicFilter]);
 
-  function quickLink(mention: RadarMention, destination: EvidenceDestination, label: string) {
-    onQuickLink(mention, destination, label);
-    setNotice(`Added to ${label}. Original mention ID retained.`);
-    window.setTimeout(() => setNotice(""), 2200);
+  async function quickLink(mention: RadarMention, destination: EvidenceDestination, label: string) {
+    try {
+      await onQuickLink(mention, destination, label);
+      setNotice(`Added to ${label}. Original mention ID retained.`);
+      window.setTimeout(() => setNotice(""), 2200);
+    } catch {
+      setNotice("");
+    }
   }
 
   function clearFilters() {
@@ -118,12 +122,12 @@ export function MentionFeed({ mentions, topics, sourceFilter, topicFilter, keywo
                 <div className="mention-card__footer">
                   <span><b>{formatNumber(mention.engagement)}</b> estimated engagement · {mention.relevance}% relevant</span>
                   <div className="mention-actions">
-                    <button title={savedIds.includes(mention.id) ? "Remove saved mention" : "Save mention"} onClick={(event) => { event.stopPropagation(); onToggleSaved(mention.id); }}><Bookmark size={14} fill={savedIds.includes(mention.id) ? "currentColor" : "none"} /><span>Save</span></button>
-                    <button title="Add to project" onClick={(event) => { event.stopPropagation(); quickLink(mention, "project", projectLabel); }}><FolderKanban size={14} /><span>Project</span></button>
-                    <button title="Add to research" onClick={(event) => { event.stopPropagation(); quickLink(mention, "research", "Research collection"); }}><FileText size={14} /><span>Research</span></button>
-                    <button title="Add to inspiration" onClick={(event) => { event.stopPropagation(); quickLink(mention, "inspiration", "Inspiration library"); }}><Images size={14} /><span>Inspiration</span></button>
+                    <button title={savedIds.includes(mention.id) ? "Remove saved mention" : "Save mention"} onClick={(event) => { event.stopPropagation(); onToggleSaved(mention.id); }}><Bookmark size={14} fill={savedIds.includes(mention.id) ? "currentColor" : "none"} /><span>{savedIds.includes(mention.id) ? "Saved" : "Save"}</span></button>
+                    <button title="Link to project evidence" onClick={(event) => { event.stopPropagation(); void quickLink(mention, "project", projectLabel); }}><FolderKanban size={14} /><span>Project</span></button>
+                    <button title="Add to the Radar research queue" onClick={(event) => { event.stopPropagation(); void quickLink(mention, "research", "Research queue"); }}><FileText size={14} /><span>Research</span></button>
+                    <button title="Add to the Radar inspiration queue" onClick={(event) => { event.stopPropagation(); void quickLink(mention, "inspiration", "Inspiration queue"); }}><Images size={14} /><span>Inspiration</span></button>
                     <button className="evidence-action" title="Use as evidence" onClick={(event) => { event.stopPropagation(); onUseEvidence(mention); }}><Beaker size={14} /><span>Evidence</span></button>
-                    <button title="Mark important" onClick={(event) => { event.stopPropagation(); onToggleImportant(mention.id); }}><Flag size={14} fill={importantIds.includes(mention.id) ? "currentColor" : "none"} /><span>Important</span></button>
+                    <button title={importantIds.includes(mention.id) ? "Remove important marker" : "Mark important"} onClick={(event) => { event.stopPropagation(); onToggleImportant(mention.id); }}><Flag size={14} fill={importantIds.includes(mention.id) ? "currentColor" : "none"} /><span>{importantIds.includes(mention.id) ? "Important" : "Mark important"}</span></button>
                     {mention.url ? <a href={mention.url} target="_blank" rel="noreferrer" title="Open original" onClick={(event) => event.stopPropagation()}><ExternalLink size={14} /></a> : <button disabled title="No original source URL is available"><ExternalLink size={14} /></button>}
                   </div>
                 </div>

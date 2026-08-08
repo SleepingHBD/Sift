@@ -29,7 +29,7 @@ Sift is not required to observe the whole internet. It is required to be explici
 ### Already implemented and reusable
 
 - Static Next.js application shell, responsive navigation, themes, and blank-slate pages.
-- Local creation of projects, research items, inspiration items, and Radar monitors.
+- Cloud creation and hydration of projects, research items, inspiration items, and Radar monitors.
 - Radar overview, topics, spikes, mentions, detail, filters, notes, saves, and evidence interactions.
 - Deterministic sentiment, keyword, topic, growth, and spike-processing utilities with tests.
 - Normalized connector contracts.
@@ -41,10 +41,10 @@ Sift is not required to observe the whole internet. It is required to be explici
 
 ### Current limitations to resolve first
 
-- Projects, research, inspiration, saved state, monitor definitions, notes, and collected Radar state are primarily read from browser `localStorage`.
-- Connector runs write records to Supabase, but the application does not use Supabase as its normal read repository.
+- Phase 1 cloud repositories are implemented; refresh, sign-out, second-browser, and failed-write acceptance checks remain before the phase is formally closed.
+- Theme, connector settings, active-project selection, and other harmless interface preferences remain browser-local by design.
 - GitHub is the only enabled sign-in method. Workspace ownership has been transferred to that permanent identity; obsolete anonymous users and sessions have been removed.
-- Private routes now require a verified permanent session, but most domain data still needs Phase 1 cloud hydration before cross-device recovery is complete.
+- Private routes require a verified permanent session and the implemented Phase 1 domains now hydrate from Supabase.
 - Research and inspiration forms do not yet upload files, extract content, or save rich provenance.
 - Strategy AI is a labelled framing placeholder, not a server-backed evidence retrieval system.
 - Several database relationships use polymorphic IDs whose integrity is enforced by application code rather than foreign keys.
@@ -120,7 +120,7 @@ Every retrievable evidence record should expose:
 
 ## Phase 0 - Architecture and data safety audit
 
-Status: **Complete.** The repository and live backend audit is documented in [phase-0-audit.md](phase-0-audit.md). Additive hardening migrations are backed up, applied, and verified without changing domain record counts; controlled cross-user RLS checks pass; the workspace is owned by the sole permanent GitHub identity; private routes plus browser caches are scoped to that identity; and all eight repository migrations are recorded in the live Supabase migration history.
+Status: **Complete.** The repository and live backend audit is documented in [phase-0-audit.md](phase-0-audit.md). Additive hardening migrations are backed up, applied, and verified without changing domain record counts; controlled cross-user RLS checks pass; the workspace is owned by the sole permanent GitHub identity; private routes plus browser caches are scoped to that identity; and every Phase 0 migration is recorded in the live Supabase migration history.
 
 ### Goal
 
@@ -160,6 +160,15 @@ Freeze the new product boundary and verify the existing backend before moving mo
 ### Goal
 
 Make Supabase the durable source of truth and remove browser storage as the primary database.
+
+### Current implementation status
+
+- Completed: authenticated project repository, cloud hydration, create, edit, archive, restore, permanent delete, relational brand/competitor context, database-derived project counts, and explicit loading/error states.
+- Completed: reviewed browser-project migration with preview, downloadable backup, idempotent client references, verified cleanup, and manual retry.
+- Completed: Research and Inspiration cloud repositories, authenticated hydration and creation, project assignment, deletion, loading/error states, and reviewed idempotent browser-data imports with backups.
+- Completed: Radar monitor creation and deletion, connector-created mention/run hydration, normalized topic/source mapping, bounded keyset reads, honest loading/error/truncation states, and reviewed idempotent browser-data import with backup.
+- Completed: authenticated per-user Radar notes, saved markers, important marks, and evidence relationships, including reviewed browser-data migration and explicit write failures.
+- Pending checkpoint: run the complete Phase 1 acceptance sequence across refresh, sign-out, a second signed-in browser, import retry, empty states, and failed writes.
 
 ### Work
 

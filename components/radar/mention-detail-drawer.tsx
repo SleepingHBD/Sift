@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, ExternalLink, Flag, FlaskConical, Link2, MessageSquareText, X } from "lucide-react";
+import { Bookmark, ExternalLink, Flag, FlaskConical, Link2, MessageSquareText, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge, Button } from "@/components/ui/primitives";
 import type { RadarEvidenceLink, RadarMention } from "@/lib/radar/types";
@@ -14,7 +14,8 @@ interface MentionDetailDrawerProps {
   saved: boolean;
   important: boolean;
   onClose: () => void;
-  onSaveNote: (note: string) => void;
+  onSaveNote: (note: string) => Promise<void>;
+  onRemoveEvidence: (link: RadarEvidenceLink) => Promise<void>;
   onToggleSaved: () => void;
   onToggleImportant: () => void;
   onUseEvidence: () => void;
@@ -22,17 +23,32 @@ interface MentionDetailDrawerProps {
   onFilterKeyword: (keyword: string) => void;
 }
 
-export function MentionDetailDrawer({ mention, related, note, links, saved, important, onClose, onSaveNote, onToggleSaved, onToggleImportant, onUseEvidence, onOpenRelated, onFilterKeyword }: MentionDetailDrawerProps) {
+export function MentionDetailDrawer({ mention, related, note, links, saved, important, onClose, onSaveNote, onRemoveEvidence, onToggleSaved, onToggleImportant, onUseEvidence, onOpenRelated, onFilterKeyword }: MentionDetailDrawerProps) {
   const [draftNote, setDraftNote] = useState(note);
-  const [noteSaved, setNoteSaved] = useState(false);
+  const [noteStatus, setNoteStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [noteError, setNoteError] = useState("");
+  const [removingLinkId, setRemovingLinkId] = useState("");
 
   useEffect(() => {
-    const reset = window.setTimeout(() => { setDraftNote(note); setNoteSaved(false); }, 0);
+    const reset = window.setTimeout(() => {
+      setDraftNote(note);
+      setNoteStatus("idle");
+      setNoteError("");
+    }, 0);
     return () => window.clearTimeout(reset);
   }, [mention, note]);
 
   if (!mention) return null;
   const date = new Date(mention.publishedAt).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Singapore" });
+
+  function saveDraftNote() {
+    setNoteStatus("saving");
+    setNoteError("");
+    void onSaveNote(draftNote).then(() => setNoteStatus("saved")).catch((error) => {
+      setNoteStatus("error");
+      setNoteError(error instanceof Error ? error.message : "The note could not be saved.");
+    });
+  }
 
   return (
     <div className="radar-overlay radar-overlay--drawer" role="dialog" aria-modal="true" aria-labelledby="mention-detail-title">
@@ -61,13 +77,28 @@ export function MentionDetailDrawer({ mention, related, note, links, saved, impo
           <div><span>Keywords</span><div>{mention.keywords.map((keyword) => <button key={keyword} onClick={() => onFilterKeyword(keyword)}>{keyword}</button>)}</div></div>
         </section>
         <section className="mention-note">
-          <div><MessageSquareText size={15} /><span>Strategist note</span>{noteSaved ? <Badge>Saved locally</Badge> : null}</div>
-          <textarea rows={4} value={draftNote} onChange={(event) => { setDraftNote(event.target.value); setNoteSaved(false); }} placeholder="Add context, a question or why this matters…" />
-          <Button onClick={() => { onSaveNote(draftNote); setNoteSaved(true); }}>Save note</Button>
+          <div><MessageSquareText size={15} /><span>Strategist note</span>{noteStatus === "saved" ? <Badge>Saved to cloud</Badge> : null}</div>
+          <textarea rows={4} value={draftNote} onChange={(event) => { setDraftNote(event.target.value); setNoteStatus("idle"); setNoteError(""); }} placeholder="Add context, a question or why this matters..." />
+          {noteError ? <p className="form-error" role="alert">{noteError}</p> : null}
+          <Button disabled={noteStatus === "saving"} onClick={saveDraftNote}>{noteStatus === "saving" ? "Saving..." : draftNote.trim() ? "Save note" : "Remove note"}</Button>
         </section>
         <section className="mention-links">
-          <span>Project associations</span>
-          {links.length ? links.map((link) => <div key={link.id}><Link2 size={13} /><div><strong>{link.destinationLabel}</strong><small>{link.destination.replace("-", " ")} · linked {new Date(link.createdAt).toLocaleDateString("en-SG")}</small></div></div>) : <p>No evidence relationships yet.</p>}
+          <span>Evidence relationships</span>
+          {links.length ? links.map((link) => (
+            <div key={link.id}>
+              <Link2 size={13} />
+              <div><strong>{link.destinationLabel}</strong><small>{link.destination.replace("-", " ")} · linked {new Date(link.createdAt).toLocaleDateString("en-SG")}</small></div>
+              <button
+                disabled={removingLinkId === link.id}
+                aria-label={`Remove evidence link to ${link.destinationLabel}`}
+                title="Remove evidence relationship"
+                onClick={() => {
+                  setRemovingLinkId(link.id);
+                  void onRemoveEvidence(link).catch(() => undefined).finally(() => setRemovingLinkId(""));
+                }}
+              ><Trash2 size={13} /></button>
+            </div>
+          )) : <p>No evidence relationships yet.</p>}
         </section>
         <section className="related-mentions">
           <span>Related mentions</span>

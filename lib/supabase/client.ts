@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
 
-let browserClient: ReturnType<typeof createClient> | null | undefined;
+let browserClient: ReturnType<typeof createClient<Database>> | null | undefined;
 
 export function createBrowserSupabaseClient() {
   if (browserClient !== undefined) return browserClient;
@@ -10,6 +11,6 @@ export function createBrowserSupabaseClient() {
     browserClient = null;
     return browserClient;
   }
-  browserClient = createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+  browserClient = createClient<Database>(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
   return browserClient;
 }

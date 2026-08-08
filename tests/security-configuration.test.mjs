@@ -36,3 +36,62 @@ test("the static export declares a constrained browser content policy", async ()
   assert.match(layout, /object-src 'none'/);
   assert.match(layout, /connect-src 'self' https:\/\/\*\.supabase\.co/);
 });
+
+test("Phase 1 project imports use authenticated ownership and an idempotency constraint", async () => {
+  const [migration, returningPolicy] = await Promise.all([
+    read("supabase/migrations/20260808040530_phase_1_project_repository.sql"),
+    read("supabase/migrations/20260808042221_phase_1_project_returning_policy.sql"),
+  ]);
+
+  assert.match(migration, /alter column owner_id set default auth\.uid\(\)/);
+  assert.match(migration, /unique \(owner_id, client_ref\)/);
+  assert.match(migration, /projects_owner_status_created_idx/);
+  assert.match(returningPolicy, /owner_id = \(select auth\.uid\(\)\)/);
+  assert.match(returningPolicy, /or public\.can_access_project\(id\)/);
+});
+
+test("Phase 1 evidence libraries derive creators and support idempotent project imports", async () => {
+  const migration = await read("supabase/migrations/20260808054040_phase_1_research_inspiration_repository.sql");
+
+  assert.match(migration, /research_items[\s\S]*alter column created_by set default auth\.uid\(\)/);
+  assert.match(migration, /inspiration_items[\s\S]*alter column created_by set default auth\.uid\(\)/);
+  assert.match(migration, /unique \(project_id, client_ref\)/);
+  assert.match(migration, /created_by = \(select auth\.uid\(\)\)/);
+  assert.match(migration, /project_created_cursor_idx/);
+});
+
+test("Phase 1 Radar hydration uses idempotent monitor and run references with cursor indexes", async () => {
+  const [migration, foreignKeys] = await Promise.all([
+    read("supabase/migrations/20260808055940_phase_1_radar_repository.sql"),
+    read("supabase/migrations/20260808061236_phase_1_radar_foreign_key_indexes.sql"),
+  ]);
+
+  assert.match(migration, /monitoring_queries_project_client_ref_key/);
+  assert.match(migration, /unique \(project_id, client_ref\)/);
+  assert.match(migration, /monitor_runs_query_client_ref_key/);
+  assert.match(migration, /mentions_query_created_cursor_idx/);
+  assert.match(migration, /monitor_runs_query_started_cursor_idx/);
+  assert.match(foreignKeys, /mention_topics_topic_id_idx/);
+  assert.match(foreignKeys, /monitoring_query_competitors_competitor_id_idx/);
+});
+
+test("Phase 1 Radar annotations are per-user, project-bound, and idempotent", async () => {
+  const migration = await read("supabase/migrations/20260808063042_phase_1_radar_annotations.sql");
+
+  assert.match(migration, /mention_notes[\s\S]*alter column user_id set default auth\.uid\(\)/);
+  assert.match(migration, /saved_items[\s\S]*alter column user_id set default auth\.uid\(\)/);
+  assert.match(migration, /unique nulls not distinct/);
+  assert.match(migration, /user_id = \(select auth\.uid\(\)\)/);
+  assert.match(migration, /mention\.project_id = saved_items\.project_id/);
+  assert.match(migration, /mention\.project_id = mention_notes\.project_id/);
+  assert.match(migration, /mention_notes_user_project_updated_cursor_idx/);
+  assert.match(migration, /saved_items_user_project_kind_created_cursor_idx/);
+});
+
+test("Phase 1 covers the remaining relationship foreign keys", async () => {
+  const migration = await read("supabase/migrations/20260808064946_phase_1_remaining_foreign_key_indexes.sql");
+
+  assert.match(migration, /competitor_group_members_competitor_id_idx/);
+  assert.match(migration, /project_members_user_id_idx/);
+  assert.match(migration, /trend_mentions_mention_id_idx/);
+});
