@@ -11,6 +11,18 @@ test("production publishing remains an explicit manual action", async () => {
   assert.doesNotMatch(workflow, /^\s*push:/m);
 });
 
+test("the Pages workflow uses Node 24 compatible action runtimes", async () => {
+  const workflow = await read(".github/workflows/deploy-pages.yml");
+
+  assert.match(workflow, /actions\/checkout@v6/);
+  assert.match(workflow, /pnpm\/action-setup@v6/);
+  assert.match(workflow, /actions\/setup-node@v6/);
+  assert.match(workflow, /actions\/configure-pages@v6/);
+  assert.match(workflow, /actions\/upload-pages-artifact@v5/);
+  assert.match(workflow, /actions\/deploy-pages@v5/);
+  assert.doesNotMatch(workflow, /@(v3|v4)(?:\s|$)/m);
+});
+
 test("Radar requires verified JWTs and server-side quotas", async () => {
   const [config, handler] = await Promise.all([
     read("supabase/config.toml"),
