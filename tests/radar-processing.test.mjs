@@ -94,3 +94,48 @@ test("Radar analytics detect measured spikes and cite supporting mentions", () =
   assert.equal(spike.likelyDrivers.length, 1);
   assert.ok(spike.likelyDrivers[0].mentionIds.length >= 2);
 });
+
+test("Radar does not claim negative sentiment concentration without negative evidence", () => {
+  const now = new Date("2026-08-07T12:00:00.000Z");
+  const mentions = Array.from({ length: 6 }, (_, index) => mention(
+    `positive-${index}`,
+    new Date(Date.UTC(2026, 7, 6, 9, index)).toISOString(),
+    "General Conversation",
+  ));
+
+  const analytics = buildRadarAnalytics(mentions, "7d", now);
+
+  assert.equal(analytics.metrics.negative, 0);
+  assert.equal(analytics.observations.some((item) => item.id === "sentiment-concentration"), false);
+});
+
+test("Radar requires multiple negative mentions before calling sentiment concentrated", () => {
+  const now = new Date("2026-08-07T12:00:00.000Z");
+  const mentions = [
+    mention("pricing-negative", "2026-08-06T09:00:00.000Z", "Pricing", { sentiment: "negative", sentimentScore: -0.5 }),
+    mention("pricing-positive-1", "2026-08-06T09:01:00.000Z", "Pricing"),
+    mention("pricing-positive-2", "2026-08-06T09:02:00.000Z", "Pricing"),
+    ...Array.from({ length: 7 }, (_, index) => mention(`community-${index}`, new Date(Date.UTC(2026, 7, 6, 10, index)).toISOString(), "Community")),
+  ];
+
+  const analytics = buildRadarAnalytics(mentions, "7d", now);
+
+  assert.equal(analytics.observations.some((item) => item.id === "sentiment-concentration"), false);
+});
+
+test("Radar reports sentiment concentration only when a topic clears the evidence thresholds", () => {
+  const now = new Date("2026-08-07T12:00:00.000Z");
+  const mentions = [
+    ...Array.from({ length: 3 }, (_, index) => mention(`pricing-negative-${index}`, new Date(Date.UTC(2026, 7, 6, 9, index)).toISOString(), "Pricing", { sentiment: "negative", sentimentScore: -0.5 })),
+    ...Array.from({ length: 2 }, (_, index) => mention(`pricing-positive-${index}`, new Date(Date.UTC(2026, 7, 6, 10, index)).toISOString(), "Pricing")),
+    ...Array.from({ length: 5 }, (_, index) => mention(`community-positive-${index}`, new Date(Date.UTC(2026, 7, 6, 11, index)).toISOString(), "Community")),
+  ];
+
+  const analytics = buildRadarAnalytics(mentions, "7d", now);
+  const observation = analytics.observations.find((item) => item.id === "sentiment-concentration");
+
+  assert.ok(observation);
+  assert.match(observation.observation, /pricing/);
+  assert.deepEqual(observation.measuredEvidence, ["60% of Pricing mentions are negative", "3 supporting mentions"]);
+  assert.equal(observation.supportingMentionIds.length, 3);
+});

@@ -2,6 +2,10 @@ import type { DateRangeKey, RadarAnalytics, RadarMention, SentimentPoint, Source
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
+const MIN_TOPIC_SAMPLE_FOR_SENTIMENT_CLAIM = 3;
+const MIN_NEGATIVE_MENTIONS_FOR_CONCENTRATION = 2;
+const MIN_TOPIC_NEGATIVE_RATE = 0.25;
+const MIN_NEGATIVE_RATE_UPLIFT = 0.1;
 const sourceLabels: Record<string, string> = {
   reddit: "Reddit",
   youtube: "YouTube",
@@ -224,15 +228,26 @@ function buildObservations(current: RadarMention[], previous: RadarMention[], to
       supportingMentionIds: support.map((mention) => mention.id),
     });
   }
-  const negativeTopics = topics.map((topic) => ({ ...topic, items: current.filter((mention) => mention.topics.includes(topic.name)) })).filter((topic) => topic.items.length >= 3).sort((a, b) => {
-    const aNegative = a.items.filter((mention) => mention.sentiment === "negative").length / a.items.length;
-    const bNegative = b.items.filter((mention) => mention.sentiment === "negative").length / b.items.length;
-    return bNegative - aNegative;
-  });
+  const overallNegativeRate = current.filter((mention) => mention.sentiment === "negative").length / current.length;
+  const negativeTopics = topics.map((topic) => {
+    const items = current.filter((mention) => mention.topics.includes(topic.name));
+    const negativeItems = items.filter((mention) => mention.sentiment === "negative");
+    return {
+      ...topic,
+      items,
+      negativeItems,
+      negativeRate: negativeItems.length / Math.max(1, items.length),
+    };
+  }).filter((topic) => (
+    topic.items.length >= MIN_TOPIC_SAMPLE_FOR_SENTIMENT_CLAIM
+    && topic.negativeItems.length >= MIN_NEGATIVE_MENTIONS_FOR_CONCENTRATION
+    && topic.negativeRate >= MIN_TOPIC_NEGATIVE_RATE
+    && topic.negativeRate >= overallNegativeRate + MIN_NEGATIVE_RATE_UPLIFT
+  )).sort((a, b) => b.negativeRate - a.negativeRate || b.negativeItems.length - a.negativeItems.length);
   const negativeTopic = negativeTopics[0];
   if (negativeTopic) {
-    const negativeItems = negativeTopic.items.filter((mention) => mention.sentiment === "negative").sort((a, b) => b.engagement - a.engagement);
-    const rate = Math.round((negativeItems.length / negativeTopic.items.length) * 100);
+    const negativeItems = [...negativeTopic.negativeItems].sort((a, b) => b.engagement - a.engagement);
+    const rate = Math.round(negativeTopic.negativeRate * 100);
     observations.push({
       id: "sentiment-concentration",
       observation: `Negative sentiment is concentrated in ${negativeTopic.name.toLowerCase()}, rather than distributed evenly across the monitor.`,
