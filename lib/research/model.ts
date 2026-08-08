@@ -1,5 +1,19 @@
 import { stringArrayFromMetadata, stringFromMetadata } from "../evidence/source.ts";
-import type { ResearchItem } from "../types.ts";
+import type { EvidenceAsset, ResearchItem } from "../types.ts";
+
+export interface EvidenceAssetRow {
+  id: string;
+  project_id: string;
+  research_item_id: string;
+  bucket_id: string;
+  storage_path: string;
+  original_filename: string;
+  mime_type: string;
+  byte_size: number;
+  asset_kind: "image" | "document";
+  processing_status: "pending" | "ready" | "failed";
+  created_at: string;
+}
 
 export interface ResearchRow {
   id: string;
@@ -18,6 +32,7 @@ export interface ResearchRow {
   metadata: unknown;
   created_at: string;
   updated_at: string;
+  evidence_assets?: EvidenceAssetRow[] | null;
 }
 
 function formatDate(value: string) {
@@ -48,6 +63,19 @@ export function researchFromRow(row: ResearchRow, projectClientRef: string): Res
     notes: row.notes ?? undefined,
     keyFindings: row.key_findings ?? undefined,
     aiSummary: row.ai_summary ?? undefined,
+    assets: (row.evidence_assets ?? []).map((asset): EvidenceAsset => ({
+      id: asset.id,
+      projectId: projectClientRef,
+      researchItemId: row.id,
+      bucketId: asset.bucket_id,
+      storagePath: asset.storage_path,
+      originalFilename: asset.original_filename,
+      mimeType: asset.mime_type,
+      byteSize: asset.byte_size,
+      kind: asset.asset_kind,
+      processingStatus: asset.processing_status,
+      createdAt: asset.created_at,
+    })),
     metadata: row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
       ? row.metadata as Record<string, unknown>
       : {},

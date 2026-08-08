@@ -1,9 +1,14 @@
 import { normalizeSource } from "@/lib/evidence/source";
 import type { EvidenceCaptureMethod } from "@/lib/evidence/reference";
 import type { EvidenceUrlMetadata } from "@/lib/evidence/url-extraction";
+import {
+  createEvidenceStoragePath,
+  EVIDENCE_ASSET_BUCKET,
+  validateEvidenceFile,
+} from "@/lib/evidence/file-capture";
 import { createResearchClientRef, researchFromRow, type ResearchRow } from "@/lib/research/model";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import type { Project, ResearchItem } from "@/lib/types";
+import type { EvidenceAsset, Project, ResearchItem } from "@/lib/types";
 
 export interface ResearchDraft {
   title: string;
@@ -16,7 +21,16 @@ export interface ResearchDraft {
   urlMetadata?: EvidenceUrlMetadata;
 }
 
+export interface ResearchFileDraft {
+  title: string;
+  summary: string;
+  file: File;
+  captureOrigin?: "research_form" | "global_capture";
+}
+
 const researchSelect = "id,client_ref,project_id,title,url,author,publication,published_at,item_type,key_findings,notes,ai_summary,collection_name,metadata,created_at,updated_at";
+const assetSelect = "id,project_id,research_item_id,bucket_id,storage_path,original_filename,mime_type,byte_size,asset_kind,processing_status,created_at";
+const researchSelectWithAssets = `${researchSelect},evidence_assets(${assetSelect})`;
 
 function requireClient() {
   const client = createBrowserSupabaseClient();
@@ -39,7 +53,7 @@ export async function listCloudResearch(projects: Project[]) {
   const client = requireClient();
   const { data, error } = await client
     .from("research_items")
-    .select(researchSelect)
+    .select(researchSelectWithAssets)
     .in("project_id", cloudProjectIds)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`Research could not be loaded: ${error.message}`);
@@ -48,6 +62,102 @@ export async function listCloudResearch(projects: Project[]) {
     const projectId = refs.get(row.project_id);
     return projectId ? [researchFromRow(row, projectId)] : [];
   });
+}
+
+async function removeStorageObject(path: string) {
+  const client = requireClient();
+  const { error } = await client.storage.from(EVIDENCE_ASSET_BUCKET).remove([path]);
+  return error?.message ?? null;
+}
+
+export async function createCloudFileResearch(
+  project: Project,
+  userId: string,
+  input: ResearchFileDraft,
+) {
+  const validation = validateEvidenceFile(input.file);
+  if (!validation.ok) throw new Error(validation.error);
+  const client = requireClient();
+  const cloudProjectId = requireCloudProject(project);
+  const clientRef = createResearchClientRef();
+  const storagePath = createEvidenceStoragePath({
+    userId,
+    projectId: cloudProjectId,
+    researchClientRef: clientRef,
+    filename: input.file.name,
+    mimeType: validation.mimeType,
+  });
+
+  const { error: uploadError } = await client.storage
+    .from(EVIDENCE_ASSET_BUCKET)
+    .upload(storagePath, input.file, {
+      cacheControl: "3600",
+      contentType: validation.mimeType,
+      upsert: false,
+    });
+  if (uploadError) throw new Error(`File could not be uploaded: ${uploadError.message}`);
+
+  const { data: research, error: researchError } = await client
+    .from("research_items")
+    .insert({
+      client_ref: clientRef,
+      project_id: cloudProjectId,
+      title: input.title.trim() || input.file.name,
+      publication: "Private upload",
+      item_type: validation.kind === "image" ? "Screenshot" : "Document",
+      key_findings: input.summary.trim() || null,
+      collection_name: "Unsorted",
+      metadata: {
+        sift_origin: input.captureOrigin ?? "global_capture",
+        capture_method: "upload",
+        source_label: "Private upload",
+        processing_status: "unprocessed",
+      },
+    })
+    .select(researchSelect)
+    .single();
+
+  if (researchError || !research) {
+    const cleanupError = await removeStorageObject(storagePath);
+    throw new Error(`File details could not be saved: ${researchError?.message ?? "No record was returned."}${cleanupError ? ` Upload cleanup also failed: ${cleanupError}` : ""}`);
+  }
+
+  const { data: asset, error: assetError } = await client
+    .from("evidence_assets")
+    .insert({
+      project_id: cloudProjectId,
+      research_item_id: research.id,
+      bucket_id: EVIDENCE_ASSET_BUCKET,
+      storage_path: storagePath,
+      original_filename: input.file.name,
+      mime_type: validation.mimeType,
+      byte_size: input.file.size,
+      asset_kind: validation.kind,
+      processing_status: "ready",
+    })
+    .select(assetSelect)
+    .single();
+
+  if (assetError || !asset) {
+    const { error: researchCleanupError } = await client.from("research_items").delete().eq("id", research.id);
+    const cleanupError = await removeStorageObject(storagePath);
+    const rollbackErrors = [researchCleanupError?.message, cleanupError].filter(Boolean);
+    throw new Error(`File attachment could not be saved: ${assetError?.message ?? "No record was returned."}${rollbackErrors.length ? ` Rollback also needs attention: ${rollbackErrors.join("; ")}` : ""}`);
+  }
+
+  return researchFromRow({
+    ...research,
+    evidence_assets: [asset],
+  } as unknown as ResearchRow, project.id);
+}
+
+export async function createPrivateEvidenceAssetUrl(asset: EvidenceAsset, expiresInSeconds = 300) {
+  const client = requireClient();
+  const { data, error } = await client.storage
+    .from(asset.bucketId)
+    .createSignedUrl(asset.storagePath, expiresInSeconds);
+  if (error || !data?.signedUrl) throw new Error(`Private file could not be opened: ${error?.message ?? "No signed link was returned."}`);
+  return data.signedUrl;
 }
 
 export async function createCloudResearch(project: Project, input: ResearchDraft) {
@@ -95,9 +205,21 @@ export async function createCloudResearch(project: Project, input: ResearchDraft
 export async function deleteCloudResearch(item: ResearchItem) {
   if (!item.cloudId) throw new Error("This research item has not been moved to the cloud yet.");
   const client = requireClient();
+  const assets = item.assets ?? [];
   const { data, error } = await client.from("research_items").delete().eq("id", item.cloudId).select("id");
   if (error) throw new Error(`Research could not be deleted: ${error.message}`);
   if (!data?.length) throw new Error("Research deletion was not permitted for the current account.");
+  if (!assets.length) return null;
+  const cleanupErrors: string[] = [];
+  const assetsByBucket = new Map<string, EvidenceAsset[]>();
+  for (const asset of assets) assetsByBucket.set(asset.bucketId, [...(assetsByBucket.get(asset.bucketId) ?? []), asset]);
+  for (const [bucketId, paths] of assetsByBucket) {
+    const { error: cleanupError } = await client.storage.from(bucketId).remove(paths.map((asset) => asset.storagePath));
+    if (cleanupError) cleanupErrors.push(cleanupError.message);
+  }
+  return cleanupErrors.length
+    ? "The research record was deleted, but a private file could not be removed from Storage. It is no longer linked in Sift."
+    : null;
 }
 
 export async function importLocalResearch(localItems: ResearchItem[], project: Project) {

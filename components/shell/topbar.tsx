@@ -13,7 +13,7 @@ export function Topbar() {
     activeProjectId,
     setActiveProjectId,
     setSearchOpen,
-    setCaptureDialogOpen,
+    openCaptureDialog,
     setMobileNavOpen,
     projects,
   } = useApp();
@@ -39,7 +39,7 @@ export function Topbar() {
       </div>
 
       <div className="topbar__actions">
-        <button className="topbar-capture-button" onClick={() => setCaptureDialogOpen(true)} aria-label="Capture evidence" title="Capture evidence">
+        <button className="topbar-capture-button" onClick={() => openCaptureDialog()} aria-label="Capture evidence" title="Capture evidence">
           <Plus size={16} />
           <span>Capture evidence</span>
         </button>

@@ -25,6 +25,19 @@ test("research rows retain project and client identity", () => {
     notes: null,
     collection_name: "Community",
     metadata: { tags: ["culture", "community"] },
+    evidence_assets: [{
+      id: "asset-1",
+      project_id: "cloud-project",
+      research_item_id: "cloud-research",
+      bucket_id: "evidence-assets",
+      storage_path: "user/cloud-project/local-research/asset.png",
+      original_filename: "signal.png",
+      mime_type: "image/png",
+      byte_size: 2048,
+      asset_kind: "image",
+      processing_status: "ready",
+      created_at: "2026-08-08T00:00:00.000Z",
+    }],
     created_at: "2026-08-08T00:00:00.000Z",
     updated_at: "2026-08-08T00:00:00.000Z",
   }, "local-project");
@@ -33,6 +46,8 @@ test("research rows retain project and client identity", () => {
   assert.equal(item.cloudId, "cloud-research");
   assert.equal(item.projectId, "local-project");
   assert.deepEqual(item.tags, ["culture", "community"]);
+  assert.equal(item.assets?.[0].originalFilename, "signal.png");
+  assert.equal(item.assets?.[0].projectId, "local-project");
 });
 
 test("inspiration rows retain provenance and stable visual treatment", () => {

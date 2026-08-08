@@ -1,8 +1,9 @@
 "use client";
 
-import { BookOpen, Cloud, ExternalLink, FilePlus2, FileText, LoaderCircle, Plus, Search, Trash2, Upload, X } from "lucide-react";
+import { BookOpen, Cloud, ExternalLink, FileImage, FilePlus2, FileText, LoaderCircle, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
+import { PrivateEvidenceAsset } from "@/components/evidence/private-evidence-asset";
 import { Badge, Button, Card, PageIntro, SectionHeader } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
 import { LibraryImportNotice } from "@/components/workspace/library-import-notice";
@@ -12,6 +13,7 @@ export function ResearchPage() {
     projects,
     activeProjectId,
     setProjectDialogOpen,
+    openCaptureDialog,
     researchItems,
     addResearch,
     deleteResearch,
@@ -86,7 +88,7 @@ export function ResearchPage() {
   return (
     <div className="page">
       <PageIntro eyebrow="Research library" title="Evidence, with a point of view." description="Collect source material, annotate what matters, and connect every strategic leap back to proof.">
-        {projects.length ? <><Button onClick={() => openAdd("URL")}><FilePlus2 size={16} />Add URL</Button><Button variant="dark" onClick={() => openAdd("Note")}><Plus size={16} />Add note</Button></> : <Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={16} />Create project first</Button>}
+        {projects.length ? <><Button onClick={() => openAdd("URL")}><FilePlus2 size={16} />Add URL</Button><Button onClick={() => openCaptureDialog("file")}><Upload size={16} />Upload file</Button><Button variant="dark" onClick={() => openAdd("Note")}><Plus size={16} />Add note</Button></> : <Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={16} />Create project first</Button>}
       </PageIntro>
 
       {workspaceError ? <div className="workspace-sync-notice workspace-sync-notice--error" role="alert"><div><strong>Cloud library needs attention</strong><span>{workspaceError}</span></div><div><Button size="sm" onClick={retryWorkspace}>Try again</Button><button type="button" aria-label="Dismiss error" onClick={clearWorkspaceError}>×</button></div></div> : null}
@@ -98,14 +100,14 @@ export function ResearchPage() {
       ) : workspaceStatus === "error" && !researchItems.length ? (
         <EmptyState icon={Cloud} title="Your research could not be loaded." description="Sift has not substituted browser data for a failed cloud result. Check the connection and try again." actions={<Button variant="dark" onClick={retryWorkspace}>Try again</Button>} />
       ) : !researchItems.length ? (
-        <EmptyState icon={BookOpen} title="Start building your knowledge base." description={projects.length ? "Add an article, URL, report, statistic, quote, or personal note. Every source is saved inside a project." : "Create a project first, then add articles, URLs, reports, statistics, quotes, and personal notes as evidence."} actions={projects.length ? <><Button variant="dark" onClick={() => openAdd("Article")}><FileText size={15} />Add article</Button><Button onClick={() => openAdd("URL")}><FilePlus2 size={15} />Add URL</Button><Button onClick={() => openAdd("Note")}><Plus size={15} />Add note</Button><Button disabled title="File uploads require private Storage configuration"><Upload size={15} />Upload later</Button></> : <Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={15} />Create your first project</Button>} />
+        <EmptyState icon={BookOpen} title="Start building your knowledge base." description={projects.length ? "Add an article, URL, report, statistic, quote, personal note, screenshot, or document. Every source is saved inside a project." : "Create a project first, then add articles, URLs, reports, statistics, quotes, notes, screenshots, and documents as evidence."} actions={projects.length ? <><Button variant="dark" onClick={() => openAdd("Article")}><FileText size={15} />Add article</Button><Button onClick={() => openAdd("URL")}><FilePlus2 size={15} />Add URL</Button><Button onClick={() => openAdd("Note")}><Plus size={15} />Add note</Button><Button onClick={() => openCaptureDialog("file")}><Upload size={15} />Upload file</Button></> : <Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={15} />Create your first project</Button>} />
       ) : (
         <>
           <div className="research-search"><Search size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search research, quotes, statistics, and notes" /><select aria-label="Filter research by project" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}><option value="all">All projects</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></div>
           <section className="research-list-section">
             <SectionHeader eyebrow="Cloud research" title="Source library" description={`${filtered.length} source${filtered.length === 1 ? "" : "s"}`} />
             <div className="research-list">
-              {filtered.map((item) => <Card className="research-row" key={item.id}><span className="research-row__icon">{item.type === "Report" ? <BookOpen size={19} /> : <FileText size={19} />}</span><div className="research-row__main"><div><Badge>{item.type}</Badge><span>{item.date}</span></div><h3>{item.title}</h3><p>{item.summary || "No key finding added."}</p>{item.tags.length ? <div className="tag-row">{item.tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}</div><aside><span>{projectNames.get(item.projectId) ?? "Project"}</span><small>{item.publication}</small><div className="library-item-actions">{item.url ? <a href={item.url} target="_blank" rel="noreferrer"><ExternalLink size={13} />Open source</a> : null}<button type="button" disabled={deletingId === item.id} onClick={() => void removeItem(item.id, item.title)}>{deletingId === item.id ? <LoaderCircle className="spin" size={13} /> : <Trash2 size={13} />}Delete</button></div></aside></Card>)}
+              {filtered.map((item) => <Card className="research-row" key={item.id}><span className="research-row__icon">{item.type === "Report" ? <BookOpen size={19} /> : item.assets?.some((asset) => asset.kind === "image") ? <FileImage size={19} /> : <FileText size={19} />}</span><div className="research-row__main"><div><Badge>{item.type}</Badge><span>{item.date}</span></div><h3>{item.title}</h3><p>{item.summary || "No key finding added."}</p>{item.assets?.length ? <div className="research-row__assets">{item.assets.map((asset) => <PrivateEvidenceAsset key={asset.id} asset={asset} />)}</div> : null}{item.tags.length ? <div className="tag-row">{item.tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}</div><aside><span>{projectNames.get(item.projectId) ?? "Project"}</span><small>{item.publication}</small><div className="library-item-actions">{item.url ? <a href={item.url} target="_blank" rel="noreferrer"><ExternalLink size={13} />Open source</a> : null}<button type="button" disabled={deletingId === item.id} onClick={() => void removeItem(item.id, item.title)}>{deletingId === item.id ? <LoaderCircle className="spin" size={13} /> : <Trash2 size={13} />}Delete</button></div></aside></Card>)}
               {!filtered.length ? <Card className="empty-state"><Search size={30} /><strong>No research matches these filters</strong><Button onClick={() => { setQuery(""); setProjectFilter("all"); }}>Clear filters</Button></Card> : null}
             </div>
           </section>

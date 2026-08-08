@@ -142,6 +142,19 @@ function attachments(metadata: Record<string, unknown>): EvidenceAttachmentRefer
   });
 }
 
+function researchAttachments(item: ResearchItem, metadata: Record<string, unknown>): EvidenceAttachmentReference[] {
+  const cloudAssets = (item.assets ?? []).map((asset): EvidenceAttachmentReference => ({
+    id: asset.id,
+    bucket: asset.bucketId,
+    path: asset.storagePath,
+    name: asset.originalFilename,
+    mimeType: asset.mimeType,
+    size: asset.byteSize,
+    kind: asset.kind,
+  }));
+  return cloudAssets.length ? cloudAssets : attachments(metadata);
+}
+
 function provenance(
   metadata: Record<string, unknown>,
   fallbackMethod: EvidenceCaptureMethod,
@@ -246,7 +259,7 @@ export function researchItemToEvidenceReference(
     language: text(metadata.language) ?? null,
     processingStatus: processingStatus(metadata, item.aiSummary ? "processed" : "unprocessed"),
     reviewStatus: reviewStatus(metadata),
-    attachments: attachments(metadata),
+    attachments: researchAttachments(item, metadata),
     provenance: provenance(metadata, originalUrl ? "url" : "manual", capturedAt, item.cloudId),
     itemType: item.type,
     collection: item.collection,

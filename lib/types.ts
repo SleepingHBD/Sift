@@ -95,9 +95,24 @@ export interface ResearchItem {
   notes?: string;
   keyFindings?: string;
   aiSummary?: string;
+  assets?: EvidenceAsset[];
   metadata?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface EvidenceAsset {
+  id: string;
+  projectId: string;
+  researchItemId: string;
+  bucketId: string;
+  storagePath: string;
+  originalFilename: string;
+  mimeType: string;
+  byteSize: number;
+  kind: "image" | "document";
+  processingStatus: "pending" | "ready" | "failed";
+  createdAt: string;
 }
 
 export interface Competitor {

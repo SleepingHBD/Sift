@@ -1146,6 +1146,72 @@ export type Database = {
         }
         Relationships: []
       }
+      evidence_assets: {
+        Row: {
+          asset_kind: string
+          bucket_id: string
+          byte_size: number
+          created_at: string
+          created_by: string
+          id: string
+          metadata: Json
+          mime_type: string
+          original_filename: string
+          processing_status: string
+          project_id: string
+          research_item_id: string
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          asset_kind: string
+          bucket_id?: string
+          byte_size: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          metadata?: Json
+          mime_type: string
+          original_filename: string
+          processing_status?: string
+          project_id: string
+          research_item_id: string
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          asset_kind?: string
+          bucket_id?: string
+          byte_size?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          metadata?: Json
+          mime_type?: string
+          original_filename?: string
+          processing_status?: string
+          project_id?: string
+          research_item_id?: string
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_assets_research_item_id_fkey"
+            columns: ["research_item_id"]
+            isOneToOne: false
+            referencedRelation: "research_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       research_items: {
         Row: {
           ai_summary: string | null

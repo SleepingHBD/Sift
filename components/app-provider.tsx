@@ -17,6 +17,7 @@ import {
   updateCloudProject,
 } from "@/lib/projects/repository";
 import {
+  createCloudFileResearch,
   createCloudResearch,
   deleteCloudResearch,
   importLocalResearch,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/workspace-storage";
 import { describeWorkspaceError } from "@/lib/workspace-error";
 import type { EvidenceCaptureMethod } from "@/lib/evidence/reference";
+import type { EvidenceCaptureDialogMode } from "@/lib/evidence/capture";
 import type { EvidenceUrlMetadata } from "@/lib/evidence/url-extraction";
 
 type Theme = "light" | "dark";
@@ -63,6 +65,14 @@ export interface NewResearchInput {
   captureMethod?: EvidenceCaptureMethod;
   captureOrigin?: "research_form" | "global_capture";
   urlMetadata?: EvidenceUrlMetadata;
+}
+
+export interface NewResearchFileInput {
+  projectId: string;
+  title: string;
+  summary: string;
+  file: File;
+  captureOrigin?: "research_form" | "global_capture";
 }
 
 interface AppContextValue {
@@ -100,6 +110,7 @@ interface AppContextValue {
   deleteInspiration: (id: string) => Promise<void>;
   researchItems: ResearchItem[];
   addResearch: (input: NewResearchInput) => Promise<ResearchItem>;
+  addResearchFile: (input: NewResearchFileInput) => Promise<ResearchItem>;
   deleteResearch: (id: string) => Promise<void>;
   savedIds: string[];
   toggleSaved: (id: string) => void;
@@ -107,6 +118,8 @@ interface AppContextValue {
   searchOpen: boolean;
   setSearchOpen: (value: boolean) => void;
   captureDialogOpen: boolean;
+  captureDialogMode: EvidenceCaptureDialogMode;
+  openCaptureDialog: (mode?: EvidenceCaptureDialogMode) => void;
   setCaptureDialogOpen: (value: boolean) => void;
 }
 
@@ -136,6 +149,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [editingProjectId, setEditingProjectId] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [captureDialogOpen, setCaptureDialogOpen] = useState(false);
+  const [captureDialogMode, setCaptureDialogMode] = useState<EvidenceCaptureDialogMode>("url");
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>("idle");
   const [workspaceError, setWorkspaceError] = useState("");
   const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
@@ -375,15 +389,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
+  async function addResearchFile(input: NewResearchFileInput) {
+    if (!workspaceUserId) throw new Error("Sign in with GitHub before uploading evidence.");
+    const project = projects.find((item) => item.id === input.projectId);
+    if (!project) throw new Error("Choose a project before uploading evidence.");
+    return runWorkspaceMutation(async () => {
+      const item = await createCloudFileResearch(project, workspaceUserId, input);
+      setResearchItems((current) => [item, ...current]);
+      setAllProjects((current) => current.map((candidate) => candidate.id === project.id
+        ? { ...candidate, counts: { ...candidate.counts, research: candidate.counts.research + 1 } }
+        : candidate));
+      return item;
+    });
+  }
+
   async function deleteResearch(id: string) {
     const item = researchItems.find((candidate) => candidate.id === id);
     if (!item) throw new Error("The research item could not be found.");
     await runWorkspaceMutation(async () => {
-      await deleteCloudResearch(item);
+      const cleanupWarning = await deleteCloudResearch(item);
       setResearchItems((current) => current.filter((candidate) => candidate.id !== id));
       setAllProjects((current) => current.map((candidate) => candidate.id === item.projectId
         ? { ...candidate, counts: { ...candidate.counts, research: Math.max(0, candidate.counts.research - 1) } }
         : candidate));
+      if (cleanupWarning) setWorkspaceError(cleanupWarning);
     });
   }
 
@@ -467,6 +496,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     deleteInspiration,
     researchItems,
     addResearch,
+    addResearchFile,
     deleteResearch,
     savedIds,
     toggleSaved: (id) => {
@@ -489,6 +519,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     searchOpen,
     setSearchOpen,
     captureDialogOpen,
+    captureDialogMode,
+    openCaptureDialog: (mode = "url") => {
+      setCaptureDialogMode(mode);
+      setCaptureDialogOpen(true);
+    },
     setCaptureDialogOpen,
   };
 

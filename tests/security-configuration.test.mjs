@@ -135,3 +135,16 @@ test("Phase 2 URL extraction is authenticated, RLS-scoped, rate-limited, and net
   assert.match(quota, /grant execute[\s\S]*to service_role/);
   assert.doesNotMatch(quota, /grant execute[^;]+to authenticated/);
 });
+
+test("Phase 2 file evidence is private, restricted, and project scoped", async () => {
+  const migration = await read("supabase/migrations/20260808100353_phase_2_private_evidence_assets.sql");
+
+  assert.match(migration, /'evidence-assets'[\s\S]*false,[\s\S]*20971520/);
+  assert.match(migration, /image\/jpeg[\s\S]*image\/png[\s\S]*image\/webp[\s\S]*application\/pdf/);
+  assert.match(migration, /alter table public\.evidence_assets enable row level security/);
+  assert.match(migration, /revoke all on table public\.evidence_assets from public, anon/);
+  assert.match(migration, /created_by = \(select auth\.uid\(\)\)/);
+  assert.match(migration, /storage\.foldername\(storage_path\)\)\[2\] = project_id::text/);
+  assert.match(migration, /project members upload evidence storage[\s\S]*\(storage\.foldername\(name\)\)\[1\] = \(select auth\.uid\(\)\)::text/);
+  assert.doesNotMatch(migration, /for update[\s\S]*on storage\.objects/);
+});

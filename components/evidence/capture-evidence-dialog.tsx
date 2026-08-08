@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, Check, ChevronDown, ChevronUp, FilePlus2, Link2, LoaderCircle, NotebookPen, Plus, RotateCw, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, FileImage, FilePlus2, Link2, LoaderCircle, NotebookPen, Plus, RotateCw, ShieldCheck, Upload, X } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { Button } from "@/components/ui/primitives";
-import { prepareQuickCapture, type QuickCaptureField, type QuickCaptureMode } from "@/lib/evidence/capture";
+import { prepareQuickCapture, type EvidenceCaptureDialogMode, type QuickCaptureField } from "@/lib/evidence/capture";
+import { formatEvidenceFileSize, validateEvidenceFile } from "@/lib/evidence/file-capture";
 import { findLocalUrlDuplicate, inspectEvidenceUrl, type DuplicateEvidence } from "@/lib/evidence/url-extraction";
 
 interface CaptureSuccess {
@@ -13,25 +14,30 @@ interface CaptureSuccess {
   projectName: string;
 }
 
-const emptyErrors: Partial<Record<QuickCaptureField, string>> = {};
+type CaptureField = QuickCaptureField | "file";
+
+const emptyErrors: Partial<Record<CaptureField, string>> = {};
 
 export function CaptureEvidenceDialog() {
   const {
     captureDialogOpen,
+    captureDialogMode,
     setCaptureDialogOpen,
     projects,
     researchItems,
     activeProjectId,
     addResearch,
+    addResearchFile,
     setProjectDialogOpen,
     workspaceStatus,
   } = useApp();
-  const [mode, setMode] = useState<QuickCaptureMode>("url");
+  const [mode, setMode] = useState<EvidenceCaptureDialogMode>("url");
   const [projectId, setProjectId] = useState("");
   const [source, setSource] = useState("");
   const [note, setNote] = useState("");
   const [title, setTitle] = useState("");
   const [whyItMatters, setWhyItMatters] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState(emptyErrors);
@@ -43,6 +49,7 @@ export function CaptureEvidenceDialog() {
   const [pendingKeepOpen, setPendingKeepOpen] = useState(false);
   const urlInputRef = useRef<HTMLInputElement>(null);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const destinationProjectId = projects.some((project) => project.id === projectId)
     ? projectId
@@ -52,7 +59,30 @@ export function CaptureEvidenceDialog() {
 
   useEffect(() => {
     if (!captureDialogOpen) return;
-    const focusTimer = window.setTimeout(() => mode === "url" ? urlInputRef.current?.focus() : noteInputRef.current?.focus(), 0);
+    const resetTimer = window.setTimeout(() => {
+      setMode(captureDialogMode);
+      setSource("");
+      setNote("");
+      setTitle("");
+      setWhyItMatters("");
+      setFile(null);
+      setDetailsOpen(false);
+      setErrors(emptyErrors);
+      setFormError("");
+      setSavedMessage("");
+      setSuccess(null);
+      setDuplicate(null);
+      setInspectionError("");
+    }, 0);
+    return () => window.clearTimeout(resetTimer);
+  }, [captureDialogMode, captureDialogOpen]);
+
+  useEffect(() => {
+    if (!captureDialogOpen) return;
+    const focusTimer = window.setTimeout(() => {
+      if (mode === "url") urlInputRef.current?.focus();
+      if (mode === "note") noteInputRef.current?.focus();
+    }, 0);
     return () => window.clearTimeout(focusTimer);
   }, [captureDialogOpen, mode]);
 
@@ -64,6 +94,7 @@ export function CaptureEvidenceDialog() {
     setNote("");
     setTitle("");
     setWhyItMatters("");
+    setFile(null);
     setDetailsOpen(false);
     setErrors(emptyErrors);
     setFormError("");
@@ -84,16 +115,56 @@ export function CaptureEvidenceDialog() {
 
   function resetCapture(nextMode = mode) {
     clearDraft(nextMode);
-    window.setTimeout(() => nextMode === "url" ? urlInputRef.current?.focus() : noteInputRef.current?.focus(), 0);
+    window.setTimeout(() => {
+      if (nextMode === "url") urlInputRef.current?.focus();
+      if (nextMode === "note") noteInputRef.current?.focus();
+    }, 0);
   }
 
-  function chooseMode(nextMode: QuickCaptureMode) {
+  function chooseMode(nextMode: EvidenceCaptureDialogMode) {
     if (nextMode === mode) return;
     resetCapture(nextMode);
     setSavedMessage("");
   }
 
   async function saveCapture(keepOpen: boolean, options: { skipInspection?: boolean; allowDuplicate?: boolean } = {}) {
+    if (mode === "file") {
+      const validation = file ? validateEvidenceFile(file) : { ok: false as const, error: "Choose a screenshot or document." };
+      const project = projects.find((candidate) => candidate.id === destinationProjectId);
+      if (!project || !validation.ok || !file) {
+        setErrors({
+          ...(!project ? { projectId: "Choose a project for this evidence." } : {}),
+          ...(!validation.ok ? { file: validation.error } : {}),
+        });
+        setFormError("");
+        return;
+      }
+      setSaving(true);
+      setErrors(emptyErrors);
+      setFormError("");
+      setSavedMessage("");
+      try {
+        const item = await addResearchFile({
+          projectId: project.id,
+          title,
+          summary: whyItMatters,
+          file,
+          captureOrigin: "global_capture",
+        });
+        if (keepOpen) {
+          resetCapture("file");
+          setSavedMessage(`Saved “${item.title}” to ${project.name}.`);
+        } else {
+          setSuccess({ title: item.title, projectName: project.name });
+        }
+      } catch (error) {
+        setFormError(error instanceof Error ? error.message : "File evidence could not be saved.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     const prepared = prepareQuickCapture({ mode, projectId: destinationProjectId, source, note, title, whyItMatters });
     if (!prepared.ok) {
       setErrors(prepared.errors);
@@ -163,6 +234,14 @@ export function CaptureEvidenceDialog() {
     }
   }
 
+  function selectFile(nextFile: File | null) {
+    setFile(nextFile);
+    const validation = nextFile ? validateEvidenceFile(nextFile) : null;
+    setErrors(validation && !validation.ok ? { file: validation.error } : emptyErrors);
+    setFormError("");
+    if (nextFile && !title.trim()) setTitle(nextFile.name.replace(/\.[^.]+$/, ""));
+  }
+
   function resetInspectionDecision() {
     setDuplicate(null);
     setInspectionError("");
@@ -213,6 +292,7 @@ export function CaptureEvidenceDialog() {
             <div className="capture-mode-switch" aria-label="Evidence format">
               <button type="button" className={mode === "url" ? "active" : ""} aria-pressed={mode === "url"} onClick={() => chooseMode("url")}><Link2 size={16} /><span><strong>Web link</strong><small>Article, campaign, post, or page</small></span></button>
               <button type="button" className={mode === "note" ? "active" : ""} aria-pressed={mode === "note"} onClick={() => chooseMode("note")}><NotebookPen size={16} /><span><strong>Note</strong><small>Thought, quote, statistic, or excerpt</small></span></button>
+              <button type="button" className={mode === "file" ? "active" : ""} aria-pressed={mode === "file"} onClick={() => chooseMode("file")}><FileImage size={16} /><span><strong>File</strong><small>Screenshot, image, or PDF</small></span></button>
             </div>
 
             {savedMessage ? <div className="capture-inline-success" role="status"><Check size={15} /><span>{savedMessage}</span></div> : null}
@@ -231,12 +311,40 @@ export function CaptureEvidenceDialog() {
                 <input ref={urlInputRef} inputMode="url" value={source} onChange={(event) => { setSource(event.target.value); setErrors(emptyErrors); resetInspectionDecision(); }} placeholder="https://…" aria-invalid={Boolean(errors.source)} />
                 {errors.source ? <small className="capture-field-error">{errors.source}</small> : <small className="capture-field-hint">Sift securely checks the page for a title and source details when you save.</small>}
               </label>
-            ) : (
+            ) : mode === "note" ? (
               <label>
                 <span>Write or paste evidence *</span>
                 <textarea ref={noteInputRef} rows={6} value={note} onChange={(event) => { setNote(event.target.value); setErrors(emptyErrors); }} placeholder="Paste the quote, statistic, observation, or thought you want to keep…" aria-invalid={Boolean(errors.note)} />
                 {errors.note ? <small className="capture-field-error">{errors.note}</small> : null}
               </label>
+            ) : (
+              <div className="capture-file-field">
+                <span>Screenshot or document *</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+                <div
+                  className={`capture-file-drop${errors.file ? " capture-file-drop--error" : ""}`}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    selectFile(event.dataTransfer.files?.[0] ?? null);
+                  }}
+                >
+                  {file ? <FileImage size={25} /> : <Upload size={25} />}
+                  <div>
+                    <strong>{file?.name ?? "Drop a file here"}</strong>
+                    <small>{file ? `${formatEvidenceFileSize(file.size)} · ${file.type || "Unknown type"}` : "JPG, PNG, WebP, or PDF · up to 20 MB"}</small>
+                  </div>
+                  <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()}>{file ? "Replace" : "Choose file"}</Button>
+                </div>
+                {errors.file ? <small className="capture-field-error">{errors.file}</small> : null}
+              </div>
             )}
 
             <button className="capture-details-toggle" type="button" aria-expanded={detailsOpen} onClick={() => setDetailsOpen((current) => !current)}>
@@ -246,12 +354,12 @@ export function CaptureEvidenceDialog() {
 
             {detailsOpen ? (
               <div className="capture-details-panel">
-                <label><span>Title</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={mode === "url" ? "Uses the website name if left empty" : "Uses the first line if left empty"} /></label>
+                <label><span>Title</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={mode === "url" ? "Uses the website name if left empty" : mode === "note" ? "Uses the first line if left empty" : "Uses the filename if left empty"} /></label>
                 <label><span>Why it matters</span><textarea rows={3} value={whyItMatters} onChange={(event) => setWhyItMatters(event.target.value)} placeholder="The strategic value, tension, or question this raises" /></label>
               </div>
             ) : null}
 
-            <p className="capture-privacy-note">Saved to your private Research library. Screenshots and document uploads are not enabled yet.</p>
+            <p className="capture-privacy-note">Saved to your private Research library. Files use private Storage and short-lived links when opened.</p>
             {duplicate ? (
               <div className="capture-decision capture-decision--warning" role="alert">
                 <AlertTriangle size={18} />
@@ -276,7 +384,7 @@ export function CaptureEvidenceDialog() {
           ) : inspectionError ? (
             <><Button type="button" onClick={close}>Cancel</Button><Button type="button" disabled={saving} onClick={() => void saveCapture(pendingKeepOpen)}><RotateCw size={14} />Try again</Button><Button type="button" variant="dark" disabled={saving} onClick={() => void saveCapture(pendingKeepOpen, { skipInspection: true })}>{saving ? <LoaderCircle className="spin" size={14} /> : null}Save link only</Button></>
           ) : (
-            <><Button type="button" onClick={close}>Cancel</Button><Button type="button" disabled={saving} onClick={() => void saveCapture(true)}>{saving ? <LoaderCircle className="spin" size={14} /> : null}Save & continue</Button><Button type="submit" variant="dark" disabled={saving}>{saving ? <LoaderCircle className="spin" size={14} /> : null}{saving ? "Saving…" : "Save evidence"}</Button></>
+            <><Button type="button" onClick={close}>Cancel</Button><Button type="button" disabled={saving} onClick={() => void saveCapture(true)}>{saving ? <LoaderCircle className="spin" size={14} /> : null}Save & continue</Button><Button type="submit" variant="dark" disabled={saving}>{saving ? <LoaderCircle className="spin" size={14} /> : null}{saving ? mode === "file" ? "Uploading…" : "Saving…" : "Save evidence"}</Button></>
           )}
         </footer>
       </form>

@@ -1,6 +1,7 @@
 import type { EvidenceCaptureMethod } from "./reference.ts";
 
 export type QuickCaptureMode = "url" | "note";
+export type EvidenceCaptureDialogMode = QuickCaptureMode | "file";
 
 export interface QuickCaptureDraft {
   mode: QuickCaptureMode;
