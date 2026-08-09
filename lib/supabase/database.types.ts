@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       ai_conversations: {
         Row: {
+          analysis_mode: string
           created_at: string
           id: string
           project_id: string
@@ -25,15 +26,17 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          analysis_mode?: string
           created_at?: string
           id?: string
           project_id: string
           source_scope?: Json
           title?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string
         }
         Update: {
+          analysis_mode?: string
           created_at?: string
           id?: string
           project_id?: string
@@ -60,8 +63,10 @@ export type Database = {
           created_at: string
           id: string
           model: string | null
+          request_id: string | null
           role: string
           structured_claims: Json
+          usage: Json
         }
         Insert: {
           citations?: Json
@@ -70,8 +75,10 @@ export type Database = {
           created_at?: string
           id?: string
           model?: string | null
+          request_id?: string | null
           role: string
           structured_claims?: Json
+          usage?: Json
         }
         Update: {
           citations?: Json
@@ -80,8 +87,10 @@ export type Database = {
           created_at?: string
           id?: string
           model?: string | null
+          request_id?: string | null
           role?: string
           structured_claims?: Json
+          usage?: Json
         }
         Relationships: [
           {

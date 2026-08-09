@@ -4,7 +4,7 @@ Date: 9 August 2026
 
 Application baseline: `b025842`
 
-Outcome: **Automated and deployed acceptance checks passed; the strategist's short real-use confirmation remains pending.** Phase 5 must not be marked complete until that confirmation is recorded.
+Outcome: **Accepted and complete.** Automated, live-database, deployed, and strategist real-use checks passed.
 
 ## Accepted scope
 
@@ -78,15 +78,17 @@ The browser harness could render and select the merge workflow but timed out whi
 | Promotion is explicit, current, and evidence-gated | Passed |
 | Cross-account and anonymous access is denied | Passed |
 
-## Remaining user confirmation
+## Strategist confirmation
 
-Use the deployed site with one real working observation:
+On 10 August 2026, the strategist exercised the deployed Signals workflow with a real working observation, inspected the evidence trail, and confirmed the workflow after asking what each layer was for. A guarded permanent deletion flow was added for disposable standalone candidates, verified against the live database and authenticated UI, and deployed before final confirmation. Original Radar, Research, and Inspiration records remain preserved when such a candidate is removed.
+
+The confirmed workflow was:
 
 1. Record a candidate using a claim you genuinely want to investigate.
 2. Connect at least one real project source and classify it as support, contradiction, or context.
 3. Add a rationale, create an assessment, and confirm the limitations and research gaps are useful and understandable.
 4. Correct the claim or topic once and confirm the earlier version remains visible in history.
-5. Optionally merge a disposable second candidate into it, or split one linked source into a child Signal, then confirm the lineage explanation is clear.
+5. Optionally merge a disposable second candidate into it, or split one linked source into a child Signal, then inspect the lineage explanation.
 6. Confirm that promotion stays blocked while the evidence requirements are unmet.
 
-The strategist should then confirm whether the workflow is understandable and useful in real work. Temporary test material can be deleted afterward.
+The strategist completed the hands-on checkpoint and removed disposable test material. Phase 6 may proceed without weakening the evidence, correction, or promotion boundaries accepted here.

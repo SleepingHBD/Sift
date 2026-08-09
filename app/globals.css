@@ -2285,17 +2285,71 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .strategy-evidence-empty p { color: var(--muted); font-size: 12px; line-height: 1.6; }
 .strategy-evidence-empty a { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px; font-weight: 750; }
 
+/* Phase 6 starts with an inspectable evidence boundary, before model output. */
+.strategy-foundation { display: grid; grid-template-columns: minmax(0, .9fr) minmax(360px, 1.1fr); gap: 18px; align-items: start; }
+.strategy-question-card { padding: 0; overflow: hidden; }
+.strategy-question-card__head { display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 13px; padding: 24px; border-bottom: 1px solid var(--border); }
+.strategy-question-card__head .ai-orb { width: 42px; height: 42px; border-radius: 12px; }
+.strategy-question-card__head h2 { margin: 9px 0 6px; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.05; letter-spacing: -.035em; }
+.strategy-question-card__head p { max-width: 540px; margin: 0; color: var(--muted); line-height: 1.55; }
+.strategy-question-card form { display: grid; gap: 19px; padding: 24px; }
+.strategy-question-card label { display: grid; gap: 7px; }
+.strategy-question-card label > span { font-family: var(--font-mono); color: var(--text-soft); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.strategy-question-card select, .strategy-question-card textarea { width: 100%; border: 1px solid var(--border-strong); border-radius: 11px; background: var(--bg-elevated); color: var(--text); outline: 0; }
+.strategy-question-card select { min-height: 45px; padding: 0 13px; }
+.strategy-question-card textarea { padding: 13px; resize: vertical; font-size: 15px; line-height: 1.55; }
+.strategy-question-card select:focus, .strategy-question-card textarea:focus { border-color: var(--text-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acid) 28%, transparent); }
+.strategy-question-card small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.strategy-question-card__actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 3px; }
+.strategy-question-card__actions > span { color: var(--muted); font-size: 11px; }
+.strategy-question-card__error { padding: 11px 13px; border: 1px solid color-mix(in srgb, var(--negative) 35%, var(--border)); border-radius: 10px; background: color-mix(in srgb, var(--negative) 7%, var(--card)); color: var(--negative); font-size: 13px; }
+.strategy-preview-result { display: grid; gap: 4px; padding: 17px 24px; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--acid) 8%, var(--card)); }
+.strategy-preview-result strong { font-size: 14px; }.strategy-preview-result span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.strategy-scope { min-height: 510px; border: 1px solid var(--border); border-radius: 15px; background: var(--card); overflow: hidden; }
+.strategy-scope--empty { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 42px; }
+.strategy-scope--empty > svg { color: var(--acid-dark); }
+.strategy-scope--empty .eyebrow { margin: 18px 0 8px; }
+.strategy-scope--empty h2 { max-width: 430px; margin: 0; font-size: clamp(24px, 2.4vw, 34px); line-height: 1.05; letter-spacing: -.04em; }
+.strategy-scope--empty > p:not(.eyebrow) { max-width: 480px; margin: 12px 0 0; color: var(--muted); line-height: 1.6; }
+.strategy-scope__guardrail { display: flex; align-items: center; gap: 8px; margin-top: 24px; padding: 9px 11px; border-radius: 9px; background: var(--subtle); color: var(--text-soft); font-size: 12px; }
+.strategy-scope__head { display: flex; justify-content: space-between; gap: 12px; padding: 21px 22px 16px; }
+.strategy-scope__head h2 { margin: 5px 0 0; font-size: 21px; }.strategy-scope__head .ui-badge { align-self: flex-start; }
+.strategy-scope__search { margin: 0; padding: 0 22px 17px; color: var(--muted); font-size: 12px; }.strategy-scope__search strong { color: var(--text-soft); }
+.strategy-scope__list { border-top: 1px solid var(--border); }
+.strategy-source { position: relative; border-bottom: 1px solid var(--border); background: var(--card); }
+.strategy-source--selected { background: color-mix(in srgb, var(--acid) 6%, var(--card)); }
+.strategy-source label { display: grid; grid-template-columns: 18px 27px minmax(0,1fr); gap: 9px; padding: 15px 20px 12px; cursor: pointer; }
+.strategy-source input { width: 15px; height: 15px; margin-top: 2px; accent-color: var(--text); }
+.strategy-source__number { padding-top: 1px; color: var(--muted); font-family: var(--font-mono); font-size: 10px; }
+.strategy-source__body { display: grid; gap: 5px; }.strategy-source__body > strong { font-size: 14px; line-height: 1.35; }.strategy-source__body > span:last-child { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.strategy-source__meta { display: flex; align-items: center; gap: 7px; font-size: 10px; }.strategy-source__meta b { color: var(--text-soft); text-transform: uppercase; letter-spacing: .07em; }.strategy-source__meta span { color: var(--muted); }
+.strategy-source > a { display: inline-flex; align-items: center; gap: 5px; margin: 0 20px 14px 74px; color: var(--text-soft); font-size: 11px; font-weight: 750; }
+.strategy-scope__no-match { display: flex; min-height: 260px; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 28px; border-top: 1px solid var(--border); text-align: center; }.strategy-scope__no-match svg { color: var(--acid-dark); }.strategy-scope__no-match span { color: var(--muted); font-size: 12px; }
+.strategy-scope__footer { display: flex; align-items: center; justify-content: space-between; gap: 13px; padding: 15px 20px; background: var(--bg-elevated); }
+.strategy-scope__footer > div { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
+.strategy-foundation-note { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; gap: 11px; align-items: center; margin-top: 18px; padding: 15px 17px; border: 1px solid var(--border); border-radius: 13px; background: var(--bg-elevated); }
+.strategy-foundation-note > svg { color: var(--acid-dark); }.strategy-foundation-note > div { display: grid; gap: 3px; }.strategy-foundation-note strong { font-size: 13px; }.strategy-foundation-note span { color: var(--muted); font-size: 12px; line-height: 1.45; }.strategy-foundation-note a { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 750; white-space: nowrap; }
+
 @media (max-width: 1000px) {
   .account-layout { grid-template-columns: 1fr; }
   .workspace-onboarding__actions { grid-template-columns: 1fr 1fr; }
   .workspace-onboarding__actions > :nth-child(2) { border-right: 0; }
   .workspace-onboarding__actions > :nth-child(-n+2) { border-bottom: 1px solid var(--border); }
   .strategy-empty-workbench { grid-template-columns: 1fr; }
+  .strategy-foundation { grid-template-columns: 1fr; }
   .project-import-notice { grid-template-columns: 44px minmax(0,1fr); }
   .project-import-notice > div:last-child { grid-column: 2; }
   .evidence-csv-mapping-grid { grid-template-columns: 1fr 1fr; }
   .evidence-csv-duplicates { grid-template-columns: 1fr 1fr; }
   .evidence-csv-duplicates > div { grid-column: 1 / -1; }
+}
+
+@media (max-width: 650px) {
+  .strategy-question-card__head { grid-template-columns: 1fr; }.strategy-question-card__head .ai-orb { width: 38px; height: 38px; }
+  .strategy-question-card__actions, .strategy-scope__footer { align-items: stretch; flex-direction: column; }.strategy-question-card__actions .ui-button, .strategy-scope__footer .ui-button { width: 100%; }
+  .strategy-scope--empty { padding: 28px 22px; }.strategy-scope__head { align-items: flex-start; flex-direction: column; }
+  .strategy-source label { grid-template-columns: 18px 22px minmax(0,1fr); padding-inline: 14px; }.strategy-source > a { margin-left: 63px; }
+  .strategy-foundation-note { grid-template-columns: 26px minmax(0,1fr); }.strategy-foundation-note a { grid-column: 2; }
 }
 
 @media (max-width: 720px) {

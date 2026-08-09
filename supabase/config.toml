@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.radar-scheduler]
 verify_jwt = true
+
+[functions.strategy-ai]
+verify_jwt = true

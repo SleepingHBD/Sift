@@ -35,6 +35,25 @@ test("Radar requires verified JWTs and server-side quotas", async () => {
   assert.match(handler, /65_536/);
 });
 
+test("Strategy AI preview is JWT-protected, RLS-scoped, and cannot be forged through direct table writes", async () => {
+  const [config, handler, migration, repository] = await Promise.all([
+    read("supabase/config.toml"),
+    read("supabase/functions/strategy-ai/index.ts"),
+    read("supabase/migrations/20260809162705_phase_6_strategy_ai_foundation.sql"),
+    read("lib/strategy-ai/repository.ts"),
+  ]);
+
+  assert.match(config, /\[functions\.strategy-ai\][\s\S]*verify_jwt\s*=\s*true/);
+  assert.match(handler, /withSupabase\(\{ auth: "user" \}/);
+  assert.match(handler, /context\.supabase[\s\S]*search_evidence_page/);
+  assert.doesNotMatch(handler, /supabaseAdmin[\s\S]*search_evidence_page/);
+  assert.match(migration, /revoke insert, update, delete[\s\S]*ai_conversations, public\.ai_messages[\s\S]*from authenticated/);
+  assert.match(migration, /user_id = \(select auth\.uid\(\)\)/);
+  assert.match(migration, /public\.can_access_project\(project_id\)/);
+  assert.match(repository, /functions\.invoke\(functionName/);
+  assert.doesNotMatch(repository, /OPENAI_API_KEY|service_role/i);
+});
+
 test("the client cannot perform manual identity linking", async () => {
   const provider = await read("components/auth/auth-provider.tsx");
 

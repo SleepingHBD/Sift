@@ -1,23 +1,94 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, MessageCircle, Plus, Radio, Send, Sparkles } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { ArrowRight, LoaderCircle, Plus, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { FormEvent, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
+import { StrategyEvidenceScope } from "@/components/strategy/strategy-evidence-scope";
 import { Badge, Button, Card, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
+import { previewStrategyEvidence } from "@/lib/strategy-ai/repository";
+import type { StrategyEvidencePreview } from "@/lib/strategy-ai/types";
 
 export function StrategyPage() {
-  const { researchItems } = useApp();
+  const { projects, activeProjectId, setActiveProjectId, setProjectDialogOpen, openCaptureDialog } = useApp();
+  const cloudProjects = useMemo(() => projects.filter((project) => project.cloudId), [projects]);
+  const initialProjectId = cloudProjects.some((project) => project.id === activeProjectId)
+    ? activeProjectId
+    : cloudProjects[0]?.id || "";
+  const [projectId, setProjectId] = useState(initialProjectId);
   const [question, setQuestion] = useState("");
-  const [messages, setMessages] = useState<string[]>([]);
+  const [preview, setPreview] = useState<StrategyEvidencePreview | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [error, setError] = useState("");
+  const resolvedProjectId = cloudProjects.some((project) => project.id === projectId) ? projectId : initialProjectId;
 
-  function ask(event: FormEvent) {
+  async function prepareEvidence(event: FormEvent) {
     event.preventDefault();
-    if (!question.trim()) return;
-    setMessages((current) => [...current, question.trim()]);
-    setQuestion("");
+    const project = cloudProjects.find((item) => item.id === resolvedProjectId);
+    if (!project || !question.trim()) return;
+    setStatus("loading");
+    setError("");
+    try {
+      const result = await previewStrategyEvidence(project, question.trim());
+      setPreview(result);
+      setSelected(new Set(result.evidence.map((item) => item.identity)));
+      setActiveProjectId(project.id);
+      setStatus("idle");
+    } catch (requestError) {
+      setPreview(null);
+      setSelected(new Set());
+      setError(requestError instanceof Error ? requestError.message : "Evidence could not be prepared.");
+      setStatus("error");
+    }
   }
 
-  return <div className="page strategy-page"><PageIntro eyebrow="Strategy AI" title="Turn signal into direction." description="Use general strategic framing now, then move into workspace-backed analysis when your evidence base is ready."><Button variant="dark" onClick={() => { setMessages([]); setQuestion(""); }}><Plus size={16} />New session</Button></PageIntro><div className="strategy-empty-workbench"><Card className="strategy-chat strategy-chat--blank"><div className="strategy-chat__header"><div><span className="ai-orb"><Sparkles size={18} /></span><div><strong>Sift Strategist</strong><span>Your workspace</span></div></div><Badge>{researchItems.length} evidence sources</Badge></div><div className="strategy-chat__messages"><div className="chat-message chat-message--assistant"><div className="chat-avatar"><Sparkles size={15} /></div><div><p className="chat-kicker">Workspace evidence status</p><h3>I don’t have enough workspace evidence yet to answer as a research-backed strategist.</h3><p>Add research or collect conversations in Radar. Until then, responses are treated as general strategic framing and will not be presented as findings.</p><div className="workspace-analysis-actions"><Link href="/research">Add research <ArrowRight size={13} /></Link><Link href="/radar/#new-monitor">Create Radar monitor <ArrowRight size={13} /></Link></div></div></div>{messages.map((message, index) => <div key={`${message}-${index}`}><div className="chat-message chat-message--user"><span>{message}</span></div><div className="chat-message chat-message--assistant chat-message--compact"><div className="chat-avatar"><Sparkles size={15} /></div><div><p className="chat-kicker">General response · Not workspace-backed</p><p>Use this as a framing exercise: clarify the behaviour you want to understand, identify the human tension behind it, and list what evidence would confirm or challenge the opportunity. No claim here is based on your workspace yet.</p></div></div></div>)}</div><form className="strategy-chat__input" onSubmit={ask}><MessageCircle size={17} /><textarea rows={1} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask a general strategy question…" /><button aria-label="Send question"><Send size={16} /></button></form></Card><aside className="strategy-evidence-empty"><BookOpenCheck size={21} /><h2>Workspace-backed analysis</h2><p>Requires stored research, mentions, insights, or other cited evidence.</p><Link href="/research">Build evidence base <ArrowRight size={13} /></Link></aside></div><section className="insights-section"><EmptyState icon={Radio} title="No strategic insights yet." description="Insights will appear only after they can be connected to source evidence from your workspace." actions={<><Link className="text-link" href="/research">Add research <ArrowRight size={13} /></Link><Link className="text-link" href="/radar/#new-monitor">Start monitoring <ArrowRight size={13} /></Link></>} /></section></div>;
+  function reset() {
+    setQuestion("");
+    setPreview(null);
+    setSelected(new Set());
+    setStatus("idle");
+    setError("");
+  }
+
+  function toggleEvidence(identity: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(identity)) next.delete(identity);
+      else next.add(identity);
+      return next;
+    });
+  }
+
+  return (
+    <div className="page strategy-page">
+      <PageIntro eyebrow="Strategy AI · Phase 6" title="Start with the evidence, then ask for direction." description="Prepare an inspectable project scope before any model is allowed to form a workspace-backed answer.">
+        <Button variant="dark" onClick={reset}><Plus size={16} />New question</Button>
+      </PageIntro>
+
+      {!cloudProjects.length ? (
+        <EmptyState icon={Sparkles} title="Strategy needs a project boundary first." description="Create a cloud-backed project, then capture research or collect permitted conversations. Sift will never invent workspace findings for an empty project." actions={<><Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={15} />Create project</Button><Button onClick={() => openCaptureDialog("url")}>Capture evidence</Button></>} />
+      ) : (
+        <div className="strategy-foundation">
+          <Card className="strategy-question-card">
+            <div className="strategy-question-card__head">
+              <span className="ai-orb"><ShieldCheck size={18} /></span>
+              <div><Badge>Workspace-backed analysis</Badge><h2>Prepare a research-backed question</h2><p>This step retrieves evidence only. It does not generate an interpretation, hypothesis, or recommendation.</p></div>
+            </div>
+            <form onSubmit={prepareEvidence}>
+              <label><span>Project</span><select value={resolvedProjectId} onChange={(event) => { setProjectId(event.target.value); setPreview(null); setSelected(new Set()); }}>{cloudProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><small>The project is the authorization and evidence boundary.</small></label>
+              <label><span>Strategic question</span><textarea rows={5} maxLength={1000} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="What is changing, why might it matter, and what evidence supports or challenges that interpretation?" /><small>Write the real question you want to investigate. Sift derives a transparent full-text evidence search from it.</small></label>
+              {error ? <div className="strategy-question-card__error" role="alert">{error}</div> : null}
+              <div className="strategy-question-card__actions"><Button variant="dark" disabled={status === "loading" || question.trim().length < 3}>{status === "loading" ? <><LoaderCircle className="spin" size={16} />Searching evidence…</> : <><Search size={16} />Find relevant evidence</>}</Button><span>No OpenAI request is made yet.</span></div>
+            </form>
+            {preview ? <div className="strategy-preview-result"><strong>{preview.evidence.length} candidate source{preview.evidence.length === 1 ? "" : "s"} found</strong><span>Review the right-hand evidence scope and remove anything that should not influence the future answer.</span></div> : null}
+          </Card>
+          <StrategyEvidenceScope preview={preview} selected={selected} onToggle={toggleEvidence} />
+        </div>
+      )}
+
+      <div className="strategy-foundation-note"><Sparkles size={17} /><div><strong>Why analysis is not generated yet</strong><span>The secure retrieval and citation boundary must be proven before a live model key is connected. The next increment will add structured, cited responses without changing this source-selection step.</span></div><Link href="/evidence">Review all evidence <ArrowRight size={13} /></Link></div>
+    </div>
+  );
 }

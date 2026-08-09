@@ -120,7 +120,9 @@ Production status: the scheduler was explicitly activated and verified on 9 Augu
 
 ## Strategy AI on GitHub Pages
 
-GitHub Pages cannot protect an OpenAI API key. A secure endpoint should authenticate the user, retrieve only authorized project evidence, call OpenAI server-side, and return structured claims with source IDs and confidence. Workspace-backed claims must cite stored evidence; general brainstorming must be labeled separately.
+GitHub Pages cannot protect an OpenAI API key. Phase 6 therefore begins behind the JWT-protected Supabase `strategy-ai` Edge Function. The current backend foundation authenticates the user, verifies project access through RLS, retrieves normalized full-text evidence with stable source IDs, and lets the strategist inspect and narrow that scope. It deliberately makes no OpenAI request yet. Direct browser writes to AI conversations and messages are revoked so future assistant content, citations, model IDs, and usage records cannot be forged through the Data API.
+
+The later model connection will keep `OPENAI_API_KEY` only in Edge Function secrets, use bounded structured output, and require stored evidence IDs for workspace-backed claims. General brainstorming will remain separately labelled. See [docs/strategy-ai.md](docs/strategy-ai.md).
 
 ## GitHub Pages deployment
 
@@ -134,4 +136,4 @@ The build applies the repository subpath to routes and assets automatically.
 
 The static export includes a restrictive browser content policy and referrer policy. GitHub Pages controls HTTP response headers, so stronger server headers such as `X-Content-Type-Options` and an HTTP-delivered frame policy require moving the frontend to a host with configurable headers.
 
-See [docs/architecture.md](docs/architecture.md), [docs/radar.md](docs/radar.md), [docs/signals.md](docs/signals.md), [docs/development-roadmap.md](docs/development-roadmap.md), [docs/phase-0-audit.md](docs/phase-0-audit.md), [docs/phase-1-acceptance.md](docs/phase-1-acceptance.md), [docs/phase-3-acceptance.md](docs/phase-3-acceptance.md), and [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md) for implementation boundaries, the evidence-first development sequence, backend findings, and acceptance evidence.
+See [docs/architecture.md](docs/architecture.md), [docs/radar.md](docs/radar.md), [docs/signals.md](docs/signals.md), [docs/strategy-ai.md](docs/strategy-ai.md), [docs/development-roadmap.md](docs/development-roadmap.md), [docs/phase-0-audit.md](docs/phase-0-audit.md), [docs/phase-1-acceptance.md](docs/phase-1-acceptance.md), [docs/phase-3-acceptance.md](docs/phase-3-acceptance.md), [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md), and [docs/phase-5-acceptance.md](docs/phase-5-acceptance.md) for implementation boundaries, the evidence-first development sequence, backend findings, and acceptance evidence.

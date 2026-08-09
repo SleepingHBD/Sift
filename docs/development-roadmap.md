@@ -45,10 +45,10 @@ Sift is not required to observe the whole internet. It is required to be explici
 - Theme, connector settings, active-project selection, and other harmless interface preferences remain browser-local by design.
 - GitHub is the only enabled sign-in method. Workspace ownership has been transferred to that permanent identity; obsolete anonymous users and sessions have been removed.
 - Private routes require a verified permanent session and the implemented Phase 1 domains now hydrate from Supabase.
-- Research and inspiration forms do not yet upload files, extract content, or save rich provenance.
-- Strategy AI is a labelled framing placeholder, not a server-backed evidence retrieval system.
-- Several database relationships use polymorphic IDs whose integrity is enforced by application code rather than foreign keys.
-- The mention feed is client-aggregated and not yet designed for large, paginated collections.
+- Research supports rich provenance, authenticated URL extraction, private screenshots/documents, social capture, and bounded CSV import; richer automatic document processing remains deferred.
+- Strategy AI now has a JWT-protected, RLS-scoped evidence-preview foundation, but model generation and persisted cited conversations are not connected yet.
+- Polymorphic evidence relationships use guarded database operations and project checks; future relationship types must preserve those integrity rules.
+- Radar conversations and the unified Evidence Inbox use server-side filtering and stable cursor pagination; broader retrieval evaluation remains Phase 6 work.
 - Database ownership, RLS, client grants, Auth providers, and the Radar Edge Function have completed the Phase 0 security audit; repository-level least privilege remains part of the cloud hydration work.
 
 ## Target architecture
@@ -366,7 +366,7 @@ Current checkpoint: the manual and scheduled Radar workflows passed the acceptan
 
 ## Phase 5 - Signals and analytical reasoning
 
-Status: **Automated acceptance passed; strategist confirmation pending.** The acceptance evidence is documented in [phase-5-acceptance.md](phase-5-acceptance.md). Three increments are implemented locally and in Supabase: a project-scoped Signals workspace; manual candidate/hypothesis capture; candidate/watch/dismiss status changes; visible evidence-scope qualifiers; project-scoped evidence search; strategist-controlled support/contradiction/context links and rationales; original-source access; deliberate link removal/reclassification; transparent deterministic assessments; immutable versioned snapshot history; evidence-retention/deletion protection; revision-preserving claim and topic correction; provenance-safe merge/split operations; and explicit database-enforced promotion into an observed Trend. No candidate is automatically promoted, no relationship is inferred, unavailable growth stays missing, and no assessment score appears until the strategist creates a snapshot. Automated tests, live rollback-only database checks, deployed correction history, and deployed promotion safeguards passed. The final step before Phase 6 is the strategist's short real-use confirmation.
+Status: **Complete and accepted.** The acceptance evidence is documented in [phase-5-acceptance.md](phase-5-acceptance.md). Three increments established the project-scoped Signals workspace, inspectable evidence and assessment trail, correction and lineage history, and database-enforced promotion into an observed Trend. The strategist completed the short real-use confirmation on 10 August 2026 and confirmed the evidence-trail workflow after permanent disposal of a test candidate was added. No candidate is automatically promoted, no relationship is inferred, unavailable growth stays missing, and no assessment score appears until the strategist creates a snapshot.
 
 ### Goal
 
@@ -401,6 +401,8 @@ Help the strategist identify what deserves attention before asking AI to produce
 - No global trend claim is made from a limited observed sample.
 
 ## Phase 6 - Evidence-grounded Strategy AI
+
+Status: **In progress.** The first increment reuses and hardens the existing AI conversation tables, introduces a JWT-protected `strategy-ai` Edge Function, and adds an inspectable project evidence-scope preview. Retrieval runs with the caller's RLS context over the existing PostgreSQL full-text evidence search, returns stable source identities, excludes evidence deliberately marked irrelevant or archived, and keeps original source text, capture-time interpretation, and later strategist notes distinct. No OpenAI request or generated conclusion is made in this increment; model activation follows only after this retrieval and selection boundary passes live verification.
 
 ### Goal
 
@@ -595,7 +597,7 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0, 1, 2, 3, and 4 are complete. Phase 5 implementation and automated acceptance are complete, with the strategist's short real-use confirmation still required before Phase 6 begins. Its first increment established evidence-scoped working signals without confusing them with promoted trends; its second added an inspectable evidence trail, contradiction handling, source rationales, and append-only deterministic assessments; its third added correction history, topic reassignment, merge/split lineage, locked promoted evidence, and database-recounted promotion gates. Monitor configuration, transparent source coverage, connector reliability, run diagnostics, run locking and recovery, complete-history analytics, cursor-paged conversations, direct supporting-record retrieval, cloud-synced connector settings, trusted scheduling, explicit retention opt-in, protected-evidence previews, bounded enforcement, and retention audit records are implemented. Phase 3 was delivered through these verified increments:
+Phases 0 through 5 are complete. Phase 6 is in progress. Its first increment secures the unused AI persistence tables against direct browser writes and creates an authenticated, RLS-scoped evidence preview before any model credential is connected. The Strategy AI page now begins with one project and one real question, exposes the derived full-text search, returns stable evidence identities, and lets the strategist remove sources from the future answer scope. Model generation remains explicitly unavailable until the retrieval boundary is verified. Monitor configuration, transparent source coverage, connector reliability, run diagnostics, run locking and recovery, complete-history analytics, cursor-paged conversations, direct supporting-record retrieval, cloud-synced connector settings, trusted scheduling, explicit retention opt-in, protected-evidence previews, bounded enforcement, and retention audit records are implemented. Phase 3 was delivered through these verified increments:
 
 1. Create a project evidence inbox over the shared evidence reference contract, with search, core filters, provenance, and a common detail drawer. **Completed.**
 2. Add persistent review states through an additive migration and explicit single-item review actions. **Completed.**

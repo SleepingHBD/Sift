@@ -57,4 +57,4 @@ It always returns evidence sufficiency, transparent factor values, limitations, 
 
 ## Next checkpoint
 
-Phase 5 implementation and automated acceptance are complete. The remaining checkpoint is the strategist's first natural-use confirmation; after that, Phase 6 can add evidence-grounded Strategy AI without bypassing these source and promotion boundaries.
+Phase 5 is complete and accepted after the strategist's first natural-use confirmation. Phase 6 now adds evidence-grounded Strategy AI without bypassing these source, correction, lineage, and promotion boundaries.
