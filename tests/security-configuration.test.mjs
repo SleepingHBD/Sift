@@ -545,3 +545,25 @@ test("Phase 5 corrections preserve history and promotion remains database gated"
   assert.match(hardening, /set search_path = ''/);
   assert.doesNotMatch(hardening, /create or replace function public\.[\s\S]*security definer/);
 });
+
+test("Phase 5 candidate deletion is guarded, project-scoped, and preserves original evidence", async () => {
+  const [migration, repository] = await Promise.all([
+    read("supabase/migrations/20260809155213_guarded_signal_candidate_deletion.sql"),
+    read("lib/signals/repository.ts"),
+  ]);
+
+  assert.match(migration, /revoke delete on table public\.signals from authenticated/);
+  assert.match(migration, /create or replace function public\.preview_signal_deletion[\s\S]*security invoker/);
+  assert.match(migration, /create or replace function private\.delete_signal_candidate_internal[\s\S]*security definer/);
+  assert.match(migration, /create or replace function public\.delete_signal_candidate[\s\S]*security invoker/);
+  assert.match(migration, /not candidate\.project_id = any\(\(\(select private\.accessible_project_ids\(\)\)\)::uuid\[\]\)/);
+  assert.match(migration, /candidate\.promoted_trend_id is not null/);
+  assert.match(migration, /from public\.signal_lineage lineage/);
+  assert.match(migration, /related\.superseded_by_signal_id = candidate\.id/);
+  assert.match(migration, /delete from public\.signals signal/);
+  assert.doesNotMatch(migration, /delete from public\.(mentions|research_items|inspiration_items)/);
+  assert.match(migration, /revoke all on function public\.delete_signal_candidate\(uuid\)[\s\S]*from public, anon, authenticated, service_role/);
+  assert.match(migration, /grant execute on function public\.delete_signal_candidate\(uuid\)[\s\S]*to authenticated/);
+  assert.match(repository, /rpc\("preview_signal_deletion"/);
+  assert.match(repository, /rpc\("delete_signal_candidate"/);
+});

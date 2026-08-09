@@ -117,6 +117,15 @@ export interface SignalLineageRecord {
   createdAt: string;
 }
 
+export interface SignalDeletionPreview {
+  deletable: boolean;
+  blockers: string[];
+  evidenceLinkCount: number;
+  assessmentCount: number;
+  revisionCount: number;
+  lineageCount: number;
+}
+
 export interface CreateSignalInput {
   projectId: string;
   title: string;

@@ -45,9 +45,10 @@ interface SignalDetailDrawerProps {
   projectSignals: SignalRecord[];
   onClose: () => void;
   onUpdated: () => Promise<void> | void;
+  onDelete: () => void;
 }
 
-export function SignalDetailDrawer({ signal, projectName, projectSignals, onClose, onUpdated }: SignalDetailDrawerProps) {
+export function SignalDetailDrawer({ signal, projectName, projectSignals, onClose, onUpdated, onDelete }: SignalDetailDrawerProps) {
   const [links, setLinks] = useState<SignalEvidenceLink[]>([]);
   const [snapshots, setSnapshots] = useState<SignalSnapshotRecord[]>([]);
   const [candidates, setCandidates] = useState<EvidenceReference[]>([]);
@@ -174,7 +175,7 @@ export function SignalDetailDrawer({ signal, projectName, projectSignals, onClos
         {error ? <div className="signals-error signal-detail__error" role="alert"><AlertTriangle size={15} /><span>{error}</span>{status === "error" ? <button onClick={() => void refresh()}>Try again</button> : null}</div> : null}
         {status === "loading" ? <div className="signal-detail__loading"><LoaderCircle className="spin" size={18} />Loading evidence trail…</div> : null}
         {status === "ready" ? <>
-          <SignalManagementPanel signal={signal} projectSignals={projectSignals} links={links} snapshots={snapshots} onUpdated={onUpdated} />
+          <SignalManagementPanel signal={signal} projectSignals={projectSignals} links={links} snapshots={snapshots} onUpdated={onUpdated} onDelete={onDelete} />
           <section className="signal-detail__section" aria-labelledby="linked-evidence-heading">
             <div className="signal-detail__section-heading"><div><p className="drawer-section-label" id="linked-evidence-heading">Evidence trail</p><span>Classify each source by what it contributes to the working claim.</span></div><Badge>{links.length} linked</Badge></div>
             {!links.length ? <div className="signal-detail__empty"><Link2 size={18} /><div><strong>No evidence linked yet.</strong><span>Search this project below and connect an original source.</span></div></div> : <div className="signal-evidence-list">{links.map((link) => {

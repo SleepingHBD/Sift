@@ -2507,6 +2507,10 @@ export type Database = {
         }
         Returns: string
       }
+      delete_signal_candidate: {
+        Args: { p_signal_id: string }
+        Returns: string
+      }
       evidence_inbox_stats: {
         Args: { p_project_id?: string }
         Returns: {
@@ -2549,6 +2553,17 @@ export type Database = {
       promote_signal_to_trend: {
         Args: { p_signal_id: string }
         Returns: string
+      }
+      preview_signal_deletion: {
+        Args: { p_signal_id: string }
+        Returns: {
+          assessment_count: number
+          blockers: string[]
+          deletable: boolean
+          evidence_link_count: number
+          lineage_count: number
+          revision_count: number
+        }[]
       }
       list_evidence_relationships: {
         Args: {

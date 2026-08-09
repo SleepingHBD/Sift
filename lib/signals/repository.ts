@@ -12,6 +12,7 @@ import type {
   SignalEvidenceLink,
   SignalEvidenceRelationship,
   SignalEvidenceSource,
+  SignalDeletionPreview,
   SignalRecord,
   SignalLineageRecord,
   SignalRevisionRecord,
@@ -293,6 +294,28 @@ export async function promoteCloudSignal(signalId: string): Promise<string> {
   const client = requireClient();
   const { data, error } = await client.rpc("promote_signal_to_trend", { p_signal_id: signalId });
   if (error || !data) throw new Error(`Signal could not be promoted: ${error?.message ?? "No trend was returned."}`);
+  return data;
+}
+
+export async function previewCloudSignalDeletion(signalId: string): Promise<SignalDeletionPreview> {
+  const client = requireClient();
+  const { data, error } = await client.rpc("preview_signal_deletion", { p_signal_id: signalId });
+  const row = data?.[0];
+  if (error || !row) throw new Error(`Signal deletion could not be checked: ${error?.message ?? "No preview was returned."}`);
+  return {
+    deletable: row.deletable,
+    blockers: row.blockers ?? [],
+    evidenceLinkCount: Number(row.evidence_link_count),
+    assessmentCount: Number(row.assessment_count),
+    revisionCount: Number(row.revision_count),
+    lineageCount: Number(row.lineage_count),
+  };
+}
+
+export async function deleteCloudSignal(signalId: string): Promise<string> {
+  const client = requireClient();
+  const { data, error } = await client.rpc("delete_signal_candidate", { p_signal_id: signalId });
+  if (error || !data) throw new Error(`Signal could not be deleted: ${error?.message ?? "No deleted record was returned."}`);
   return data;
 }
 

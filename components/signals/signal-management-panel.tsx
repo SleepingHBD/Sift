@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Circle, Edit3, GitMerge, History, LoaderCircle, ShieldCheck, Split, Tag, XCircle } from "lucide-react";
+import { Check, Circle, Edit3, GitMerge, History, LoaderCircle, ShieldCheck, Split, Tag, Trash2, XCircle } from "lucide-react";
 import { Badge, Button } from "@/components/ui/primitives";
 import {
   ensureSignalTopic,
@@ -43,9 +43,10 @@ interface SignalManagementPanelProps {
   links: SignalEvidenceLink[];
   snapshots: SignalSnapshotRecord[];
   onUpdated: () => Promise<void> | void;
+  onDelete: () => void;
 }
 
-export function SignalManagementPanel({ signal, projectSignals, links, snapshots, onUpdated }: SignalManagementPanelProps) {
+export function SignalManagementPanel({ signal, projectSignals, links, snapshots, onUpdated, onDelete }: SignalManagementPanelProps) {
   const [mode, setMode] = useState<ManagementMode>(null);
   const [topics, setTopics] = useState<SignalTopicOption[]>([]);
   const [revisions, setRevisions] = useState<SignalRevisionRecord[]>([]);
@@ -202,6 +203,7 @@ export function SignalManagementPanel({ signal, projectSignals, links, snapshots
         <Button size="sm" disabled={locked || pending || !mergeCandidates.length} onClick={() => open("merge")}><GitMerge size={13} />Merge</Button>
         <Button size="sm" disabled={locked || pending || !links.length} onClick={() => open("split")}><Split size={13} />Split</Button>
         <Button size="sm" variant="dark" disabled={locked || pending} onClick={() => open("promote")}><ShieldCheck size={13} />Promotion review</Button>
+        <Button size="sm" className="signal-management__delete" disabled={pending} onClick={onDelete}><Trash2 size={13} />Delete</Button>
       </div>
 
       {mode === "edit" ? <div className="signal-management__panel signal-management__edit">

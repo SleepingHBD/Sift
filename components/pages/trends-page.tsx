@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, CircleDashed, Eye, Lightbulb, LoaderCircle, Plus, Radar, RotateCcw, Search, XCircle } from "lucide-react";
 import { useApp } from "@/components/app-provider";
+import { SignalDeleteDialog } from "@/components/signals/signal-delete-dialog";
 import { SignalDialog } from "@/components/signals/signal-dialog";
 import { SignalDetailDrawer } from "@/components/signals/signal-detail-drawer";
 import { Badge, Button, PageIntro } from "@/components/ui/primitives";
@@ -36,6 +37,7 @@ export function TrendsPage() {
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState("");
   const [selectedSignalId, setSelectedSignalId] = useState("");
+  const [deleteCandidateId, setDeleteCandidateId] = useState("");
 
   const loadSignals = useCallback(async () => {
     if (workspaceStatus !== "ready" || !projectIds.length) return;
@@ -61,6 +63,7 @@ export function TrendsPage() {
   const watchingCount = visibleSignals.filter((signal) => signal.status === "watching").length;
   const evidenceCount = visibleSignals.reduce((total, signal) => total + signal.evidenceCounts.support + signal.evidenceCounts.contradict + signal.evidenceCounts.context, 0);
   const selectedSignal = signals.find((signal) => signal.id === selectedSignalId) ?? null;
+  const deleteCandidate = signals.find((signal) => signal.id === deleteCandidateId) ?? null;
 
   async function createSignal(input: CreateSignalInput) {
     const created = await createCloudSignal(input);
@@ -128,7 +131,8 @@ export function TrendsPage() {
         </>
       )}
       <SignalDialog key={`${dialogOpen}-${activeCloudProjectId}`} open={dialogOpen} projects={projects} initialProjectId={activeCloudProjectId} onClose={() => setDialogOpen(false)} onCreate={createSignal} />
-      <SignalDetailDrawer key={selectedSignal?.id ?? "closed-signal"} signal={selectedSignal} projectName={selectedSignal ? projectNames.get(selectedSignal.projectId) ?? "Project" : "Project"} projectSignals={selectedSignal ? signals.filter((signal) => signal.projectId === selectedSignal.projectId) : []} onClose={() => setSelectedSignalId("")} onUpdated={loadSignals} />
+      <SignalDetailDrawer key={selectedSignal?.id ?? "closed-signal"} signal={selectedSignal} projectName={selectedSignal ? projectNames.get(selectedSignal.projectId) ?? "Project" : "Project"} projectSignals={selectedSignal ? signals.filter((signal) => signal.projectId === selectedSignal.projectId) : []} onClose={() => setSelectedSignalId("")} onUpdated={loadSignals} onDelete={() => { if (selectedSignal) setDeleteCandidateId(selectedSignal.id); }} />
+      {deleteCandidate ? <SignalDeleteDialog signal={deleteCandidate} onClose={() => setDeleteCandidateId("")} onDeleted={async () => { setSelectedSignalId(""); await loadSignals(); }} /> : null}
     </div>
   );
 }
