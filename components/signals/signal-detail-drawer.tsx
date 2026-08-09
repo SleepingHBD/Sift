@@ -170,7 +170,7 @@ export function SignalDetailDrawer({ signal, projectName, projectSignals, onClos
       <button className="radar-overlay__scrim" onClick={onClose} aria-label="Close signal detail" />
       <aside className="radar-drawer signal-detail-drawer">
         <header><div><p className="eyebrow">{signal.kind === "hypothesis" ? "Hypothesis to test" : "Working signal"}</p><h2 id="signal-detail-title">{signal.title}</h2><p>{projectName} · {signal.status}</p></div><button onClick={onClose} aria-label="Close"><X size={18} /></button></header>
-        <div className="signal-detail__claim"><p>{signal.observation}</p><div><AlertTriangle size={14} /><span><strong>Evidence scope</strong>{signal.scopeNote}</span></div></div>
+        <div className="signal-detail__claim"><p>{signal.observation}</p><div><AlertTriangle size={14} /><span><strong>Scope of this claim</strong>{signal.scopeNote}</span></div></div>
         {error ? <div className="signals-error signal-detail__error" role="alert"><AlertTriangle size={15} /><span>{error}</span>{status === "error" ? <button onClick={() => void refresh()}>Try again</button> : null}</div> : null}
         {status === "loading" ? <div className="signal-detail__loading"><LoaderCircle className="spin" size={18} />Loading evidence trail…</div> : null}
         {status === "ready" ? <>

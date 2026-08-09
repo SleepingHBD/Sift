@@ -37,7 +37,7 @@ export function SignalDialog({ open, projects, initialProjectId, onClose, onCrea
     if (!projectId) { setError("Choose a project for this signal."); return; }
     if (!title.trim()) { setError("Give the signal a short, recognisable title."); return; }
     if (!observation.trim()) { setError("Record the observation or proposition you want to investigate."); return; }
-    if (!scopeNote.trim()) { setError("Keep a scope note so the claim cannot be mistaken for a population-level fact."); return; }
+    if (!scopeNote.trim()) { setError("Keep a scope-of-claim qualifier so this working observation cannot be mistaken for a population-level fact."); return; }
     setPending(true);
     setError("");
     try {
@@ -63,7 +63,12 @@ export function SignalDialog({ open, projects, initialProjectId, onClose, onCrea
           <fieldset className="signal-kind-picker"><legend>What are you recording?</legend><label aria-label="Working signal" htmlFor="signal-kind-observation" className={kind === "signal" ? "active" : ""}><input id="signal-kind-observation" type="radio" name="signal-kind" checked={kind === "signal"} onChange={() => setKind("signal")} /><span><strong>Working signal</strong><small>A concrete observation that deserves attention and more evidence.</small></span></label><label aria-label="Hypothesis to test" htmlFor="signal-kind-hypothesis" className={kind === "hypothesis" ? "active" : ""}><input id="signal-kind-hypothesis" type="radio" name="signal-kind" checked={kind === "hypothesis"} onChange={() => setKind("hypothesis")} /><span><strong>Hypothesis to test</strong><small>A possible explanation that must not be presented as fact.</small></span></label></fieldset>
           <label><span>Short title *</span><input value={title} maxLength={200} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Community language is becoming more prominent" /></label>
           <label><span>{kind === "hypothesis" ? "Hypothesis" : "Observation"} *</span><textarea rows={5} maxLength={5000} value={observation} onChange={(event) => setObservation(event.target.value)} placeholder={kind === "hypothesis" ? "What might explain the evidence, and what would need to be true?" : "What did you notice in the collected evidence? Keep interpretation separate."} /></label>
-          <label><span>Evidence scope *</span><textarea rows={3} maxLength={1000} value={scopeNote} onChange={(event) => setScopeNote(event.target.value)} /><small className="field-help">This qualifier stays visible beside the signal so a limited dataset is never mistaken for the wider population.</small></label>
+          <label className="signal-scope-field">
+            <span className="signal-scope-field__heading"><span>Scope of this claim *</span><small>Pre-filled by Sift</small></span>
+            <p className="signal-scope-field__explanation"><strong>This is a safety qualifier, not source evidence.</strong> Sift adds cautious wording so a working observation does not sound universally true.</p>
+            <textarea aria-describedby="new-signal-scope-help" rows={3} maxLength={1000} value={scopeNote} onChange={(event) => setScopeNote(event.target.value)} />
+            <small className="field-help" id="new-signal-scope-help">Keep the default when the exact boundary is unknown. Otherwise replace it with the sources, market, audience, and time period you actually observed.</small>
+          </label>
           <label><span>Strategist notes</span><textarea rows={3} maxLength={10000} value={strategistNotes} onChange={(event) => setStrategistNotes(event.target.value)} placeholder="Optional: why you are watching this, or what you need to investigate next" /></label>
           {error ? <p className="form-error" role="alert">{error}</p> : null}
         </div>

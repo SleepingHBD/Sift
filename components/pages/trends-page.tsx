@@ -116,7 +116,7 @@ export function TrendsPage() {
                 const pending = updatingId === signal.id;
                 return <article className={`signal-card signal-card--${signal.status}`} key={signal.id}>
                   <header><div><div className="signal-card__labels"><Badge>{kindLabel(signal.kind)}</Badge><Badge className={`signal-status signal-status--${signal.status}`}>{statusLabels[signal.status]}</Badge></div><h2>{signal.title}</h2><p>{signal.observation}</p></div><span className="signal-card__project">{projectNames.get(signal.projectId) ?? "Project"}</span></header>
-                  <div className="signal-card__scope"><Eye size={15} /><div><strong>Evidence scope</strong><p>{signal.scopeNote}</p></div></div>
+                  <div className="signal-card__scope"><Eye size={15} /><div><strong>Scope of this claim</strong><p>{signal.scopeNote}</p></div></div>
                   <div className="signal-card__assessment">
                     <div><span>Supporting</span><strong>{signal.evidenceCounts.support}</strong></div><div><span>Contradicting</span><strong>{signal.evidenceCounts.contradict}</strong></div><div><span>Context</span><strong>{signal.evidenceCounts.context}</strong></div><div><span>Assessment</span><strong>{signal.latestSnapshot ? `${signal.latestSnapshot.strengthScore}/100` : "Not assessed"}</strong></div>
                   </div>

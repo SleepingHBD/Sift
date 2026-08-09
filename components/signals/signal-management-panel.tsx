@@ -116,7 +116,7 @@ export function SignalManagementPanel({ signal, projectSignals, links, snapshots
 
   async function saveEdit() {
     if (!edit.title.trim() || !edit.observation.trim() || !edit.scopeNote.trim()) {
-      setError("Title, observed claim, and evidence scope are required.");
+      setError("Title, observed claim, and the scope-of-claim qualifier are required.");
       return;
     }
     setPending(true);
@@ -151,7 +151,7 @@ export function SignalManagementPanel({ signal, projectSignals, links, snapshots
   async function splitSignal() {
     if (!splitLinkIds.length) { setError("Choose at least one evidence source for the new signal."); return; }
     if (!splitTitle.trim() || !splitObservation.trim() || !splitScope.trim()) {
-      setError("The new signal needs a title, observed claim, and evidence scope.");
+      setError("The new signal needs a title, observed claim, and scope-of-claim qualifier.");
       return;
     }
     setPending(true);
@@ -210,7 +210,12 @@ export function SignalManagementPanel({ signal, projectSignals, links, snapshots
         <label><span>Observed claim</span><textarea rows={4} maxLength={5000} value={edit.observation} onChange={(event) => setEdit((current) => ({ ...current, observation: event.target.value }))} /></label>
         <div className="signal-management__grid"><label><span>Analytical type</span><select value={edit.kind} onChange={(event) => setEdit((current) => ({ ...current, kind: event.target.value as UpdateSignalInput["kind"] }))}><option value="signal">Working signal</option><option value="emerging_pattern">Emerging pattern</option><option value="hypothesis">Hypothesis to test</option></select></label><label><span>Existing topic</span><select value={edit.topicId ?? ""} onChange={(event) => setEdit((current) => ({ ...current, topicId: event.target.value || null }))}><option value="">No topic assigned</option>{topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.name}</option>)}</select></label></div>
         <label><span>Or create a topic <small>Optional; this becomes the assigned topic</small></span><input maxLength={60} value={newTopic} onChange={(event) => setNewTopic(event.target.value)} placeholder="e.g. Community-first fitness" /></label>
-        <label><span>Evidence scope</span><textarea rows={3} maxLength={1000} value={edit.scopeNote} onChange={(event) => setEdit((current) => ({ ...current, scopeNote: event.target.value }))} /></label>
+        <label className="signal-scope-field signal-scope-field--compact">
+          <span className="signal-scope-field__heading"><span>Scope of this claim</span><small>Saved safety boundary</small></span>
+          <p className="signal-scope-field__explanation">This is not source evidence. Edit it only when the claim&apos;s actual sources, market, audience, or time period have changed.</p>
+          <textarea aria-describedby="edit-signal-scope-help" rows={3} maxLength={1000} value={edit.scopeNote} onChange={(event) => setEdit((current) => ({ ...current, scopeNote: event.target.value }))} />
+          <small className="field-help" id="edit-signal-scope-help">The saved qualifier remains visible beside the claim and is included in correction history.</small>
+        </label>
         <label><span>Strategist notes</span><textarea rows={3} maxLength={10000} value={edit.strategistNotes} onChange={(event) => setEdit((current) => ({ ...current, strategistNotes: event.target.value }))} placeholder="Questions, caveats, or what to investigate next" /></label>
         <div className="signal-management__panel-actions"><Button size="sm" onClick={() => setMode(null)}>Cancel</Button><Button size="sm" variant="dark" disabled={pending} onClick={() => void saveEdit()}>{pending ? <LoaderCircle className="spin" size={13} /> : <Edit3 size={13} />}Save correction</Button></div>
       </div> : null}
@@ -226,7 +231,12 @@ export function SignalManagementPanel({ signal, projectSignals, links, snapshots
         <label><span>New signal title</span><input maxLength={200} value={splitTitle} onChange={(event) => setSplitTitle(event.target.value)} /></label>
         <label><span>New observed claim</span><textarea rows={3} maxLength={5000} value={splitObservation} onChange={(event) => setSplitObservation(event.target.value)} /></label>
         <div className="signal-management__grid"><label><span>Analytical type</span><select value={splitKind} onChange={(event) => setSplitKind(event.target.value as UpdateSignalInput["kind"])}><option value="signal">Working signal</option><option value="emerging_pattern">Emerging pattern</option><option value="hypothesis">Hypothesis to test</option></select></label><label><span>Evidence handling</span><select value={moveEvidence ? "move" : "copy"} onChange={(event) => setMoveEvidence(event.target.value === "move")}><option value="move">Move to new signal</option><option value="copy">Keep linked to both</option></select></label></div>
-        <label><span>Evidence scope</span><textarea rows={2} maxLength={1000} value={splitScope} onChange={(event) => setSplitScope(event.target.value)} /></label>
+        <label className="signal-scope-field signal-scope-field--compact">
+          <span className="signal-scope-field__heading"><span>Scope of the new claim</span><small>Copied from original</small></span>
+          <p className="signal-scope-field__explanation">Sift copied the original Signal&apos;s safety boundary as a starting point, not as new evidence.</p>
+          <textarea aria-describedby="split-signal-scope-help" rows={2} maxLength={1000} value={splitScope} onChange={(event) => setSplitScope(event.target.value)} />
+          <small className="field-help" id="split-signal-scope-help">Update it if the selected evidence has a narrower source, market, audience, or time period.</small>
+        </label>
         <label><span>Strategist notes</span><textarea rows={2} maxLength={10000} value={splitNotes} onChange={(event) => setSplitNotes(event.target.value)} /></label>
         <fieldset className="signal-management__evidence-choices"><legend>Choose evidence for the new signal</legend>{links.map((link) => <label key={link.id} aria-label={`Include ${link.source.title}`} className={splitLinkIds.includes(link.id) ? "active" : ""}><input type="checkbox" checked={splitLinkIds.includes(link.id)} onChange={() => setSplitLinkIds((current) => current.includes(link.id) ? current.filter((id) => id !== link.id) : [...current, link.id])} /><span><strong>{link.source.title}</strong><small>{link.relationship} · {link.source.sourceLabel}</small></span></label>)}</fieldset>
         <div className="signal-management__panel-actions"><Button size="sm" onClick={() => setMode(null)}>Cancel</Button><Button size="sm" variant="dark" disabled={pending || !splitLinkIds.length} onClick={() => void splitSignal()}>{pending ? <LoaderCircle className="spin" size={13} /> : <Split size={13} />}Create split signal</Button></div>

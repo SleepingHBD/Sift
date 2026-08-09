@@ -2025,6 +2025,17 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .signal-kind-picker label > span { display: grid; gap: 3px; text-transform: none; letter-spacing: 0; }
 .signal-kind-picker strong { font-size: 12px; }
 .signal-kind-picker small, .field-help { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.signal-scope-field { padding: 12px; border: 1px solid color-mix(in srgb, #6c8ef5 28%, var(--border)); border-radius: 10px; background: color-mix(in srgb, #6c8ef5 6%, var(--card)); }
+.signal-scope-field__heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.workspace-dialog__body label > .signal-scope-field__heading, .signal-management__edit label > .signal-scope-field__heading { letter-spacing: 0; text-transform: none; }
+.signal-scope-field__heading > span { font-size: 10px; font-weight: 780; letter-spacing: .55px; text-transform: uppercase; }
+.signal-scope-field__heading > small { flex: 0 0 auto; padding: 4px 7px; border-radius: 999px; background: color-mix(in srgb, #6c8ef5 12%, var(--card)); color: #5877cb; font-size: 9px; font-style: normal; font-weight: 760; letter-spacing: .25px; text-transform: uppercase; }
+.signal-scope-field__explanation { margin: 0; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: 0; line-height: 1.5; text-transform: none; }
+.signal-scope-field__explanation strong { color: var(--text); }
+.signal-scope-field--compact { padding: 11px; background: color-mix(in srgb, #6c8ef5 5%, var(--card)); }
+.signal-scope-field--compact .signal-scope-field__heading > span { font-size: 9px; }
+.signal-scope-field--compact .signal-scope-field__heading > small { font-size: 8px; }
+.signal-scope-field--compact .signal-scope-field__explanation, .signal-scope-field--compact .field-help { font-size: 9px; }
 
 @media (max-width: 760px) {
   .signal-method { grid-template-columns: 1fr; }
@@ -2051,6 +2062,7 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
   .signal-management__panel-actions { align-items: stretch; flex-direction: column-reverse; }
   .signal-management__panel-actions .ui-button { width: 100%; }
   .workspace-dialog__body.signal-dialog__body > .signal-kind-picker { grid-template-columns: 1fr; }
+  .signal-scope-field__heading { align-items: flex-start; flex-direction: column; }
 }
 .capture-inline-success svg { flex: 0 0 auto; margin-top: 1px; color: var(--acid-dark); }
 .capture-inline-success span { font-size: 11px; line-height: 1.45; }
