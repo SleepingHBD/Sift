@@ -1,5 +1,5 @@
 import { decodeEntities } from "./content.ts";
-import type { MonitorInput, NormalizedMention } from "./types.ts";
+import type { ConnectorCursor, MonitorInput, NormalizedMention } from "./types.ts";
 
 const API_ROOT = "https://www.googleapis.com/youtube/v3";
 
@@ -12,7 +12,7 @@ interface CommentThread {
   snippet?: { topLevelComment?: { id?: string; snippet?: { authorDisplayName?: string; authorChannelUrl?: string; textOriginal?: string; textDisplay?: string; likeCount?: number; publishedAt?: string; updatedAt?: string } } };
 }
 
-export async function collectYouTube(monitor: MonitorInput, apiKey: string, signal?: AbortSignal): Promise<NormalizedMention[]> {
+export async function collectYouTube(monitor: MonitorInput, apiKey: string, signal?: AbortSignal, cursor?: ConnectorCursor) {
   if (!apiKey) throw new Error("YouTube is enabled, but YOUTUBE_API_KEY is not configured in Function secrets.");
   const query = buildYouTubeQuery(monitor);
   if (!query) throw new Error("The monitor does not contain a YouTube search term.");
@@ -99,7 +99,17 @@ export async function collectYouTube(monitor: MonitorInput, apiKey: string, sign
       // Comments may be disabled for an otherwise valid video. Keep the video result.
     }
   }
-  return mentions.filter((mention) => mention.content);
+  const validMentions = mentions.filter((mention) => mention.content);
+  const previousIds = stringArray(cursor?.recentExternalIds, 500);
+  const seen = new Set(previousIds);
+  return {
+    mentions: validMentions.filter((mention) => !seen.has(mention.externalId)),
+    cursor: { recentExternalIds: [...new Set([...validMentions.map((mention) => mention.externalId), ...previousIds])].slice(0, 500) },
+  };
+}
+
+function stringArray(value: unknown, maximum: number) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").slice(0, maximum) : [];
 }
 
 function buildYouTubeQuery(monitor: MonitorInput) {

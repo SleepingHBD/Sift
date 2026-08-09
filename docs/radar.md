@@ -34,6 +34,14 @@ The compact **Collection health** panel stays collapsed during normal analysis. 
 
 Deduplication uses the normalized `(platform, external_id)` identity before persistence. The database then checks existing `(source_id, external_id)` records before the idempotent upsert, allowing run history to distinguish new records from refreshed records without treating an update as a second mention.
 
+### Execution safety and checkpoints
+
+The connector function writes a `running` record before any network collection begins. PostgreSQL permits only one `running` row per monitor, so another tab or client cannot start an overlapping execution. Each run holds a three-minute lease; if the function stops before completing, the next attempt can mark that expired run failed and continue instead of leaving the monitor permanently locked.
+
+Connector checkpoints are stored in `monitor_runs.cursor` and are accepted only when the monitor query, Boolean rules, language, and market are unchanged. RSS keeps a bounded set of previously observed entry identities per feed, and YouTube keeps a bounded set of previously observed video/comment identities. A successful connector advances only its own checkpoint. A failed connector retains its prior checkpoint, preventing partial failures from skipping evidence on the next run. Manual URLs deliberately perform a full refresh because a chosen page can change in place.
+
+Scheduling remains off. The database records whether a future execution is manual or scheduled, but no cron extension, HTTP scheduler, or background job is enabled until the manual locking, retry, and recovery path has been accepted in real use.
+
 ## Normalized mentions
 
 All connector records use the shared `RadarMention` / `NormalizedMention` contract: platform, external ID, source, author, content, optional URL, publication time, likes, comments, shares, views, normalized engagement, language, sentiment, topics, keywords, relevance, and metadata.

@@ -19,13 +19,15 @@ export function RunDiagnostics({ monitorId, selectedSources, runs }: { monitorId
           <strong>{healthLabel(health)}</strong>
           <small>{latest ? `Last run ${relativeDate(latest.completedAt ?? latest.startedAt)}` : "Run this monitor to record source health"}</small>
         </div>
-        {latest ? <Badge>{latest.mentionsFetched} fetched</Badge> : <Badge>No runs</Badge>}
+        {latest ? <Badge>{latest.status === "running" ? "In progress" : `${latest.mentionsFetched} fetched`}</Badge> : <Badge>No runs</Badge>}
         <ChevronDown size={16} />
       </summary>
 
       <div className="run-diagnostics__content">
         {!latest ? (
           <div className="run-diagnostics__empty"><Activity size={18} /><div><strong>No collection history yet</strong><p>After the first run, Sift will show what each source returned, how long it took, and whether anything failed.</p></div></div>
+        ) : latest.status === "running" ? (
+          <div className="run-diagnostics__empty"><Activity className="spin" size={18} /><div><strong>Collection in progress</strong><p>This monitor is locked until the run finishes. If the function stops unexpectedly, the lease can be recovered safely on the next attempt.</p></div></div>
         ) : (
           <>
             <div className="run-diagnostics__metrics">
@@ -44,6 +46,7 @@ export function RunDiagnostics({ monitorId, selectedSources, runs }: { monitorId
             <div className="run-diagnostics__footer">
               {latest.quota ? <span><Database size={13} />Run allowance after collection: {latest.quota.remainingMinute} this minute · {latest.quota.remainingDay} today</span> : <span><Database size={13} />Quota information was not recorded for this run.</span>}
               <span>{latest.persisted ? <><Check size={13} />Saved to Supabase</> : <><AlertTriangle size={13} />Not confirmed in Supabase</>}</span>
+              <span>{latest.incremental ? <><Check size={13} />Incremental collection</> : <><Activity size={13} />Full source snapshot</>}</span>
             </div>
 
             {history.length > 1 ? (
@@ -87,6 +90,7 @@ function SourceHealthRow({ health }: { health: ReturnType<typeof sourceHealthFor
 }
 
 function healthLabel(status: ReturnType<typeof runHealthStatus>) {
+  if (status === "running") return "Collection in progress";
   if (status === "healthy") return "All sources completed";
   if (status === "partial") return "Completed with source issues";
   if (status === "failed") return "Collection failed";

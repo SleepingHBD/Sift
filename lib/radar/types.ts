@@ -94,6 +94,9 @@ export interface MonitorRun {
   durationMs?: number;
   persisted: boolean;
   quota?: { remainingMinute: number; remainingDay: number };
+  incremental?: boolean;
+  cursorAdvancedSources?: RadarSource[];
+  triggerType?: "manual" | "scheduled";
   sourceResults: {
     source: RadarSource;
     status: "completed" | "failed";
@@ -103,6 +106,8 @@ export interface MonitorRun {
     attempts?: number;
     timedOut?: boolean;
     duplicatesRemoved?: number;
+    collectionMode?: "snapshot" | "incremental";
+    cursorAdvanced?: boolean;
   }[];
   error?: string;
 }

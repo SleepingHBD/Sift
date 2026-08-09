@@ -201,6 +201,8 @@ function sourceResultsFrom(value: unknown): MonitorRun["sourceResults"] {
       attempts: typeof result.attempts === "number" ? result.attempts : undefined,
       timedOut: result.timedOut === true,
       duplicatesRemoved: typeof result.duplicatesRemoved === "number" ? result.duplicatesRemoved : undefined,
+      collectionMode: result.collectionMode === "incremental" ? "incremental" : result.collectionMode === "snapshot" ? "snapshot" : undefined,
+      cursorAdvanced: result.cursorAdvanced === true,
     }];
   });
 }
@@ -226,6 +228,9 @@ export function monitorRunFromRow(row: MonitorRunRow, monitorClientRef: string):
     quota: typeof quota.remainingMinute === "number" && typeof quota.remainingDay === "number"
       ? { remainingMinute: quota.remainingMinute, remainingDay: quota.remainingDay }
       : undefined,
+    incremental: metadata.incremental === true,
+    cursorAdvancedSources: stringArray(metadata.cursorAdvancedSources).map(sourceFromDatabase),
+    triggerType: metadata.triggerType === "scheduled" ? "scheduled" : "manual",
     persisted: true,
     sourceResults,
     error: row.error_message ?? undefined,

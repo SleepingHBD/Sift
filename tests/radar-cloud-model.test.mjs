@@ -83,11 +83,19 @@ test("cloud run metadata returns source diagnostics", () => {
     mentions_created: 4,
     mentions_updated: 0,
     error_message: null,
-    run_metadata: { sourceResults: [{ source: "youtube", status: "completed", count: 4 }] },
+    run_metadata: {
+      sourceResults: [{ source: "youtube", status: "completed", count: 4, collectionMode: "incremental", cursorAdvanced: true }],
+      incremental: true,
+      cursorAdvancedSources: ["youtube"],
+      triggerType: "manual",
+    },
   }, "monitor-local");
   assert.equal(run.id, "run-local");
   assert.equal(run.persisted, true);
   assert.deepEqual(run.connectorIds, ["youtube"]);
+  assert.equal(run.incremental, true);
+  assert.deepEqual(run.cursorAdvancedSources, ["youtube"]);
+  assert.equal(run.sourceResults[0].collectionMode, "incremental");
 });
 
 test("new Radar monitors use UUID-backed client references", () => {

@@ -1,6 +1,7 @@
 import { withSupabase } from "npm:@supabase/server@1.4.1";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { deleteStoredMonitor, persistCollection } from "../_shared/database.ts";
+import { advanceMonitorCursor, readMonitorCursor, sourceCursor } from "../_shared/cursor.ts";
+import { beginCollectionRun, deleteStoredMonitor, failCollectionRun, MonitorRunConflictError, persistCollection } from "../_shared/database.ts";
 import { deduplicateMentions } from "../_shared/deduplicate.ts";
 import { createConnectorRegistry } from "../_shared/registry.ts";
 import { runReliableOperation } from "../_shared/reliability.ts";
@@ -9,6 +10,7 @@ import { comparableUrl, extractUrlMetadata } from "../_shared/url-metadata.ts";
 
 export default {
   fetch: withSupabase({ auth: "user" }, async (request, context) => {
+    let activeRunId = "";
     const declaredLength = Number(request.headers.get("content-length") || "0");
     if (Number.isFinite(declaredLength) && declaredLength > 65_536) {
       return Response.json({ error: "The connector request is too large." }, { status: 413 });
@@ -68,6 +70,9 @@ export default {
       }
 
       const startedAt = new Date().toISOString();
+      const collectionRun = await beginCollectionRun(context.supabaseAdmin, userId, input.monitor, input.project, startedAt);
+      activeRunId = collectionRun.runId;
+      const checkpoint = readMonitorCursor(collectionRun.previousCursor, input.monitor);
       const registry = createConnectorRegistry(input, { youtubeApiKey: Deno.env.get("YOUTUBE_API_KEY") || "" });
       const collectionStartedAt = Date.now();
       const collectionResults = await Promise.all(input.monitor.sources.map(async (source) => {
@@ -75,13 +80,15 @@ export default {
         if (!connector) {
           return {
             mentions: [] as NormalizedMention[],
+            cursor: undefined,
             result: { source, status: "failed", count: 0, message: "This connector is not implemented.", attempts: 0, durationMs: 0 } satisfies SourceRunResult,
           };
         }
-        const outcome = await runReliableOperation((signal) => connector.collect(signal));
+        const outcome = await runReliableOperation((signal) => connector.collect(signal, sourceCursor(checkpoint.cursor, source)));
         if (!outcome.ok || !outcome.value) {
           return {
             mentions: [] as NormalizedMention[],
+            cursor: undefined,
             result: {
               source,
               status: "failed",
@@ -95,6 +102,7 @@ export default {
         }
         return {
           mentions: outcome.value.mentions,
+          cursor: outcome.value.cursor,
           result: {
             ...outcome.value.result,
             attempts: outcome.attempts,
@@ -106,9 +114,15 @@ export default {
 
       const mentions = collectionResults.flatMap((result) => result.mentions);
       const deduplication = deduplicateMentions(mentions);
+      const advancedCheckpoint = advanceMonitorCursor(checkpoint.cursor, collectionResults.map(({ result, cursor }) => ({
+        source: result.source,
+        status: result.status,
+        cursor,
+      })));
       const sourceResults = collectionResults.map(({ result }) => ({
         ...result,
         duplicatesRemoved: deduplication.duplicatesBySource[result.source] ?? 0,
+        cursorAdvanced: advancedCheckpoint.advancedSources.includes(result.source),
       }));
       const diagnostics = {
         mentionsFetched: mentions.length,
@@ -121,20 +135,29 @@ export default {
       };
       let persisted = false;
       let persistenceError: string | undefined;
-      let runId = `run-${crypto.randomUUID()}`;
+      const runId = collectionRun.runId;
       let mentionsCreated = deduplication.mentions.length;
       let mentionsUpdated = 0;
       try {
         // The function is the trusted write boundary: it derives ownership from
         // the verified JWT and never accepts a database owner ID from the client.
-        const stored = await persistCollection(context.supabaseAdmin, userId, input.monitor, input.project, deduplication.mentions, sourceResults, startedAt, diagnostics);
-        runId = stored.runId;
+        const stored = await persistCollection(
+          context.supabaseAdmin,
+          collectionRun,
+          deduplication.mentions,
+          sourceResults,
+          diagnostics,
+          advancedCheckpoint.cursor,
+          advancedCheckpoint.advancedSources,
+          checkpoint.incremental,
+        );
         mentionsCreated = stored.mentionsCreated;
         mentionsUpdated = stored.mentionsUpdated;
         persisted = true;
       } catch (error) {
         persistenceError = errorMessage(error, "Database persistence failed.");
         console.error("Radar persistence failed", persistenceError);
+        await failCollectionRun(context.supabaseAdmin, collectionRun.runId, persistenceError);
       }
 
       return Response.json({
@@ -146,6 +169,8 @@ export default {
         mentionsUpdated,
         duplicatesRemoved: diagnostics.duplicatesRemoved,
         durationMs: diagnostics.durationMs,
+        incremental: checkpoint.incremental,
+        cursorAdvancedSources: advancedCheckpoint.advancedSources,
         persisted,
         persistenceError,
         quota: {
@@ -155,7 +180,9 @@ export default {
         fetchedAt: new Date().toISOString(),
       });
     } catch (error) {
-      return Response.json({ error: errorMessage(error, "The connector request failed.") }, { status: 400 });
+      const message = errorMessage(error, "The connector request failed.");
+      if (activeRunId) await failCollectionRun(context.supabaseAdmin, activeRunId, message);
+      return Response.json({ error: message }, { status: error instanceof MonitorRunConflictError ? error.status : 400 });
     }
   }),
 };

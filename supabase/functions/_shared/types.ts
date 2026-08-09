@@ -65,6 +65,8 @@ export interface NormalizedMention {
   metadata: Record<string, unknown>;
 }
 
+export type ConnectorCursor = Record<string, unknown>;
+
 export interface SourceRunResult {
   source: ConnectorSource;
   status: "completed" | "failed";
@@ -74,6 +76,8 @@ export interface SourceRunResult {
   attempts?: number;
   timedOut?: boolean;
   duplicatesRemoved?: number;
+  collectionMode?: "snapshot" | "incremental";
+  cursorAdvanced?: boolean;
 }
 
 export interface RunQuotaSnapshot {

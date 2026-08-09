@@ -296,6 +296,9 @@ export async function saveCloudMonitorRun(run: MonitorRun, monitor: MonitoringQu
       duplicatesRemoved: run.duplicatesRemoved ?? 0,
       durationMs: run.durationMs,
       quota: run.quota,
+      incremental: run.incremental ?? false,
+      cursorAdvancedSources: run.cursorAdvancedSources ?? [],
+      triggerType: run.triggerType ?? "manual",
     },
   }, { onConflict: "monitoring_query_id,client_ref" });
   if (error) throw new Error(`Monitor run could not be saved: ${error.message}`);

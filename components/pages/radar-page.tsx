@@ -36,7 +36,7 @@ import { TopicIntelligence } from "@/components/radar/topic-intelligence";
 import { useRadarState } from "@/components/radar/use-radar-state";
 import { Badge, Button, Card, Metric, PageIntro, SectionHeader } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
-import { deleteRadarMonitor, enrichConnectorMentions, getRunnableSources, isRadarConnectorBackendConfigured, runRadarConnectors } from "@/lib/radar/connector-service";
+import { deleteRadarMonitor, enrichConnectorMentions, getRunnableSources, isRadarConnectorBackendConfigured, RadarRunConflictError, runRadarConnectors } from "@/lib/radar/connector-service";
 import { buildRadarAnalytics } from "@/lib/radar/processing";
 import type { DateRangeKey, EvidenceDestination, MonitorRun, MonitoringQuery, RadarMention } from "@/lib/radar/types";
 import { formatNumber } from "@/lib/utils";
@@ -100,13 +100,16 @@ export function RadarPage() {
   const projectLabel = monitorProject?.name ?? "Personal Radar";
   const backendConfigured = isRadarConnectorBackendConfigured();
   const runnableSources = activeMonitor ? getRunnableSources(activeMonitor, connectorSettings) : [];
-  const canRun = backendConfigured && activeMonitor?.status !== "paused" && runnableSources.length > 0 && runState !== "running";
+  const activeCloudRun = activeMonitor ? runs.some((run) => run.monitorId === activeMonitor.id && run.status === "running") : false;
+  const canRun = backendConfigured && activeMonitor?.status !== "paused" && runnableSources.length > 0 && runState !== "running" && !activeCloudRun;
   const runDisabledReason = activeMonitor?.status === "paused"
     ? "Resume this monitor in Monitor settings before collecting."
     : !backendConfigured
       ? "Configure Supabase before running this monitor."
       : !runnableSources.length
         ? "Configure at least one eligible source."
+        : activeCloudRun
+          ? "This monitor already has a collection in progress."
         : undefined;
 
   const views: { id: RadarView; label: string; icon: typeof LayoutDashboard; count?: number }[] = [
@@ -210,6 +213,9 @@ export function RadarPage() {
         duplicatesRemoved: result.duplicatesRemoved,
         durationMs: result.durationMs,
         quota: result.quota,
+        incremental: result.incremental,
+        cursorAdvancedSources: result.cursorAdvancedSources,
+        triggerType: "manual",
         persisted: result.persisted,
         sourceResults: result.sourceResults,
       };
@@ -223,24 +229,28 @@ export function RadarPage() {
             ? `The source run completed, but cloud persistence failed${result.persistenceError ? `: ${result.persistenceError}` : "."}`
             : failedSources.length
               ? failedSources.map((source) => source.message).filter(Boolean).join(" ") || "The configured sources could not be collected."
-              : "The run completed, but no records matched this monitor.",
+              : result.incremental
+                ? "The run completed successfully. No new records appeared since the previous checkpoint."
+                : "The run completed, but no records matched this monitor.",
       });
     } catch (error) {
       const completedAt = new Date().toISOString();
       const message = error instanceof Error ? error.message : "The monitor run failed.";
-      await recordMonitorRun({
-        id: `run-${Date.now()}`,
-        monitorId: activeMonitor.id,
-        connectorIds: runnableSources,
-        status: "failed",
-        startedAt,
-        completedAt,
-        mentionsFetched: 0,
-        mentionsCreated: 0,
-        persisted: false,
-        sourceResults: runnableSources.map((source) => ({ source, status: "failed", count: 0, message })),
-        error: message,
-      }).catch(() => undefined);
+      if (!(error instanceof RadarRunConflictError)) {
+        await recordMonitorRun({
+          id: `run-${Date.now()}`,
+          monitorId: activeMonitor.id,
+          connectorIds: runnableSources,
+          status: "failed",
+          startedAt,
+          completedAt,
+          mentionsFetched: 0,
+          mentionsCreated: 0,
+          persisted: false,
+          sourceResults: runnableSources.map((source) => ({ source, status: "failed", count: 0, message })),
+          error: message,
+        }).catch(() => undefined);
+      }
       setRunNotice({ tone: "error", message });
     } finally {
       setRunState("idle");

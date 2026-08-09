@@ -15,6 +15,8 @@ export interface RadarRunSourceResult {
   attempts?: number;
   timedOut?: boolean;
   duplicatesRemoved?: number;
+  collectionMode?: "snapshot" | "incremental";
+  cursorAdvanced?: boolean;
 }
 
 export interface RadarConnectorRunResult {
@@ -26,6 +28,8 @@ export interface RadarConnectorRunResult {
   mentionsUpdated: number;
   duplicatesRemoved: number;
   durationMs: number;
+  incremental?: boolean;
+  cursorAdvancedSources?: RadarSource[];
   quota?: { remainingMinute: number; remainingDay: number };
   persisted: boolean;
   persistenceError?: string;
@@ -35,6 +39,13 @@ export interface RadarConnectorRunResult {
 export interface RadarMonitorDeleteResult {
   deleted: boolean;
   mentionsDeleted: number;
+}
+
+export class RadarRunConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RadarRunConflictError";
+  }
 }
 
 type RadarProjectReference = { id: string; name: string; description?: string; market?: string };
@@ -75,7 +86,11 @@ export async function runRadarConnectors(
     },
   });
 
-  if (error) throw new Error(await readFunctionError(error));
+  if (error) {
+    const message = await readFunctionError(error);
+    if (error.context instanceof Response && error.context.status === 409) throw new RadarRunConflictError(message);
+    throw new Error(message);
+  }
   if (!isRunResponse(data)) throw new Error("The connector service returned an invalid response.");
   return normalizeRunResponse(data);
 }

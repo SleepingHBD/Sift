@@ -1,20 +1,33 @@
 import { firstTag, matchesMonitor, stableId, stripMarkup, validDate } from "./content.ts";
 import { fetchPublicDocument } from "./security.ts";
-import type { MonitorInput, NormalizedMention } from "./types.ts";
+import type { ConnectorCursor, MonitorInput, NormalizedMention } from "./types.ts";
 
-export async function collectRssFeeds(urls: string[], monitor: MonitorInput, signal?: AbortSignal) {
+export async function collectRssFeeds(urls: string[], monitor: MonitorInput, signal?: AbortSignal, cursor?: ConnectorCursor) {
   const mentions: NormalizedMention[] = [];
   const failures: string[] = [];
+  const previousIds = stringArrayMap(cursor?.seenExternalIds);
+  const nextIds = { ...previousIds };
   for (const url of urls.slice(0, 10)) {
     signal?.throwIfAborted();
     try {
-      mentions.push(...await collectFeed(url, monitor, signal));
+      const feedMentions = await collectFeed(url, monitor, signal);
+      const feedKey = stableId(url);
+      const seen = new Set(previousIds[feedKey] ?? []);
+      mentions.push(...feedMentions.filter((mention) => !seen.has(mention.externalId)));
+      nextIds[feedKey] = [...new Set([...feedMentions.map((mention) => mention.externalId), ...(previousIds[feedKey] ?? [])])].slice(0, 200);
     } catch (error) {
       signal?.throwIfAborted();
       failures.push(error instanceof Error ? error.message : "Feed retrieval failed.");
     }
   }
-  return { mentions, failures };
+  return { mentions, failures, cursor: { seenExternalIds: nextIds } };
+}
+
+function stringArrayMap(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {} as Record<string, string[]>;
+  return Object.fromEntries(Object.entries(value).flatMap(([key, item]) => Array.isArray(item)
+    ? [[key, item.filter((entry): entry is string => typeof entry === "string").slice(0, 200)] as const]
+    : []));
 }
 
 async function collectFeed(url: string, monitor: MonitorInput, signal?: AbortSignal): Promise<NormalizedMention[]> {

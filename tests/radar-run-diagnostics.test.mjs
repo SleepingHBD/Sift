@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { deduplicateMentions } from "../supabase/functions/_shared/deduplicate.ts";
+import { advanceMonitorCursor, readMonitorCursor, sourceCursor } from "../supabase/functions/_shared/cursor.ts";
 import { isRetryableConnectorError, runReliableOperation } from "../supabase/functions/_shared/reliability.ts";
 import { monitorRuns, runDuration, runHealthStatus, sourceHealthForRuns } from "../lib/radar/run-diagnostics.ts";
 
@@ -97,4 +98,36 @@ test("run diagnostics distinguish partial success and retain last source success
   const health = sourceHealthForRuns(history, ["rss", "youtube"]);
   assert.equal(health.find((item) => item.source === "youtube")?.latestResult?.status, "failed");
   assert.equal(health.find((item) => item.source === "youtube")?.lastSuccessfulAt, older.completedAt);
+});
+
+test("running collection health is not mistaken for a failed empty result", () => {
+  assert.equal(runHealthStatus(run({ status: "running", completedAt: undefined, sourceResults: [] })), "running");
+});
+
+test("connector checkpoints resume only when the monitor definition still matches", () => {
+  const monitor = {
+    id: "monitor-one",
+    name: "Category",
+    query: "category",
+    builder: { includeAll: ["category"], includeAny: [], exclude: [] },
+    language: "Any language",
+    market: "",
+    sources: ["rss", "youtube"],
+  };
+  const initial = readMonitorCursor(null, monitor);
+  const advanced = advanceMonitorCursor(initial.cursor, [
+    { source: "rss", status: "completed", cursor: { seenExternalIds: { feed: ["item-one"] } } },
+    { source: "youtube", status: "failed", cursor: { recentExternalIds: ["video-one"] } },
+  ], "2026-08-09T01:00:00.000Z");
+  assert.deepEqual(advanced.advancedSources, ["rss"]);
+  assert.deepEqual(sourceCursor(advanced.cursor, "rss"), { seenExternalIds: { feed: ["item-one"] } });
+  assert.equal(sourceCursor(advanced.cursor, "youtube"), undefined);
+
+  const resumed = readMonitorCursor(advanced.cursor, monitor);
+  assert.equal(resumed.incremental, true);
+  assert.deepEqual(sourceCursor(resumed.cursor, "rss"), { seenExternalIds: { feed: ["item-one"] } });
+
+  const changedQuery = readMonitorCursor(advanced.cursor, { ...monitor, query: "different", builder: { ...monitor.builder, includeAll: ["different"] } });
+  assert.equal(changedQuery.incremental, false);
+  assert.equal(sourceCursor(changedQuery.cursor, "rss"), undefined);
 });

@@ -982,6 +982,7 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .run-diagnostics__heading > strong { font-size: 13px; }
 .run-diagnostics__heading > small { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .run-diagnostics--healthy > summary { box-shadow: inset 3px 0 0 var(--acid-dark); }
+.run-diagnostics--running > summary { box-shadow: inset 3px 0 0 var(--blue); }
 .run-diagnostics--partial > summary, .run-diagnostics--failed > summary { box-shadow: inset 3px 0 0 var(--coral); }
 .run-diagnostics__content { padding: 14px; border-top: 1px solid var(--border); }
 .run-diagnostics__empty { min-height: 74px; display: flex; align-items: center; gap: 12px; color: var(--muted); }
@@ -1014,6 +1015,7 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .run-diagnostics__history time, .run-diagnostics__history small { color: var(--muted); }
 .run-diagnostics__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
 .run-diagnostics__dot--healthy { background: var(--acid-dark); }
+.run-diagnostics__dot--running { background: var(--blue); }
 .run-diagnostics__dot--partial, .run-diagnostics__dot--failed { background: var(--coral); }
 .form-error { margin: 12px 0 0; padding: 8px 10px; border-radius: 7px; background: color-mix(in srgb, var(--coral) 15%, var(--card)); color: #c95745; font-size: 11px; }
 .monitor-dialog > footer, .evidence-dialog > footer { min-height: 61px; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 22px; border-top: 1px solid var(--border); background: var(--bg-elevated); }

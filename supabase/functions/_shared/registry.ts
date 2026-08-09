@@ -1,11 +1,11 @@
 import { collectManualUrls } from "./manual.ts";
 import { collectRssFeeds } from "./rss.ts";
-import type { ConnectorSource, MonitorInput, NormalizedMention, RunRequest, SourceRunResult } from "./types.ts";
+import type { ConnectorCursor, ConnectorSource, MonitorInput, NormalizedMention, RunRequest, SourceRunResult } from "./types.ts";
 import { collectYouTube } from "./youtube.ts";
 
 export interface RuntimeConnector {
   readonly source: ConnectorSource;
-  collect(signal: AbortSignal): Promise<{ mentions: NormalizedMention[]; result: SourceRunResult }>;
+  collect(signal: AbortSignal, cursor?: ConnectorCursor): Promise<{ mentions: NormalizedMention[]; result: SourceRunResult; cursor?: ConnectorCursor }>;
 }
 
 export function createConnectorRegistry(input: RunRequest, secrets: { youtubeApiKey: string }) {
@@ -20,9 +20,9 @@ export function createConnectorRegistry(input: RunRequest, secrets: { youtubeApi
 function createRssConnector(monitor: MonitorInput, urls: string[]): RuntimeConnector {
   return {
     source: "rss",
-    async collect(signal) {
+    async collect(signal, cursor) {
       if (!urls.length) throw new Error("Add at least one RSS or Atom feed URL.");
-      const collected = await collectRssFeeds(urls, monitor, signal);
+      const collected = await collectRssFeeds(urls, monitor, signal, cursor);
       if (collected.failures.length && !collected.mentions.length) throw new Error(collected.failures[0]);
       return {
         mentions: collected.mentions,
@@ -31,7 +31,9 @@ function createRssConnector(monitor: MonitorInput, urls: string[]): RuntimeConne
           status: collected.failures.length && !collected.mentions.length ? "failed" : "completed",
           count: collected.mentions.length,
           message: collected.failures.length ? `${collected.failures.length} feed${collected.failures.length === 1 ? "" : "s"} could not be retrieved.` : undefined,
+          collectionMode: cursor ? "incremental" : "snapshot",
         },
+        cursor: collected.cursor,
       };
     },
   };
@@ -51,6 +53,7 @@ function createManualConnector(monitor: MonitorInput, urls: string[]): RuntimeCo
           status: collected.failures.length && !collected.mentions.length ? "failed" : "completed",
           count: collected.mentions.length,
           message: collected.failures.length ? `${collected.failures.length} URL${collected.failures.length === 1 ? "" : "s"} could not be imported.` : undefined,
+          collectionMode: "snapshot",
         },
       };
     },
@@ -60,10 +63,14 @@ function createManualConnector(monitor: MonitorInput, urls: string[]): RuntimeCo
 function createYouTubeConnector(monitor: MonitorInput, enabled: boolean, apiKey: string): RuntimeConnector {
   return {
     source: "youtube",
-    async collect(signal) {
+    async collect(signal, cursor) {
       if (!enabled) throw new Error("YouTube is not enabled in source settings.");
-      const mentions = await collectYouTube(monitor, apiKey, signal);
-      return { mentions, result: { source: "youtube", status: "completed", count: mentions.length } };
+      const collected = await collectYouTube(monitor, apiKey, signal, cursor);
+      return {
+        mentions: collected.mentions,
+        result: { source: "youtube", status: "completed", count: collected.mentions.length, collectionMode: cursor ? "incremental" : "snapshot" },
+        cursor: collected.cursor,
+      };
     },
   };
 }

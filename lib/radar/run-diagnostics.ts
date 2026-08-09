@@ -23,6 +23,7 @@ export function sourceHealthForRuns(runs: MonitorRun[], sources: RadarSource[]):
 
 export function runHealthStatus(run: MonitorRun | undefined) {
   if (!run) return "empty" as const;
+  if (run.status === "running") return "running" as const;
   if (run.status === "failed" || run.sourceResults.every((result) => result.status === "failed")) return "failed" as const;
   if (run.sourceResults.some((result) => result.status === "failed")) return "partial" as const;
   return "healthy" as const;

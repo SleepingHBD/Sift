@@ -1,20 +1,100 @@
 // The Edge Function runtime supplies the authenticated, RLS-scoped client.
 // deno-lint-ignore-file no-explicit-any
 import { processMention, slugify } from "./processing.ts";
+import type { MonitorCursor } from "./cursor.ts";
 import type { CollectionDiagnostics, MonitorInput, NormalizedMention, ProjectInput, SourceRunResult } from "./types.ts";
 
-export async function persistCollection(
+const runLeaseMilliseconds = 3 * 60 * 1_000;
+
+export interface CollectionRunContext {
+  runId: string;
+  projectId: string;
+  queryId: string;
+  previousCursor: unknown;
+  cursorSourceRunId?: string;
+}
+
+export class MonitorRunConflictError extends Error {
+  readonly status = 409;
+
+  constructor() {
+    super("This monitor is already being collected. Wait for the active run to finish, then try again.");
+    this.name = "MonitorRunConflictError";
+  }
+}
+
+export async function beginCollectionRun(
   supabase: any,
   userId: string,
   monitor: MonitorInput,
   project: ProjectInput | null,
-  mentions: NormalizedMention[],
-  sourceResults: SourceRunResult[],
   startedAt: string,
-  diagnostics: CollectionDiagnostics,
-) {
+): Promise<CollectionRunContext> {
   const projectId = await ensureProject(supabase, userId, monitor, project);
   const queryId = await ensureMonitoringQuery(supabase, projectId, monitor);
+  const { error: recoveryError } = await supabase.from("monitor_runs").update({
+    status: "failed",
+    completed_at: startedAt,
+    lease_expires_at: null,
+    heartbeat_at: startedAt,
+    error_message: "The previous collection stopped before completion. Its expired lease was recovered by the next run.",
+    run_metadata: { recoveredAt: startedAt, recoveryReason: "expired_lease" },
+  }).eq("monitoring_query_id", queryId).eq("status", "running")
+    .or(`lease_expires_at.lt.${startedAt},lease_expires_at.is.null`);
+  if (recoveryError) throw recoveryError;
+
+  const { data: previous, error: cursorError } = await supabase.from("monitor_runs")
+    .select("id,cursor")
+    .eq("monitoring_query_id", queryId)
+    .not("cursor", "is", null)
+    .order("started_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (cursorError) throw cursorError;
+
+  const runId = crypto.randomUUID();
+  const leaseExpiresAt = new Date(new Date(startedAt).getTime() + runLeaseMilliseconds).toISOString();
+  const { error } = await supabase.from("monitor_runs").insert({
+    id: runId,
+    client_ref: runId,
+    project_id: projectId,
+    monitoring_query_id: queryId,
+    status: "running",
+    trigger_type: "manual",
+    started_at: startedAt,
+    heartbeat_at: startedAt,
+    lease_expires_at: leaseExpiresAt,
+    cursor: previous?.cursor ?? null,
+    cursor_source_run_id: previous?.id ?? null,
+    run_metadata: { triggerType: "manual", cursorSourceRunId: previous?.id ?? null },
+  });
+  if (error) {
+    const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+    const message = typeof error === "object" && error && "message" in error ? String(error.message) : "";
+    if (code === "23505" || message.includes("monitor_runs_one_active_query_idx")) throw new MonitorRunConflictError();
+    throw error;
+  }
+  return {
+    runId,
+    projectId,
+    queryId,
+    previousCursor: previous?.cursor ?? null,
+    cursorSourceRunId: previous?.id ?? undefined,
+  };
+}
+
+export async function persistCollection(
+  supabase: any,
+  context: CollectionRunContext,
+  mentions: NormalizedMention[],
+  sourceResults: SourceRunResult[],
+  diagnostics: CollectionDiagnostics,
+  cursor: MonitorCursor,
+  cursorAdvancedSources: string[],
+  incremental: boolean,
+) {
+  const { projectId, queryId, runId } = context;
   const sourceIds = await ensureSources(supabase, projectId, mentions);
   const processed = mentions.map(processMention);
   const rows = processed.map(({ mention, sentiment, keywords }) => ({
@@ -52,28 +132,42 @@ export async function persistCollection(
 
   await supabase.from("monitoring_queries").update({ last_run_at: new Date().toISOString(), enabled: true }).eq("id", queryId);
   const status = sourceResults.every((result) => result.status === "failed") ? "failed" : "completed";
-  const runId = crypto.randomUUID();
-  const { data: run, error: runError } = await supabase.from("monitor_runs").insert({
-    id: runId,
-    client_ref: runId,
-    project_id: projectId,
-    monitoring_query_id: queryId,
+  const completedAt = new Date().toISOString();
+  const { data: run, error: runError } = await supabase.from("monitor_runs").update({
     status,
-    started_at: startedAt,
-    completed_at: new Date().toISOString(),
+    completed_at: completedAt,
+    heartbeat_at: completedAt,
+    lease_expires_at: null,
     mentions_fetched: diagnostics.mentionsFetched,
     mentions_created: mentionsCreated,
     mentions_updated: mentionsUpdated,
     error_message: status === "failed" ? sourceResults.map((result) => result.message).filter(Boolean).join(" ") : null,
+    cursor,
     run_metadata: {
       sourceResults,
       duplicatesRemoved: diagnostics.duplicatesRemoved,
       durationMs: diagnostics.durationMs,
       quota: diagnostics.quota,
+      triggerType: "manual",
+      incremental,
+      cursorAdvancedSources,
+      cursorSourceRunId: context.cursorSourceRunId ?? null,
     },
-  }).select("id").single();
+  }).eq("id", runId).eq("status", "running").select("id").single();
   if (runError) throw runError;
   return { runId: run.id as string, projectId, queryId, mentionsCreated, mentionsUpdated };
+}
+
+export async function failCollectionRun(supabase: any, runId: string, errorMessage: string) {
+  const completedAt = new Date().toISOString();
+  const { error } = await supabase.from("monitor_runs").update({
+    status: "failed",
+    completed_at: completedAt,
+    heartbeat_at: completedAt,
+    lease_expires_at: null,
+    error_message: errorMessage.slice(0, 2_000),
+  }).eq("id", runId).eq("status", "running");
+  if (error) console.error("Radar run failure could not be recorded", error);
 }
 
 async function existingMentionKeys(supabase: any, rows: { source_id: string; external_id: string }[]) {

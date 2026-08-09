@@ -301,3 +301,21 @@ test("Phase 3 acceptance remediation caches project access and removes topic lin
   assert.doesNotMatch(migration, /delete from public\.evidence_topic_assignments assignment\s+where not exists/);
   assert.doesNotMatch(migration, /grant .*anon/i);
 });
+
+test("Phase 4 Radar prevents overlapping runs and records recoverable execution state", async () => {
+  const [migration, handler, database] = await Promise.all([
+    read("supabase/migrations/20260809043245_phase_4_monitor_run_leases.sql"),
+    read("supabase/functions/radar-connectors/index.ts"),
+    read("supabase/functions/_shared/database.ts"),
+  ]);
+
+  assert.match(migration, /monitor_runs_one_active_query_idx[\s\S]*where status = 'running'/);
+  assert.match(migration, /monitor_runs_expired_lease_idx/);
+  assert.match(migration, /monitor_runs_cursor_source_run_id_fkey/);
+  assert.match(database, /beginCollectionRun/);
+  assert.match(database, /lease_expires_at\.lt/);
+  assert.match(database, /MonitorRunConflictError/);
+  assert.match(handler, /readMonitorCursor/);
+  assert.match(handler, /advanceMonitorCursor/);
+  assert.match(handler, /failCollectionRun/);
+});

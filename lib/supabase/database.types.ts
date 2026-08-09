@@ -1245,8 +1245,11 @@ export type Database = {
           connector_config_id: string | null
           created_at: string
           cursor: Json | null
+          cursor_source_run_id: string | null
           error_message: string | null
+          heartbeat_at: string | null
           id: string
+          lease_expires_at: string | null
           mentions_created: number
           mentions_fetched: number
           mentions_updated: number
@@ -1255,6 +1258,7 @@ export type Database = {
           run_metadata: Json
           started_at: string
           status: string
+          trigger_type: string
           updated_at: string
         }
         Insert: {
@@ -1263,8 +1267,11 @@ export type Database = {
           connector_config_id?: string | null
           created_at?: string
           cursor?: Json | null
+          cursor_source_run_id?: string | null
           error_message?: string | null
+          heartbeat_at?: string | null
           id?: string
+          lease_expires_at?: string | null
           mentions_created?: number
           mentions_fetched?: number
           mentions_updated?: number
@@ -1273,6 +1280,7 @@ export type Database = {
           run_metadata?: Json
           started_at?: string
           status?: string
+          trigger_type?: string
           updated_at?: string
         }
         Update: {
@@ -1281,8 +1289,11 @@ export type Database = {
           connector_config_id?: string | null
           created_at?: string
           cursor?: Json | null
+          cursor_source_run_id?: string | null
           error_message?: string | null
+          heartbeat_at?: string | null
           id?: string
+          lease_expires_at?: string | null
           mentions_created?: number
           mentions_fetched?: number
           mentions_updated?: number
@@ -1291,6 +1302,7 @@ export type Database = {
           run_metadata?: Json
           started_at?: string
           status?: string
+          trigger_type?: string
           updated_at?: string
         }
         Relationships: [
@@ -1306,6 +1318,13 @@ export type Database = {
             columns: ["monitoring_query_id"]
             isOneToOne: false
             referencedRelation: "monitoring_queries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitor_runs_cursor_source_run_id_fkey"
+            columns: ["cursor_source_run_id"]
+            isOneToOne: false
+            referencedRelation: "monitor_runs"
             referencedColumns: ["id"]
           },
           {

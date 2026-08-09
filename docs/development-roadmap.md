@@ -311,7 +311,7 @@ Turn collection into an efficient review habit rather than an unstructured archi
 
 ## Phase 4 - Radar as transparent discovery
 
-Status: **In progress.** Increment 1 is complete: project-safe monitor editing, pause/resume controls, a basic-versus-advanced configuration split, separate connector management, and an inspectable source-coverage model. Coverage now identifies configured and runnable permitted sources without implying that unavailable platforms are observed. The increment passed its unit, type, lint, production-build, authenticated UI, and rollback-only Row Level Security checks.
+Status: **In progress.** The monitor experience and connector-reliability foundation are complete. Radar now has project-safe editing, pause/resume controls, progressive monitor configuration, explicit source coverage, bounded retries/timeouts, run diagnostics, database-enforced overlap prevention, expiring run leases, stale-run recovery, and connector checkpoints. RSS and YouTube can omit records already observed under an unchanged monitor definition; manual URLs remain an honest full refresh. Scheduled jobs are still disabled until this locking and recovery behavior has passed real-use acceptance.
 
 ### Goal
 
@@ -350,6 +350,8 @@ Make Radar genuinely useful within its observed coverage, without implying compr
 - Prevent overlapping runs for the same monitor.
 - Store execution state and cursors so a failed run can resume safely where the connector supports it.
 - Add per-monitor retention and pause controls.
+
+Current checkpoint: manual runs are locked to one active execution per monitor. A trusted Edge Function creates the run before collection, retains the last safe per-source cursor when one connector fails, and marks an expired lease failed before allowing a retry. No `pg_cron`, `pg_net`, or background schedule has been enabled.
 
 ### Acceptance criteria
 
