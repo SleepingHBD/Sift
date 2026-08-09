@@ -1,12 +1,12 @@
-# Phase 4 manual Radar acceptance checkpoint
+# Phase 4 Radar acceptance record
 
 Date: 9 August 2026
 
-Application baseline: `ac4dd45`
+Application baseline: manual acceptance at `ac4dd45`; trusted scheduler deployment at `fbd7c17`
 
-Edge Function baseline: `radar-connectors` version 12 with JWT verification enabled
+Edge Function baseline: `radar-connectors` version 13 and `radar-scheduler` version 1 with JWT verification enabled
 
-Outcome: **Accepted for manual Radar use.** Phase 4 remains in progress because scheduled execution and retention controls are deliberately still disabled.
+Outcome: **Accepted for manual Radar use; trusted scheduling infrastructure activated and verified.** Phase 4 remains in progress because automatic retention enforcement is deliberately still disabled and a user-configured scheduled connector run still needs real-use observation.
 
 ## Accepted scope
 
@@ -66,6 +66,17 @@ The corresponding version 12 Edge Function requests returned HTTP `200` in produ
 - Security advisor: only leaked-password protection is disabled. Sift uses GitHub OAuth rather than password authentication, so this does not affect the active sign-in path. Supabase documents the optional setting in its [password security guidance](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
 - Performance advisor: informational unused-index notices only. No new Radar index warning requires remediation at the current workspace scale.
 
+## Production scheduler activation
+
+The trusted scheduler was explicitly approved and activated on 9 August 2026:
+
+- Three named scheduler values are stored in Supabase Vault; no service-role key is stored in Vault, the client, or the cron command.
+- `sift-radar-scheduler` is active in `pg_cron` on the one-minute dispatcher schedule.
+- An automatic cron invocation completed successfully and its `pg_net` request received HTTP `200` with `claimed: 0`, which was correct because no monitor was enabled for automatic collection.
+- A rollback-only database test created one temporary due monitor, atomically claimed it, finalized it successfully, advanced its next scheduled run, and left no persistent fixture.
+- The first controlled activation exposed two dormant SQL defects: an unsupported `GROUP BY true` completeness check and a PL/pgSQL variable named `current_time` conflicting with the SQL keyword. The activation transaction rolled back before secrets or jobs were created, both issues were corrected through the follow-up `fix_trusted_radar_scheduler_activation` migration, and the clean automatic dispatch was then reverified.
+- Retention deletion remains disabled. No activation or verification step deleted conversations or created permanent test records.
+
 ## Acceptance criteria result
 
 | Criterion | Result |
@@ -82,4 +93,4 @@ The corresponding version 12 Edge Function requests returned HTTP `200` in produ
 
 ## Deferred gate
 
-Automatic schedules remain disabled. The next Phase 4 increment is safe scheduled execution plus per-monitor retention controls. It must reuse the accepted locking, lease, checkpoint, quota, and diagnostic path rather than introduce a second collection path.
+The scheduler infrastructure is active, but individual monitors remain manual until their own daily or weekly schedule is enabled. The next operational checkpoint is observing one user-configured scheduled connector run through the accepted locking, lease, checkpoint, quota, and diagnostic path. The next implementation increment is audited retention enforcement; no deletion worker is active yet.

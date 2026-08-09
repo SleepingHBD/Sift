@@ -115,6 +115,8 @@ Deploy `radar-connectors` and `radar-scheduler` with JWT verification enabled, a
 
 After the function and secrets are ready, activate the minute-level dispatcher from the Supabase SQL editor with `select private.install_radar_scheduler();`. This is an explicit production operation because it enables unattended connector requests. The job can be deactivated with `select cron.alter_job(job_id := (select jobid from cron.job where jobname = 'sift-radar-scheduler'), active := false);`. Never store the service-role key in the browser, repository, cron command, or `connector_configs`.
 
+Production status: the scheduler was explicitly activated and verified on 9 August 2026. Its automatic dispatch returns successfully with no work when no eligible monitor is due. A monitor still runs automatically only after its own daily or weekly schedule is enabled.
+
 ## Strategy AI on GitHub Pages
 
 GitHub Pages cannot protect an OpenAI API key. A secure endpoint should authenticate the user, retrieve only authorized project evidence, call OpenAI server-side, and return structured claims with source IDs and confidence. Workspace-backed claims must cite stored evidence; general brainstorming must be labeled separately.

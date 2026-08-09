@@ -402,8 +402,9 @@ test("Phase 4 monitor lifecycle preferences are additive and retention remains d
 });
 
 test("Phase 4 scheduled Radar uses Vault, atomic claims, and the shared collection path", async () => {
-  const [migration, config, scheduler, connector, collection, repository] = await Promise.all([
+  const [migration, activationFix, config, scheduler, connector, collection, repository] = await Promise.all([
     read("supabase/migrations/20260809074058_phase_4_trusted_radar_scheduler.sql"),
+    read("supabase/migrations/20260809082520_fix_trusted_radar_scheduler_activation.sql"),
     read("supabase/config.toml"),
     read("supabase/functions/radar-scheduler/index.ts"),
     read("supabase/functions/radar-connectors/index.ts"),
@@ -420,6 +421,11 @@ test("Phase 4 scheduled Radar uses Vault, atomic claims, and the shared collecti
   assert.match(migration, /grant execute on function public\.claim_due_radar_monitors[\s\S]*to service_role/);
   assert.match(migration, /cron\.schedule[\s\S]*sift-radar-scheduler/);
   assert.doesNotMatch(migration, /delete from public\.mentions/i);
+  assert.match(activationFix, /select count\(\*\)[\s\S]*vault\.decrypted_secrets/);
+  assert.doesNotMatch(activationFix, /group by true/i);
+  assert.match(activationFix, /replace\(function_ddl, 'current_time', 'scheduler_now'\)/);
+  assert.match(activationFix, /pg_catalog\.now\(\)/);
+  assert.doesNotMatch(activationFix, /delete from public\.mentions/i);
   assert.match(scheduler, /x-sift-scheduler-token/);
   assert.match(scheduler, /claim_due_radar_monitors/);
   assert.match(scheduler, /finalize_radar_schedule_claim/);
