@@ -482,3 +482,34 @@ test("Phase 4 scheduled Radar uses Vault, atomic claims, and the shared collecti
   assert.match(repository, /connector_configs/);
   assert.match(repository, /schedule_enabled: monitor\.status !== "paused"/);
 });
+
+test("Phase 5 signals are project-scoped, evidence-traceable, and do not expose mutable assessments", async () => {
+  const [migration, indexes, relationshipRepository] = await Promise.all([
+    read("supabase/migrations/20260809124742_phase_5_signal_foundation.sql"),
+    read("supabase/migrations/20260809125109_phase_5_signal_fk_indexes.sql"),
+    read("lib/evidence/relationships.ts"),
+  ]);
+
+  assert.match(migration, /create table public\.signals/);
+  assert.match(migration, /create table public\.signal_evidence/);
+  assert.match(migration, /create table public\.signal_snapshots/);
+  assert.match(migration, /foreign key \(signal_id, project_id\)/g);
+  assert.match(migration, /relationship in \('support', 'contradict', 'context'\)/);
+  assert.match(migration, /scope_note text not null default/);
+  assert.match(migration, /not a population-level claim/);
+  assert.match(migration, /alter table public\.signals enable row level security/);
+  assert.match(migration, /alter table public\.signal_evidence enable row level security/);
+  assert.match(migration, /alter table public\.signal_snapshots enable row level security/);
+  assert.match(migration, /private\.accessible_project_ids\(\)/);
+  assert.match(migration, /is_anonymous/);
+  assert.match(migration, /private\.signal_evidence_source_exists/);
+  assert.match(migration, /Signal evidence must reference an available source in the same project/);
+  assert.match(migration, /signal_evidence[\s\S]*'signal_evidence'::text/);
+  assert.match(migration, /'signal'::text,[\s\S]*true,/);
+  assert.match(migration, /grant select, insert on table public\.signal_snapshots[\s\S]*to authenticated/);
+  assert.doesNotMatch(migration, /grant select, insert, update, delete on table public\.signal_snapshots/);
+  assert.doesNotMatch(migration, /grant .*anon/i);
+  assert.match(indexes, /signal_evidence_signal_project_idx[\s\S]*\(signal_id, project_id\)/);
+  assert.match(indexes, /signal_snapshots_signal_project_idx[\s\S]*\(signal_id, project_id\)/);
+  assert.match(relationshipRepository, /new Set<.*>\(\["signal"/);
+});

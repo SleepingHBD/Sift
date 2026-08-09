@@ -1837,6 +1837,72 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .workspace-dialog__body.capture-dialog__body > .capture-decision--warning { border-color: color-mix(in srgb, var(--coral) 50%, var(--border)); background: color-mix(in srgb, var(--coral) 8%, var(--card)); }
 .capture-decision--warning > svg { color: #b94232; }
 .workspace-dialog__body.capture-dialog__body > .capture-inline-success { display: flex; grid-template-columns: none; align-items: flex-start; gap: 8px; padding: 10px 11px; border: 1px solid color-mix(in srgb, var(--acid-dark) 45%, var(--border)); border-radius: 9px; background: color-mix(in srgb, var(--acid) 10%, var(--card)); color: var(--text); }
+
+/* Phase 5 signals: working observations stay visually distinct from established trends. */
+.signal-method { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 18px; margin-bottom: 28px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 14px; background: color-mix(in srgb, var(--card) 72%, transparent); }
+.signal-method > div { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: baseline; }
+.signal-method > div > span { grid-row: 1 / 3; font-size: 10px; font-weight: 800; letter-spacing: .7px; color: var(--acid-dark); }
+.signal-method strong { font-size: 14px; }
+.signal-method small { margin-top: 3px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.signal-method > svg { color: var(--muted); }
+.signals-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 17px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
+.signals-summary { display: flex; align-items: center; gap: 22px; color: var(--muted); font-size: 12px; }
+.signals-summary strong { margin-right: 3px; color: var(--text); font-size: 17px; }
+.signals-toolbar label { display: flex; align-items: center; gap: 9px; }
+.signals-toolbar label > span { font-size: 10px; font-weight: 760; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
+.signals-toolbar select { min-width: 165px; padding: 9px 32px 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--text); font: inherit; font-size: 12px; }
+.signals-loading, .signals-error { display: flex; align-items: center; gap: 9px; padding: 13px 15px; border: 1px solid var(--border); border-radius: 10px; color: var(--muted); font-size: 13px; }
+.signals-error { margin-bottom: 14px; border-color: color-mix(in srgb, var(--coral) 48%, var(--border)); background: color-mix(in srgb, var(--coral) 8%, var(--card)); color: var(--text); }
+.signal-list { display: grid; gap: 13px; }
+.signal-card { overflow: hidden; border: 1px solid var(--border); border-left: 3px solid var(--border-strong); border-radius: 13px; background: var(--card); }
+.signal-card--watching { border-left-color: var(--acid-dark); }
+.signal-card--promoted { border-left-color: #6c8ef5; }
+.signal-card--dismissed { opacity: .7; }
+.signal-card > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 28px; padding: 22px 23px 18px; }
+.signal-card__labels { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.signal-card h2 { margin: 0 0 7px; font-size: 22px; line-height: 1.15; letter-spacing: -.45px; }
+.signal-card header p { max-width: 780px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.signal-card__project { flex: 0 0 auto; max-width: 190px; padding-top: 3px; color: var(--muted); font-size: 11px; text-align: right; }
+.signal-status--watching { background: color-mix(in srgb, var(--acid) 25%, var(--subtle)); color: var(--text); }
+.signal-status--promoted { background: color-mix(in srgb, #6c8ef5 18%, var(--subtle)); color: var(--text); }
+.signal-status--dismissed { background: var(--subtle); color: var(--muted); }
+.signal-card__scope { display: flex; align-items: flex-start; gap: 10px; margin: 0 23px 18px; padding: 12px 13px; border: 1px solid var(--border); border-radius: 9px; background: var(--subtle); }
+.signal-card__scope svg { flex: 0 0 auto; margin-top: 1px; color: var(--muted); }
+.signal-card__scope strong { display: block; margin-bottom: 3px; font-size: 9px; font-weight: 800; letter-spacing: .65px; text-transform: uppercase; }
+.signal-card__scope p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.signal-card__assessment { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.signal-card__assessment > div { display: grid; gap: 5px; padding: 13px 23px; border-right: 1px solid var(--border); }
+.signal-card__assessment > div:last-child { border-right: 0; }
+.signal-card__assessment span { color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: .55px; text-transform: uppercase; }
+.signal-card__assessment strong { font-size: 14px; }
+.signal-card > footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 58px; padding: 10px 14px 10px 23px; }
+.signal-card > footer > div { display: flex; align-items: center; gap: 13px; }
+.signal-card > footer span, .signal-card > footer a { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; }
+.signal-card > footer a:hover { color: var(--text); }
+.signal-card > footer .signal-card__needs-evidence { color: var(--coral); }
+.signal-card__actions { justify-content: flex-end; }
+.workspace-dialog__body.signal-dialog__body > .signal-kind-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
+.signal-kind-picker legend { grid-column: 1 / -1; margin-bottom: 1px; font-size: 10px; font-weight: 760; letter-spacing: .55px; text-transform: uppercase; }
+.workspace-dialog__body .signal-kind-picker label { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 9px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.workspace-dialog__body .signal-kind-picker label.active { border-color: var(--border-strong); background: color-mix(in srgb, var(--acid) 9%, var(--card)); }
+.workspace-dialog__body .signal-kind-picker input { width: 15px; margin-top: 2px; padding: 0; box-shadow: none; }
+.signal-kind-picker label > span { display: grid; gap: 3px; text-transform: none; letter-spacing: 0; }
+.signal-kind-picker strong { font-size: 12px; }
+.signal-kind-picker small, .field-help { color: var(--muted); font-size: 11px; line-height: 1.45; }
+
+@media (max-width: 760px) {
+  .signal-method { grid-template-columns: 1fr; }
+  .signal-method > svg { display: none; }
+  .signals-toolbar, .signal-card > header, .signal-card > footer { align-items: stretch; flex-direction: column; }
+  .signals-toolbar label { justify-content: space-between; }
+  .signals-toolbar select { flex: 1; }
+  .signal-card__project { max-width: none; text-align: left; }
+  .signal-card__assessment { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .signal-card__assessment > div:nth-child(2) { border-right: 0; }
+  .signal-card__assessment > div:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
+  .signal-card > footer > div { justify-content: space-between; }
+  .workspace-dialog__body.signal-dialog__body > .signal-kind-picker { grid-template-columns: 1fr; }
+}
 .capture-inline-success svg { flex: 0 0 auto; margin-top: 1px; color: var(--acid-dark); }
 .capture-inline-success span { font-size: 11px; line-height: 1.45; }
 .capture-success, .capture-no-project { min-height: 310px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 42px 32px; text-align: center; }

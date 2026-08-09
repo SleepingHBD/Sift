@@ -16,7 +16,8 @@ It combines social-listening workflows, cultural research, inspiration, competit
 - Cloud-backed Research and Inspiration libraries with project assignment, search, filtering, source links, relationship-aware protected deletion, CSV evidence import, and reviewed browser-data migration
 - Persistent evidence capture for project-scoped links, notes, social posts, screenshots, images, and PDFs, including secure URL metadata inspection, canonical duplicate warnings, private file previews, and manual-save fallback
 - Unified project evidence inbox across Radar mentions, Research, social captures, files, CSV imports, and Inspiration, with PostgreSQL full-text retrieval, stable cursor pagination, durable private saved views, filters, sorting, grouping, matched-term highlighting, review progress, durable single and bulk review states, shared tags, project-scoped strategist topics, editable notes, non-destructive project links, and a provenance-first detail drawer that shows downstream relationships
-- Empty-state workspaces for brands, competitors, trends, briefs, and Strategy AI
+- Evidence-scoped Signals workspace for recording working observations and hypotheses, moving candidates into watching or dismissal, preserving a visible scope qualifier, and keeping unassessed ideas separate from promoted trends
+- Empty-state workspaces for brands, competitors, briefs, and Strategy AI
 - GitHub authentication with a protected permanent-account workspace
 - Global search, responsive navigation, light and dark modes
 - Static GitHub Pages export
@@ -48,7 +49,7 @@ The production build is written to `out/`.
 
 ## Current persistence
 
-Projects, Research, Inspiration, Radar monitors, connector-created conversations, run history, notes, saved and important markers, and evidence relationships are now cloud-first. After GitHub sign-in, the application hydrates these records from Supabase under project Row Level Security. Creates and deletes write through the authenticated Data API; connector collection remains behind the JWT-protected Edge Function. New records derive their owner or creator from the verified JWT rather than accepting an identity from the browser.
+Projects, Research, Inspiration, Radar monitors, connector-created conversations, run history, notes, saved and important markers, evidence relationships, and Signals are now cloud-first. After GitHub sign-in, the application hydrates these records from Supabase under project Row Level Security. Creates and deletes write through the authenticated Data API; connector collection remains behind the JWT-protected Edge Function. New records derive their owner or creator from the verified JWT rather than accepting an identity from the browser.
 
 Research and Inspiration deletion first inspects tags, project links, saved markers, attachments, and strategic citations. Insight and brief citations protect a source from deletion until the citation is deliberately removed; non-strategic organization links are disclosed and removed atomically with the source. The original external webpage or social post is never affected.
 
@@ -133,4 +134,4 @@ The build applies the repository subpath to routes and assets automatically.
 
 The static export includes a restrictive browser content policy and referrer policy. GitHub Pages controls HTTP response headers, so stronger server headers such as `X-Content-Type-Options` and an HTTP-delivered frame policy require moving the frontend to a host with configurable headers.
 
-See [docs/architecture.md](docs/architecture.md), [docs/radar.md](docs/radar.md), [docs/development-roadmap.md](docs/development-roadmap.md), [docs/phase-0-audit.md](docs/phase-0-audit.md), [docs/phase-1-acceptance.md](docs/phase-1-acceptance.md), [docs/phase-3-acceptance.md](docs/phase-3-acceptance.md), and [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md) for implementation boundaries, the evidence-first development sequence, backend findings, and acceptance evidence.
+See [docs/architecture.md](docs/architecture.md), [docs/radar.md](docs/radar.md), [docs/signals.md](docs/signals.md), [docs/development-roadmap.md](docs/development-roadmap.md), [docs/phase-0-audit.md](docs/phase-0-audit.md), [docs/phase-1-acceptance.md](docs/phase-1-acceptance.md), [docs/phase-3-acceptance.md](docs/phase-3-acceptance.md), and [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md) for implementation boundaries, the evidence-first development sequence, backend findings, and acceptance evidence.

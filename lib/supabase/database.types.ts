@@ -1715,6 +1715,213 @@ export type Database = {
           },
         ]
       }
+      signal_evidence: {
+        Row: {
+          added_by: string
+          created_at: string
+          evidence_id: string
+          evidence_type: Database["public"]["Enums"]["item_kind"]
+          id: string
+          project_id: string
+          rationale: string | null
+          relationship: string
+          signal_id: string
+          weight: number
+        }
+        Insert: {
+          added_by?: string
+          created_at?: string
+          evidence_id: string
+          evidence_type: Database["public"]["Enums"]["item_kind"]
+          id?: string
+          project_id: string
+          rationale?: string | null
+          relationship: string
+          signal_id: string
+          weight?: number
+        }
+        Update: {
+          added_by?: string
+          created_at?: string
+          evidence_id?: string
+          evidence_type?: Database["public"]["Enums"]["item_kind"]
+          id?: string
+          project_id?: string
+          rationale?: string | null
+          relationship?: string
+          signal_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_evidence_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_evidence_signal_id_project_id_fkey"
+            columns: ["signal_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "signals"
+            referencedColumns: ["id", "project_id"]
+          },
+        ]
+      }
+      signal_snapshots: {
+        Row: {
+          analysis_version: string
+          author_diversity: number
+          contradicting_count: number
+          created_at: string
+          created_by: string
+          evidence_sufficiency: string
+          factor_breakdown: Json
+          growth_rate: number | null
+          id: string
+          limitations: string[]
+          method: string
+          movement: string
+          period_end: string | null
+          period_start: string | null
+          project_id: string
+          recency_days: number | null
+          research_gaps: string[]
+          signal_id: string
+          source_diversity: number
+          strength_score: number
+          supporting_count: number
+        }
+        Insert: {
+          analysis_version: string
+          author_diversity?: number
+          contradicting_count?: number
+          created_at?: string
+          created_by?: string
+          evidence_sufficiency: string
+          factor_breakdown?: Json
+          growth_rate?: number | null
+          id?: string
+          limitations?: string[]
+          method: string
+          movement: string
+          period_end?: string | null
+          period_start?: string | null
+          project_id: string
+          recency_days?: number | null
+          research_gaps?: string[]
+          signal_id: string
+          source_diversity?: number
+          strength_score: number
+          supporting_count?: number
+        }
+        Update: {
+          analysis_version?: string
+          author_diversity?: number
+          contradicting_count?: number
+          created_at?: string
+          created_by?: string
+          evidence_sufficiency?: string
+          factor_breakdown?: Json
+          growth_rate?: number | null
+          id?: string
+          limitations?: string[]
+          method?: string
+          movement?: string
+          period_end?: string | null
+          period_start?: string | null
+          project_id?: string
+          recency_days?: number | null
+          research_gaps?: string[]
+          signal_id?: string
+          source_diversity?: number
+          strength_score?: number
+          supporting_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_snapshots_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_snapshots_signal_id_project_id_fkey"
+            columns: ["signal_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "signals"
+            referencedColumns: ["id", "project_id"]
+          },
+        ]
+      }
+      signals: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          movement: string
+          observation: string
+          origin: string
+          project_id: string
+          scope_note: string
+          status: string
+          strategist_notes: string | null
+          title: string
+          topic_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          movement?: string
+          observation: string
+          origin?: string
+          project_id: string
+          scope_note?: string
+          status?: string
+          strategist_notes?: string | null
+          title: string
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          movement?: string
+          observation?: string
+          origin?: string
+          project_id?: string
+          scope_note?: string
+          status?: string
+          strategist_notes?: string | null
+          title?: string
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signals_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_items: {
         Row: {
           created_at: string

@@ -31,6 +31,7 @@ test("strategic citations sort before removable organization links", () => {
 });
 
 test("relationship labels explain their strategic role", () => {
+  assert.equal(relationshipTypeLabel("signal"), "Signal evidence");
   assert.equal(relationshipTypeLabel("insight"), "Insight");
   assert.equal(relationshipTypeLabel("brief"), "Creative brief");
   assert.equal(relationshipTypeLabel("asset"), "Private attachment");

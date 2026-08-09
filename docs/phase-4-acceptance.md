@@ -6,7 +6,7 @@ Application baseline: manual acceptance at `ac4dd45`; trusted scheduler deployme
 
 Edge Function baseline: `radar-connectors` version 13 and `radar-scheduler` version 2 with JWT verification enabled
 
-Outcome: **Manual Radar, genuine scheduled collection, and audited retention enforcement accepted.** The Phase 4 implementation is complete. The retention interface still needs one short check after the local application changes are deliberately published; no website publication was performed as part of this checkpoint.
+Outcome: **Manual Radar, genuine scheduled collection, and audited retention enforcement accepted.** The Phase 4 implementation is complete. The deliberately published retention interface was subsequently confirmed working by the user, so no Phase 4 acceptance item remains open.
 
 ## Accepted scope
 

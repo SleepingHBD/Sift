@@ -1,6 +1,6 @@
 import type { EvidenceKind } from "./reference.ts";
 
-export type EvidenceRelationshipType = "insight" | "brief" | "project" | "saved" | "tag" | "asset" | "note" | "trend";
+export type EvidenceRelationshipType = "signal" | "insight" | "brief" | "project" | "saved" | "tag" | "asset" | "note" | "trend";
 
 export interface EvidenceIdentity {
   kind: EvidenceKind;
@@ -39,6 +39,7 @@ export function summarizeEvidenceRelationships(items: EvidenceRelationship[]): E
 
 export function relationshipTypeLabel(type: EvidenceRelationshipType) {
   switch (type) {
+    case "signal": return "Signal evidence";
     case "insight": return "Insight";
     case "brief": return "Creative brief";
     case "project": return "Linked project";
