@@ -1,5 +1,5 @@
 import { calculateRadarRelevance } from "./connector-utils.ts";
-import type { MonitorRun, MonitoringQuery, QueryBuilderState, RadarMention, RadarSource } from "./types.ts";
+import type { MonitorRun, MonitoringQuery, QueryBuilderState, RadarMention, RadarRetentionDays, RadarScheduleFrequency, RadarSource } from "./types.ts";
 
 export interface RadarProjectRow {
   id: string;
@@ -19,6 +19,16 @@ export interface MonitoringQueryRow {
   description: string | null;
   parsed_query: unknown;
   enabled: boolean;
+  schedule_frequency: string;
+  schedule_hour: number;
+  schedule_weekday: number;
+  schedule_timezone: string;
+  schedule_enabled: boolean;
+  next_scheduled_run_at: string | null;
+  last_scheduled_run_at: string | null;
+  schedule_failure_count: number;
+  last_schedule_error: string | null;
+  retention_days: number | null;
   platform_filters: string[];
   language: string | null;
   market: string | null;
@@ -90,6 +100,18 @@ function builderFrom(value: unknown): QueryBuilderState {
   };
 }
 
+function scheduleFrequencyFrom(value: string): RadarScheduleFrequency {
+  return value === "daily" || value === "weekly" ? value : "manual";
+}
+
+function retentionDaysFrom(value: number | null): RadarRetentionDays {
+  return value === 90 || value === 180 || value === 365 ? value : null;
+}
+
+function boundedInteger(value: number, minimum: number, maximum: number, fallback: number) {
+  return Number.isInteger(value) && value >= minimum && value <= maximum ? value : fallback;
+}
+
 export function sourceFromDatabase(value: string): RadarSource {
   if (value === "manual_url" || value === "manual_note") return "manual";
   if (value === "blog") return "rss";
@@ -130,6 +152,16 @@ export function monitoringQueryFromRow(
     sources: (row.platform_filters ?? []).map(sourceFromDatabase),
     builder: builder.includeAll.length || builder.includeAny.length || builder.exclude.length ? builder : emptyBuilder,
     status: row.enabled ? "active" : "paused",
+    scheduleFrequency: scheduleFrequencyFrom(row.schedule_frequency),
+    scheduleHour: boundedInteger(row.schedule_hour, 0, 23, 9),
+    scheduleWeekday: boundedInteger(row.schedule_weekday, 0, 6, 1),
+    scheduleTimezone: row.schedule_timezone || "UTC",
+    scheduleEnabled: row.schedule_enabled,
+    nextScheduledRunAt: row.next_scheduled_run_at ?? undefined,
+    lastScheduledRunAt: row.last_scheduled_run_at ?? undefined,
+    scheduleFailureCount: Math.max(0, Number(row.schedule_failure_count) || 0),
+    lastScheduleError: row.last_schedule_error ?? undefined,
+    retentionDays: retentionDaysFrom(row.retention_days),
     dataMode: mentionCount > 0 ? "live" : "empty",
     totalMentionCount: mentionCount,
     createdAt: row.created_at,

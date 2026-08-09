@@ -6,6 +6,7 @@ import {
   CircleDashed,
   ExternalLink,
   Link2,
+  LoaderCircle,
   Plus,
   Rss,
   Settings2,
@@ -30,7 +31,7 @@ export function SourceDrawer({
   open: boolean;
   onClose: () => void;
   settings: RadarConnectorSettings;
-  onSave: (settings: RadarConnectorSettings) => void;
+  onSave: (settings: RadarConnectorSettings) => void | Promise<void>;
   backendConfigured: boolean;
 }) {
   if (!open) return null;
@@ -53,7 +54,7 @@ function SourceDrawerContent({
 }: {
   onClose: () => void;
   settings: RadarConnectorSettings;
-  onSave: (settings: RadarConnectorSettings) => void;
+  onSave: (settings: RadarConnectorSettings) => void | Promise<void>;
   backendConfigured: boolean;
 }) {
   const [rssUrls, setRssUrls] = useState(settings.rssFeedUrls);
@@ -64,6 +65,8 @@ function SourceDrawerContent({
   const [manualDraft, setManualDraft] = useState("");
   const [rssError, setRssError] = useState("");
   const [manualError, setManualError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   function addUrl(kind: Exclude<SourceEditor, null>) {
     const value = kind === "rss" ? rssDraft.trim() : manualDraft.trim();
@@ -84,9 +87,17 @@ function SourceDrawerContent({
     setError("");
   }
 
-  function save() {
-    onSave({ rssFeedUrls: rssUrls, manualUrls, youtubeEnabled });
-    onClose();
+  async function save() {
+    setSaving(true);
+    setSaveError("");
+    try {
+      await onSave({ rssFeedUrls: rssUrls, manualUrls, youtubeEnabled });
+      onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Source settings could not be saved.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -197,8 +208,8 @@ function SourceDrawerContent({
         </div>
 
         <footer className="source-drawer__footer">
-          <span>Your choices are saved to this workspace.</span>
-          <div><Button onClick={onClose}>Cancel</Button><Button variant="dark" onClick={save}>Save and close</Button></div>
+          <span>{saveError ? <span className="form-error" role="alert">{saveError}</span> : "Your choices sync securely so scheduled monitors can use them."}</span>
+          <div><Button onClick={onClose} disabled={saving}>Cancel</Button><Button variant="dark" onClick={() => void save()} disabled={saving}>{saving ? <LoaderCircle className="spin" size={14} /> : null}{saving ? "Saving..." : "Save and close"}</Button></div>
         </footer>
       </aside>
     </div>

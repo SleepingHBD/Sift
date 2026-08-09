@@ -1,24 +1,63 @@
 "use client";
 
-import { Check, ChevronDown, Code2, LoaderCircle, SlidersHorizontal, Sparkles, X } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { CalendarClock, Check, ChevronDown, Code2, Database, LoaderCircle, ShieldCheck, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { MonitorCoveragePreview } from "@/components/radar/monitor-coverage";
 import { Badge, Button } from "@/components/ui/primitives";
 import { createDraftMonitor, radarConnectors } from "@/lib/radar/connectors";
 import type { RadarConnectorSettings } from "@/lib/radar/connector-service";
+import { getCloudRadarRetentionPreview } from "@/lib/radar/repository";
 import { buildBooleanQuery, interpretMonitoringIntent, splitTerms, validateBooleanQuery } from "@/lib/radar/query-builder";
 import { createMonitorClientRef } from "@/lib/radar/model";
-import type { MonitoringQuery, RadarSource } from "@/lib/radar/types";
+import type { MonitoringQuery, RadarRetentionDays, RadarRetentionPreview, RadarScheduleFrequency, RadarSource } from "@/lib/radar/types";
 
 interface MonitorDialogProps {
   open: boolean;
   monitor?: MonitoringQuery;
   connectorSettings: RadarConnectorSettings;
   backendConfigured: boolean;
+  schedulerAvailable: boolean;
   onClose: () => void;
   onSave: (monitor: MonitoringQuery) => Promise<void>;
   onManageSources: () => void;
+}
+
+const scheduleHours = Array.from({ length: 24 }, (_, hour) => hour);
+const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function browserTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+function retentionValue(value: string): RadarRetentionDays {
+  const parsed = Number(value);
+  return parsed === 90 || parsed === 180 || parsed === 365 ? parsed : null;
+}
+
+function RetentionPreviewPanel({ monitorId, retentionDays }: { monitorId: string; retentionDays: Exclude<RadarRetentionDays, null> }) {
+  const [preview, setPreview] = useState<RadarRetentionPreview | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    getCloudRadarRetentionPreview(monitorId, retentionDays)
+      .then((result) => {
+        if (active) setPreview(result);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+    return () => { active = false; };
+  }, [monitorId, retentionDays]);
+
+  if (failed) return <p>Sift could not load the preview. The preference can still be saved; nothing will be deleted.</p>;
+  if (!preview) return <p><LoaderCircle className="spin" size={13} />Checking this monitor&apos;s history...</p>;
+  return <div className="retention-preview__metrics"><span><b>{preview.candidateMentions}</b>Older than {retentionDays} days</span><span><b>{preview.protectedMentions}</b>Protected evidence</span><span><b>{preview.eligibleMentions}</b>Would be eligible</span></div>;
 }
 
 export function MonitorDialog({
@@ -26,6 +65,7 @@ export function MonitorDialog({
   monitor,
   connectorSettings,
   backendConfigured,
+  schedulerAvailable,
   onClose,
   onSave,
   onManageSources,
@@ -51,6 +91,11 @@ export function MonitorDialog({
   const [market, setMarket] = useState(monitor?.market ?? "");
   const [sources, setSources] = useState<RadarSource[]>(monitor?.sources ?? []);
   const [paused, setPaused] = useState(monitor?.status === "paused");
+  const [scheduleFrequency, setScheduleFrequency] = useState<RadarScheduleFrequency>(monitor?.scheduleFrequency ?? "manual");
+  const [scheduleHour, setScheduleHour] = useState(monitor?.scheduleHour ?? 9);
+  const [scheduleWeekday, setScheduleWeekday] = useState(monitor?.scheduleWeekday ?? 1);
+  const [scheduleTimezone] = useState(monitor?.scheduleTimezone ?? browserTimezone);
+  const [retentionDays, setRetentionDays] = useState<RadarRetentionDays>(monitor?.retentionDays ?? null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -90,6 +135,10 @@ export function MonitorDialog({
     setMarket("");
     setSources([]);
     setPaused(false);
+    setScheduleFrequency("manual");
+    setScheduleHour(9);
+    setScheduleWeekday(1);
+    setRetentionDays(null);
     setError("");
   }
 
@@ -117,6 +166,15 @@ export function MonitorDialog({
       sources,
       builder,
       status: paused ? "paused" as const : editing ? "active" as const : "draft" as const,
+      scheduleFrequency,
+      scheduleHour,
+      scheduleWeekday,
+      scheduleTimezone,
+      scheduleEnabled: schedulerAvailable && !paused && scheduleFrequency !== "manual",
+      nextScheduledRunAt: monitor?.nextScheduledRunAt,
+      scheduleFailureCount: monitor?.scheduleFailureCount ?? 0,
+      lastScheduleError: monitor?.lastScheduleError,
+      retentionDays,
     };
     const savedMonitor = monitor
       ? { ...monitor, ...values }
@@ -184,7 +242,7 @@ export function MonitorDialog({
           </section>
 
           <button className={`monitor-advanced-toggle ${advancedOpen ? "open" : ""}`} type="button" onClick={() => setAdvancedOpen((current) => !current)} aria-expanded={advancedOpen}>
-            <span><SlidersHorizontal size={15} /><strong>Advanced options</strong><small>Research question, project, language, source scope, and Boolean rules</small></span><ChevronDown size={16} />
+            <span><SlidersHorizontal size={15} /><strong>Advanced options</strong><small>Context, query rules, sources, schedule preference, and retention</small></span><ChevronDown size={16} />
           </button>
 
           {advancedOpen ? <div className="monitor-advanced-panel">
@@ -222,6 +280,31 @@ export function MonitorDialog({
             </section>
 
             <MonitorCoveragePreview selectedSources={sources} settings={connectorSettings} backendConfigured={backendConfigured} onManageSources={onManageSources} />
+
+            <section className="monitor-lifecycle-settings">
+              <div className="monitor-advanced-heading"><div><strong>Automation &amp; storage</strong><span>Choose when Radar should collect and how long raw conversation should remain.</span></div></div>
+              <div className="monitor-lifecycle-grid">
+                <div className="monitor-lifecycle-card">
+                  <div className="monitor-lifecycle-card__heading"><i><CalendarClock size={15} /></i><div><strong>Automatic runs</strong><span>{schedulerAvailable ? "Collected by Sift's trusted cloud scheduler." : "Cloud scheduling is not available in this environment."}</span></div><Badge>{scheduleFrequency === "manual" ? "Manual" : paused ? "Paused" : schedulerAvailable ? "Active" : "Unavailable"}</Badge></div>
+                  <label><span>Frequency</span><select value={scheduleFrequency} onChange={(event) => setScheduleFrequency(event.target.value as RadarScheduleFrequency)}><option value="manual">Manual only</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select></label>
+                  {scheduleFrequency !== "manual" ? <div className="monitor-schedule-fields">
+                    {scheduleFrequency === "weekly" ? <label><span>Day</span><select value={scheduleWeekday} onChange={(event) => setScheduleWeekday(Number(event.target.value))}>{weekdays.map((day, index) => <option value={index} key={day}>{day}</option>)}</select></label> : null}
+                    <label><span>Preferred time</span><select value={scheduleHour} onChange={(event) => setScheduleHour(Number(event.target.value))}>{scheduleHours.map((hour) => <option value={hour} key={hour}>{String(hour).padStart(2, "0")}:00</option>)}</select></label>
+                  </div> : null}
+                  <p className="monitor-lifecycle-note"><ShieldCheck size={13} />{scheduleFrequency === "manual" ? "This monitor runs only when you press Run monitor." : paused ? "Resume this monitor to activate its saved schedule." : !schedulerAvailable ? "The schedule will remain off until the trusted scheduler is available." : monitor?.nextScheduledRunAt ? `Next run: ${new Date(monitor.nextScheduledRunAt).toLocaleString()}.` : "The first run time will be calculated when you save."} Time zone: {scheduleTimezone}.</p>
+                  {monitor?.lastScheduleError ? <p className="monitor-lifecycle-warning">Last scheduled attempt: {monitor.lastScheduleError}</p> : null}
+                </div>
+
+                <div className="monitor-lifecycle-card">
+                  <div className="monitor-lifecycle-card__heading"><i><Database size={15} /></i><div><strong>Conversation retention</strong><span>Evidence is protected from any future cleanup.</span></div><Badge>No deletion</Badge></div>
+                  <label><span>Keep raw conversations</span><select value={retentionDays ?? "forever"} onChange={(event) => setRetentionDays(retentionValue(event.target.value))}><option value="forever">Forever</option><option value="90">90 days</option><option value="180">180 days</option><option value="365">365 days</option></select></label>
+                  <div className="retention-preview" aria-live="polite">
+                    {retentionDays === null ? <p>Nothing is eligible for retention cleanup while <strong>Forever</strong> is selected.</p> : !monitor?.cloudId ? <p>Save the monitor first. Sift can then preview its existing conversation history.</p> : <RetentionPreviewPanel key={`${monitor.cloudId}:${retentionDays}`} monitorId={monitor.cloudId} retentionDays={retentionDays} />}
+                  </div>
+                  <p className="monitor-lifecycle-note"><ShieldCheck size={13} />Preview only. Sift will not delete conversations automatically in this phase.</p>
+                </div>
+              </div>
+            </section>
           </div> : null}
 
           {error ? <p className="form-error">{error}</p> : null}

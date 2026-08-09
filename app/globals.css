@@ -966,6 +966,29 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .monitor-coverage__row--needs-configuration .ui-badge, .monitor-coverage__row--backend-unavailable .ui-badge { background: color-mix(in srgb, var(--coral) 12%, var(--card)); color: #b64a3b; }
 .monitor-coverage__row--not-included, .monitor-coverage__row--unavailable { opacity: .68; }
 .monitor-coverage__note { margin: 10px 0 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.monitor-lifecycle-settings { padding-top: 4px; border-top: 1px solid var(--border); }
+.monitor-lifecycle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.monitor-lifecycle-card { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-elevated); }
+.monitor-lifecycle-card__heading { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; align-items: center; gap: 9px; margin-bottom: 13px; }
+.monitor-lifecycle-card__heading > i { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: var(--card); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+.monitor-lifecycle-card__heading > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.monitor-lifecycle-card__heading strong { font-size: 13px; }
+.monitor-lifecycle-card__heading span { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.monitor-lifecycle-card > label, .monitor-schedule-fields label { display: flex; flex-direction: column; gap: 6px; }
+.monitor-lifecycle-card label > span { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; }
+.monitor-lifecycle-card select { width: 100%; height: 38px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; outline: 0; background: var(--card); color: var(--text); font-size: 13px; }
+.monitor-lifecycle-card select:focus { border-color: var(--acid-dark); }
+.monitor-schedule-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 9px; }
+.monitor-schedule-fields > label:only-child { grid-column: 1 / -1; }
+.monitor-lifecycle-note { display: flex; align-items: flex-start; gap: 6px; margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.monitor-lifecycle-note svg { flex: 0 0 auto; margin-top: 1px; color: var(--acid-dark); }
+.monitor-lifecycle-warning { margin: 8px 0 0; padding: 8px 9px; border-radius: 7px; background: color-mix(in srgb, var(--coral) 12%, var(--card)); color: var(--text-soft); font-size: 11px; line-height: 1.45; }
+.retention-preview { min-height: 48px; display: flex; align-items: center; margin-top: 9px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+.retention-preview > p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.retention-preview > p > svg { display: inline-block; margin-right: 6px; vertical-align: -2px; }
+.retention-preview__metrics { width: 100%; display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
+.retention-preview__metrics span { display: flex; flex-direction: column; gap: 2px; color: var(--muted); font-size: 10px; line-height: 1.35; }
+.retention-preview__metrics b { color: var(--text); font-size: 15px; }
 .monitor-coverage--compact { margin: 8px 0 0; background: transparent; }
 .monitor-coverage--compact > summary { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 14px; cursor: pointer; list-style: none; }
 .monitor-coverage--compact > summary::-webkit-details-marker { display: none; }
@@ -1232,7 +1255,7 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
   .feed-sort { grid-column: 1 / -1; height: 38px; }
   .mention-filter-panel { grid-template-columns: 1fr 1fr; }
   .mention-actions button span { display: none; }
-  .monitor-form-grid, .query-rule-grid, .evidence-destination-grid { grid-template-columns: 1fr; }
+  .monitor-form-grid, .query-rule-grid, .evidence-destination-grid, .monitor-lifecycle-grid { grid-template-columns: 1fr; }
   .monitor-form-grid label.wide { grid-column: 1; }
   .monitor-source-choice > div:last-child { grid-template-columns: 1fr 1fr; }
   .monitor-dialog > footer, .evidence-dialog > footer { align-items: flex-start; flex-direction: column; }

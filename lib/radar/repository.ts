@@ -14,14 +14,15 @@ import { radarMonitorAnalysisFromRow, type RadarMonitorAnalysisRow } from "@/lib
 import { radarBucketMilliseconds } from "@/lib/radar/processing";
 import { radarMonitorSummaryFromRow, type RadarMonitorSummaryRow } from "@/lib/radar/summary";
 import { decodeRadarConversationCursor, encodeRadarConversationCursor, radarMentionFromConversation, type RadarConversationRpcRow } from "@/lib/radar/conversations";
-import type { DateBounds, DateRangeKey, MonitorRun, MonitoringQuery, RadarConversationPage, RadarConversationSort, RadarMention, RadarMonitorAnalysis, RadarMonitorSummary, RadarSource } from "@/lib/radar/types";
+import type { RadarConnectorSettings } from "@/lib/radar/connector-utils";
+import type { DateBounds, DateRangeKey, MonitorRun, MonitoringQuery, RadarConversationPage, RadarConversationSort, RadarMention, RadarMonitorAnalysis, RadarMonitorSummary, RadarRetentionDays, RadarRetentionPreview, RadarSchedulerStatus, RadarSource } from "@/lib/radar/types";
 import type { Project } from "@/lib/types";
 import type { Json } from "@/lib/supabase/database.types";
 
 type SiftSupabaseClient = NonNullable<ReturnType<typeof createBrowserSupabaseClient>>;
 
 const internalRadarProjectRef = "personal-radar";
-const monitorSelect = "id,client_ref,project_id,brand_id,name,query,description,parsed_query,enabled,platform_filters,language,market,keywords,excluded_keywords,created_at,last_run_at,mentions(count)";
+const monitorSelect = "id,client_ref,project_id,brand_id,name,query,description,parsed_query,enabled,schedule_frequency,schedule_hour,schedule_weekday,schedule_timezone,schedule_enabled,next_scheduled_run_at,last_scheduled_run_at,schedule_failure_count,last_schedule_error,retention_days,platform_filters,language,market,keywords,excluded_keywords,created_at,last_run_at,mentions(count)";
 const mentionSelect = "id,project_id,monitoring_query_id,platform,external_id,author,content,url,published_at,likes,comments,shares,views,engagement,language,sentiment,sentiment_score,keywords,metadata,is_important,review_status,reviewed_at,created_at,sources(name),mention_topics(topics(name))";
 const runSelect = "id,client_ref,monitoring_query_id,status,started_at,completed_at,mentions_fetched,mentions_created,mentions_updated,error_message,run_metadata";
 const pageSize = 500;
@@ -53,6 +54,26 @@ export interface LocalRadarPayload {
   monitors: MonitoringQuery[];
   mentionsByMonitor: Record<string, RadarMention[]>;
   runs: MonitorRun[];
+}
+
+interface RadarRetentionPreviewRow {
+  cutoff_at: string;
+  candidate_mentions: number | string;
+  protected_mentions: number | string;
+  eligible_mentions: number | string;
+  oldest_candidate_at: string | null;
+}
+
+interface RadarSchedulerStatusRow {
+  available: boolean;
+  last_dispatch_at: string | null;
+  last_dispatch_status: string | null;
+}
+
+interface ConnectorConfigRow {
+  source_kind: string;
+  enabled: boolean;
+  config: unknown;
 }
 
 function requireClient() {
@@ -107,6 +128,64 @@ export async function getCloudRadarMentionsByIds(monitor: MonitoringQuery, menti
   return ((data ?? []) as unknown as RadarConversationRpcRow[]).map((row) => radarMentionFromConversation(row.conversation, monitor));
 }
 
+export async function getCloudRadarRetentionPreview(
+  monitorId: string,
+  retentionDays: Exclude<RadarRetentionDays, null>,
+): Promise<RadarRetentionPreview> {
+  const client = requireClient();
+  const { data, error } = await client.rpc("radar_retention_preview", {
+    p_monitor_id: monitorId,
+    p_retention_days: retentionDays,
+  });
+  if (error) throw new Error(`Retention preview could not be calculated: ${error.message}`);
+  const row = (data ?? [])[0] as unknown as RadarRetentionPreviewRow | undefined;
+  if (!row) throw new Error("Retention preview did not return a result.");
+  return {
+    cutoffAt: row.cutoff_at,
+    candidateMentions: numberValue(row.candidate_mentions),
+    protectedMentions: numberValue(row.protected_mentions),
+    eligibleMentions: numberValue(row.eligible_mentions),
+    oldestCandidateAt: row.oldest_candidate_at ?? undefined,
+  };
+}
+
+export async function getCloudRadarSchedulerStatus(): Promise<RadarSchedulerStatus> {
+  const client = requireClient();
+  const { data, error } = await client.rpc("radar_scheduler_status");
+  if (error) throw new Error(`Radar scheduler status could not be verified: ${error.message}`);
+  const row = (data ?? [])[0] as unknown as RadarSchedulerStatusRow | undefined;
+  return {
+    available: row?.available === true,
+    lastDispatchAt: row?.last_dispatch_at ?? undefined,
+    lastDispatchStatus: row?.last_dispatch_status ?? undefined,
+  };
+}
+
+export async function getCloudRadarConnectorSettings(): Promise<RadarConnectorSettings | null> {
+  const client = requireClient();
+  const { data, error } = await client.from("connector_configs")
+    .select("source_kind,enabled,config")
+    .in("source_kind", ["rss", "manual_url", "youtube"]);
+  if (error) throw new Error(`Radar source settings could not be loaded: ${error.message}`);
+  const rows = (data ?? []) as unknown as ConnectorConfigRow[];
+  if (!rows.length) return null;
+  const rssFeedUrls = new Set<string>();
+  const manualUrls = new Set<string>();
+  let youtubeEnabled = false;
+  for (const row of rows) {
+    const config = row.config && typeof row.config === "object" && !Array.isArray(row.config)
+      ? row.config as Record<string, unknown>
+      : {};
+    const urls = Array.isArray(config.urls)
+      ? config.urls.filter((value): value is string => typeof value === "string")
+      : [];
+    if (row.source_kind === "rss" && row.enabled) urls.forEach((url) => rssFeedUrls.add(url));
+    if (row.source_kind === "manual_url" && row.enabled) urls.forEach((url) => manualUrls.add(url));
+    if (row.source_kind === "youtube" && row.enabled) youtubeEnabled = true;
+  }
+  return { rssFeedUrls: [...rssFeedUrls], manualUrls: [...manualUrls], youtubeEnabled };
+}
+
 function numberValue(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -118,6 +197,65 @@ function projectByClientRef(projects: Project[]) {
 
 function slugify(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "general";
+}
+
+function monitorLifecyclePayload(monitor: MonitoringQuery) {
+  const scheduleFrequency = monitor.scheduleFrequency === "daily" || monitor.scheduleFrequency === "weekly"
+    ? monitor.scheduleFrequency
+    : "manual";
+  const scheduleHour = Number.isInteger(monitor.scheduleHour) && monitor.scheduleHour >= 0 && monitor.scheduleHour <= 23
+    ? monitor.scheduleHour
+    : 9;
+  const scheduleWeekday = Number.isInteger(monitor.scheduleWeekday) && monitor.scheduleWeekday >= 0 && monitor.scheduleWeekday <= 6
+    ? monitor.scheduleWeekday
+    : 1;
+  const retentionDays = monitor.retentionDays === 90 || monitor.retentionDays === 180 || monitor.retentionDays === 365
+    ? monitor.retentionDays
+    : null;
+  return {
+    schedule_frequency: scheduleFrequency,
+    schedule_hour: scheduleHour,
+    schedule_weekday: scheduleWeekday,
+    schedule_timezone: monitor.scheduleTimezone?.trim() || "UTC",
+    schedule_enabled: monitor.status !== "paused" && scheduleFrequency !== "manual" && monitor.scheduleEnabled,
+    retention_days: retentionDays,
+  };
+}
+
+const connectorConfigDefinitions = [
+  { sourceKind: "rss" as const, displayName: "RSS & Atom" },
+  { sourceKind: "manual_url" as const, displayName: "Manual URL" },
+  { sourceKind: "youtube" as const, displayName: "YouTube" },
+];
+
+async function syncProjectConnectorSettings(
+  client: SiftSupabaseClient,
+  projectId: string,
+  settings: RadarConnectorSettings,
+) {
+  const rows = connectorConfigDefinitions.map(({ sourceKind, displayName }) => {
+    const urls = sourceKind === "rss" ? settings.rssFeedUrls : sourceKind === "manual_url" ? settings.manualUrls : [];
+    const enabled = sourceKind === "youtube" ? settings.youtubeEnabled : urls.length > 0;
+    return {
+      project_id: projectId,
+      source_kind: sourceKind,
+      display_name: displayName,
+      enabled,
+      mode: enabled ? "live" as const : "unavailable" as const,
+      config: sourceKind === "youtube" ? {} : { urls },
+    };
+  });
+  const { error } = await client.from("connector_configs")
+    .upsert(rows, { onConflict: "project_id,source_kind,display_name" });
+  if (error) throw new Error(`Radar source settings could not be saved: ${error.message}`);
+}
+
+export async function saveCloudRadarConnectorSettings(settings: RadarConnectorSettings) {
+  const client = requireClient();
+  const { data, error } = await client.from("monitoring_queries").select("project_id");
+  if (error) throw new Error(`Radar monitor projects could not be checked: ${error.message}`);
+  const projectIds = [...new Set((data ?? []).map((row) => String(row.project_id)))];
+  for (const projectId of projectIds) await syncProjectConnectorSettings(client, projectId, settings);
 }
 
 async function listMonitorRows(client: SiftSupabaseClient, projectIds: string[]) {
@@ -312,7 +450,7 @@ async function syncMonitorCompetitors(client: SiftSupabaseClient, queryId: strin
   if (error) throw new Error(`Monitor competitors could not be saved: ${error.message}`);
 }
 
-export async function createCloudMonitor(monitor: MonitoringQuery, projects: Project[]) {
+export async function createCloudMonitor(monitor: MonitoringQuery, projects: Project[], connectorSettings?: RadarConnectorSettings) {
   const client = requireClient();
   const project = monitor.projectId ? projectByClientRef(projects).get(monitor.projectId) : undefined;
   if (monitor.projectId && !project) throw new Error("The selected project is no longer available.");
@@ -332,6 +470,7 @@ export async function createCloudMonitor(monitor: MonitoringQuery, projects: Pro
       exclude: monitor.builder.exclude,
     },
     enabled: monitor.status !== "paused",
+    ...monitorLifecyclePayload(monitor),
     platform_filters: monitor.sources.map(sourceToDatabase),
     language: monitor.language === "Any language" ? null : monitor.language,
     market: monitor.market.trim() || null,
@@ -342,11 +481,12 @@ export async function createCloudMonitor(monitor: MonitoringQuery, projects: Pro
     .upsert(payload, { onConflict: "project_id,client_ref" })
     .select(monitorSelect).single();
   if (error || !data) throw new Error(`Monitor could not be saved: ${error?.message ?? "No record was returned."}`);
+  if (connectorSettings) await syncProjectConnectorSettings(client, projectId, connectorSettings);
   await syncMonitorCompetitors(client, String(data.id), projectId, monitor.competitors);
   return monitoringQueryFromRow(data as unknown as MonitoringQueryRow, project?.id ?? internalRadarProjectRef, monitor.brand, monitor.competitors, 0);
 }
 
-export async function updateCloudMonitor(monitor: MonitoringQuery, projects: Project[]) {
+export async function updateCloudMonitor(monitor: MonitoringQuery, projects: Project[], connectorSettings?: RadarConnectorSettings) {
   if (!monitor.cloudId || !monitor.cloudProjectId) throw new Error("This monitor has not been verified in the cloud yet.");
   const client = requireClient();
   const project = monitor.projectId ? projectByClientRef(projects).get(monitor.projectId) : undefined;
@@ -366,6 +506,7 @@ export async function updateCloudMonitor(monitor: MonitoringQuery, projects: Pro
       exclude: monitor.builder.exclude,
     },
     enabled: monitor.status !== "paused",
+    ...monitorLifecyclePayload(monitor),
     platform_filters: monitor.sources.map(sourceToDatabase),
     language: monitor.language === "Any language" ? null : monitor.language,
     market: monitor.market.trim() || null,
@@ -379,6 +520,7 @@ export async function updateCloudMonitor(monitor: MonitoringQuery, projects: Pro
     .select(monitorSelect)
     .single();
   if (error || !data) throw new Error(`Monitor could not be updated: ${error?.message ?? "No record was returned."}`);
+  if (connectorSettings) await syncProjectConnectorSettings(client, monitor.cloudProjectId, connectorSettings);
   await syncMonitorCompetitors(client, monitor.cloudId, monitor.cloudProjectId, monitor.competitors);
   const updated = monitoringQueryFromRow(
     data as unknown as MonitoringQueryRow,

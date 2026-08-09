@@ -12,7 +12,7 @@ It combines social-listening workflows, cultural research, inspiration, competit
 - Cloud-backed project creation, editing, switching, archiving, restoring, and deletion
 - Radar monitor creation with a simple guided query form and an advanced Boolean editor
 - Functional Radar collection through RSS/Atom feeds, manually supplied public URLs, and the official YouTube Data API
-- Cloud-backed Radar monitors, source-level collection health and run diagnostics, database-calculated coverage, headline metrics, timelines, sentiment, topics, keywords, and evidence-linked spikes, plus normalized conversations, notes, saved and important markers, and evidence relationships
+- Cloud-backed Radar monitors, source-level collection health and run diagnostics, database-calculated coverage, headline metrics, timelines, sentiment, topics, keywords, and evidence-linked spikes, plus normalized conversations, notes, saved and important markers, evidence relationships, cloud-backed schedules, and non-destructive retention preferences
 - Cloud-backed Research and Inspiration libraries with project assignment, search, filtering, source links, relationship-aware protected deletion, CSV evidence import, and reviewed browser-data migration
 - Persistent evidence capture for project-scoped links, notes, social posts, screenshots, images, and PDFs, including secure URL metadata inspection, canonical duplicate warnings, private file previews, and manual-save fallback
 - Unified project evidence inbox across Radar mentions, Research, social captures, files, CSV imports, and Inspiration, with PostgreSQL full-text retrieval, stable cursor pagination, durable private saved views, filters, sorting, grouping, matched-term highlighting, review progress, durable single and bulk review states, shared tags, project-scoped strategist topics, editable notes, non-destructive project links, and a provenance-first detail drawer that shows downstream relationships
@@ -100,6 +100,20 @@ The implemented sources are RSS/Atom feeds, manually supplied public URLs, and Y
 The static client never receives connector credentials. Monitor runs and URL metadata inspection execute in the authenticated Supabase Edge Function and the database remains protected by project-scoped Row Level Security. URL inspection applies project access checks, a separate extraction quota, private-network and redirect protections, response limits, and an explicit raw-link fallback when a page cannot be read.
 
 Connector runs execute eligible sources independently, apply an 18-second source budget and one bounded retry for transient timeouts, rate limits, network failures, and server errors, and preserve successful results when another source fails. Run history records retrieved, created, refreshed, and deduplicated counts; source duration, attempts, timeout state, last success, quota remaining, and cloud-persistence status are visible in Radar's collapsed **Collection health** panel.
+
+Each monitor can store a manual, daily, or weekly schedule and a keep-forever, 90-day, 180-day, or 365-day raw-conversation retention preference. Source settings sync to each monitor project through `connector_configs`, while connector credentials remain server-only. Scheduled and manual collection share the same quota, lease, retry, checkpoint, normalization, and persistence path. The scheduler uses `pg_cron`, asynchronous `pg_net`, a JWT-protected Edge Function, a separate high-entropy Vault credential, atomic short-lived claims, and bounded retries. It reports itself unavailable until its Vault secrets and cron job have been explicitly activated.
+
+Retention remains preview-only. The authenticated, RLS-invoker preview counts aged conversations and separates protected evidence, including saved or cited conversations, notes, important markers, and reviewed evidence. No automatic deletion or cleanup job is installed.
+
+### Radar scheduler activation
+
+Deploy `radar-connectors` and `radar-scheduler` with JWT verification enabled, apply the scheduler migration, then create these three named Vault secrets without committing their values:
+
+- `sift_project_url`: the Supabase project URL.
+- `sift_publishable_key`: the active legacy `anon` JWT used only to pass the Edge Function gateway. It is not a service-role key.
+- `sift_radar_scheduler_token`: at least 32 random characters, generated and stored only in Vault.
+
+After the function and secrets are ready, activate the minute-level dispatcher from the Supabase SQL editor with `select private.install_radar_scheduler();`. This is an explicit production operation because it enables unattended connector requests. The job can be deactivated with `select cron.alter_job(job_id := (select jobid from cron.job where jobname = 'sift-radar-scheduler'), active := false);`. Never store the service-role key in the browser, repository, cron command, or `connector_configs`.
 
 ## Strategy AI on GitHub Pages
 

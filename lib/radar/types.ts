@@ -16,6 +16,8 @@ export type DateRangeKey = "24h" | "7d" | "30d" | "90d" | "custom";
 export type RadarConversationSort = "newest" | "oldest" | "engagement" | "relevance";
 export type ConnectorState = "not-connected" | "coming-later" | "available";
 export type ClaimType = "fact" | "interpretation" | "hypothesis";
+export type RadarScheduleFrequency = "manual" | "daily" | "weekly";
+export type RadarRetentionDays = 90 | 180 | 365 | null;
 
 export interface QueryBuilderState {
   includeAll: string[];
@@ -41,10 +43,34 @@ export interface MonitoringQuery {
   sources: RadarSource[];
   builder: QueryBuilderState;
   status: "active" | "paused" | "draft";
+  scheduleFrequency: RadarScheduleFrequency;
+  scheduleHour: number;
+  scheduleWeekday: number;
+  scheduleTimezone: string;
+  scheduleEnabled: boolean;
+  nextScheduledRunAt?: string;
+  lastScheduledRunAt?: string;
+  scheduleFailureCount: number;
+  lastScheduleError?: string;
+  retentionDays: RadarRetentionDays;
   dataMode: "live" | "empty";
   totalMentionCount?: number;
   createdAt: string;
   lastRunAt?: string;
+}
+
+export interface RadarRetentionPreview {
+  cutoffAt: string;
+  candidateMentions: number;
+  protectedMentions: number;
+  eligibleMentions: number;
+  oldestCandidateAt?: string;
+}
+
+export interface RadarSchedulerStatus {
+  available: boolean;
+  lastDispatchAt?: string;
+  lastDispatchStatus?: string;
 }
 
 export interface RadarMention {

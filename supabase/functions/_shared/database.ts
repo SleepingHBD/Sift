@@ -2,7 +2,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { processMention, slugify } from "./processing.ts";
 import type { MonitorCursor } from "./cursor.ts";
-import type { CollectionDiagnostics, MonitorInput, NormalizedMention, ProjectInput, SourceRunResult } from "./types.ts";
+import type { CollectionDiagnostics, ConnectorConfigInput, MonitorInput, NormalizedMention, ProjectInput, SourceRunResult } from "./types.ts";
 
 const runLeaseMilliseconds = 3 * 60 * 1_000;
 
@@ -12,6 +12,7 @@ export interface CollectionRunContext {
   queryId: string;
   previousCursor: unknown;
   cursorSourceRunId?: string;
+  triggerType: "manual" | "scheduled";
 }
 
 export class MonitorRunConflictError extends Error {
@@ -29,6 +30,7 @@ export async function beginCollectionRun(
   monitor: MonitorInput,
   project: ProjectInput | null,
   startedAt: string,
+  triggerType: "manual" | "scheduled" = "manual",
 ): Promise<CollectionRunContext> {
   const projectId = await ensureProject(supabase, userId, monitor, project);
   const queryId = await ensureMonitoringQuery(supabase, projectId, monitor);
@@ -61,13 +63,13 @@ export async function beginCollectionRun(
     project_id: projectId,
     monitoring_query_id: queryId,
     status: "running",
-    trigger_type: "manual",
+    trigger_type: triggerType,
     started_at: startedAt,
     heartbeat_at: startedAt,
     lease_expires_at: leaseExpiresAt,
     cursor: previous?.cursor ?? null,
     cursor_source_run_id: previous?.id ?? null,
-    run_metadata: { triggerType: "manual", cursorSourceRunId: previous?.id ?? null },
+    run_metadata: { triggerType, cursorSourceRunId: previous?.id ?? null },
   });
   if (error) {
     const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
@@ -81,6 +83,7 @@ export async function beginCollectionRun(
     queryId,
     previousCursor: previous?.cursor ?? null,
     cursorSourceRunId: previous?.id ?? undefined,
+    triggerType,
   };
 }
 
@@ -148,7 +151,7 @@ export async function persistCollection(
       duplicatesRemoved: diagnostics.duplicatesRemoved,
       durationMs: diagnostics.durationMs,
       quota: diagnostics.quota,
-      triggerType: "manual",
+      triggerType: context.triggerType,
       incremental,
       cursorAdvancedSources,
       cursorSourceRunId: context.cursorSourceRunId ?? null,
@@ -156,6 +159,42 @@ export async function persistCollection(
   }).eq("id", runId).eq("status", "running").select("id").single();
   if (runError) throw runError;
   return { runId: run.id as string, projectId, queryId, mentionsCreated, mentionsUpdated };
+}
+
+export async function persistConnectorConfig(
+  supabase: any,
+  projectId: string,
+  config: ConnectorConfigInput,
+) {
+  const rows = [
+    {
+      project_id: projectId,
+      source_kind: "rss",
+      display_name: "RSS & Atom",
+      enabled: config.rssFeedUrls.length > 0,
+      mode: config.rssFeedUrls.length ? "live" : "unavailable",
+      config: { urls: config.rssFeedUrls },
+    },
+    {
+      project_id: projectId,
+      source_kind: "manual_url",
+      display_name: "Manual URL",
+      enabled: config.manualUrls.length > 0,
+      mode: config.manualUrls.length ? "live" : "unavailable",
+      config: { urls: config.manualUrls },
+    },
+    {
+      project_id: projectId,
+      source_kind: "youtube",
+      display_name: "YouTube",
+      enabled: config.youtubeEnabled,
+      mode: config.youtubeEnabled ? "live" : "unavailable",
+      config: {},
+    },
+  ];
+  const { error } = await supabase.from("connector_configs")
+    .upsert(rows, { onConflict: "project_id,source_kind,display_name" });
+  if (error) throw error;
 }
 
 export async function failCollectionRun(supabase: any, runId: string, errorMessage: string) {

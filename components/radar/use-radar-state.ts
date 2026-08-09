@@ -16,8 +16,8 @@ import {
   type RadarAnnotationSnapshot,
 } from "@/lib/radar/annotation-repository";
 import { defaultRadarConnectorSettings, mergeRadarMentions, type RadarConnectorSettings } from "@/lib/radar/connector-service";
-import { createCloudMonitor, importLocalRadar, listCloudRadar, saveCloudMonitorRun, updateCloudMonitor, type LocalRadarPayload, type RadarCloudSnapshot } from "@/lib/radar/repository";
-import type { MonitorRun, MonitoringQuery, RadarEvidenceLink, RadarMention } from "@/lib/radar/types";
+import { createCloudMonitor, getCloudRadarConnectorSettings, getCloudRadarSchedulerStatus, importLocalRadar, listCloudRadar, saveCloudMonitorRun, saveCloudRadarConnectorSettings, updateCloudMonitor, type LocalRadarPayload, type RadarCloudSnapshot } from "@/lib/radar/repository";
+import type { MonitorRun, MonitoringQuery, RadarEvidenceLink, RadarMention, RadarSchedulerStatus } from "@/lib/radar/types";
 import type { InspirationItem, Project, ResearchItem } from "@/lib/types";
 import {
   clearMigratedRadarAnnotationStorage,
@@ -89,6 +89,7 @@ export function useRadarState(
   const [mentionsByMonitor, setMentionsByMonitor] = useState<Record<string, RadarMention[]>>({});
   const [runs, setRuns] = useState<MonitorRun[]>([]);
   const [connectorSettings, setConnectorSettings] = useState<RadarConnectorSettings>(defaultRadarConnectorSettings);
+  const [schedulerStatus, setSchedulerStatus] = useState<RadarSchedulerStatus>({ available: false });
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [evidenceLinks, setEvidenceLinks] = useState<RadarEvidenceLink[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -122,10 +123,11 @@ export function useRadarState(
 
   const refreshCloud = useCallback(async () => {
     if (!workspaceUserId) return;
-    const snapshot = await listCloudRadar(projects);
+    const [snapshot, currentSchedulerStatus] = await Promise.all([listCloudRadar(projects), getCloudRadarSchedulerStatus()]);
     const annotations = await listCloudRadarAnnotations(snapshot.mentionsByMonitor);
     applySnapshot(snapshot);
     applyAnnotationSnapshot(annotations);
+    setSchedulerStatus(currentSchedulerStatus);
   }, [applyAnnotationSnapshot, applySnapshot, projects, workspaceUserId]);
 
   const registerCloudMentions = useCallback(async (incoming: RadarMention[]) => {
@@ -167,22 +169,32 @@ export function useRadarState(
       setAnnotationError("");
       setPendingLocalRadar(null);
       setPendingLocalAnnotations(null);
+      setSchedulerStatus({ available: false });
       if (!workspaceUserId) {
         setCloudStatus(authStatus === "loading" ? "loading" : "ready");
         return;
       }
 
       prepareUserWorkspaceStorage(window.localStorage, workspaceUserId);
-      setConnectorSettings(read<RadarConnectorSettings>(scopedKey(storageKeys.connectorSettings), defaultRadarConnectorSettings));
+      const localConnectorSettings = read<RadarConnectorSettings>(scopedKey(storageKeys.connectorSettings), defaultRadarConnectorSettings);
+      setConnectorSettings(localConnectorSettings);
       const localCore = localRadarPayload(workspaceUserId);
       setPendingLocalRadar(localCore);
       setCloudStatus("loading");
       try {
-        const snapshot = await listCloudRadar(projects);
+        const [snapshot, cloudConnectorSettings, currentSchedulerStatus] = await Promise.all([
+          listCloudRadar(projects),
+          getCloudRadarConnectorSettings(),
+          getCloudRadarSchedulerStatus(),
+        ]);
         const annotations = await listCloudRadarAnnotations(snapshot.mentionsByMonitor);
         if (cancelled) return;
         applySnapshot(snapshot);
         applyAnnotationSnapshot(annotations);
+        const resolvedConnectorSettings = cloudConnectorSettings ?? localConnectorSettings;
+        setConnectorSettings(resolvedConnectorSettings);
+        persist(storageKeys.connectorSettings, resolvedConnectorSettings);
+        setSchedulerStatus(currentSchedulerStatus);
         setPendingLocalAnnotations(localRadarAnnotations(
           workspaceUserId,
           mentionIdsFrom(snapshot.mentionsByMonitor, localCore?.mentionsByMonitor),
@@ -196,21 +208,21 @@ export function useRadarState(
     };
     void hydrate();
     return () => { cancelled = true; };
-  }, [applyAnnotationSnapshot, applySnapshot, authStatus, projects, reloadToken, scopedKey, workspaceUserId]);
+  }, [applyAnnotationSnapshot, applySnapshot, authStatus, persist, projects, reloadToken, scopedKey, workspaceUserId]);
 
   function findMention(mentionId: string) {
     return Object.values(mentionsByMonitor).flat().find((mention) => mention.id === mentionId);
   }
 
   async function addMonitor(monitor: MonitoringQuery) {
-    const created = await createCloudMonitor(monitor, projects);
+    const created = await createCloudMonitor(monitor, projects, connectorSettings);
     setMonitors((current) => [created, ...current.filter((item) => item.id !== created.id)]);
     setMentionsByMonitor((current) => ({ ...current, [created.id]: current[created.id] ?? [] }));
     return created;
   }
 
   async function editMonitor(monitor: MonitoringQuery) {
-    const updated = await updateCloudMonitor(monitor, projects);
+    const updated = await updateCloudMonitor(monitor, projects, connectorSettings);
     setMonitors((current) => current.map((item) => item.id === updated.id ? updated : item));
     return updated;
   }
@@ -226,8 +238,9 @@ export function useRadarState(
     setImportantIds((current) => current.filter((mentionId) => !mentionIds.has(mentionId)));
   }
 
-  function saveConnectorSettings(settings: RadarConnectorSettings) {
+  async function saveConnectorSettings(settings: RadarConnectorSettings) {
     const cleaned = { rssFeedUrls: uniqueHttpUrls(settings.rssFeedUrls), manualUrls: uniqueHttpUrls(settings.manualUrls), youtubeEnabled: settings.youtubeEnabled };
+    await saveCloudRadarConnectorSettings(cleaned);
     setConnectorSettings(cleaned);
     persist(storageKeys.connectorSettings, cleaned);
   }
@@ -365,6 +378,7 @@ export function useRadarState(
     registerCloudMentions,
     runs,
     connectorSettings,
+    schedulerStatus,
     saveConnectorSettings,
     completeMonitorRun,
     recordMonitorRun,

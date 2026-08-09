@@ -12,6 +12,16 @@ const monitorRow = {
   description: "Track a live question.",
   parsed_query: { includeAll: ["category", "Singapore"], includeAny: [], exclude: ["jobs"] },
   enabled: true,
+  schedule_frequency: "weekly",
+  schedule_hour: 8,
+  schedule_weekday: 2,
+  schedule_timezone: "Asia/Singapore",
+  schedule_enabled: false,
+  next_scheduled_run_at: null,
+  last_scheduled_run_at: null,
+  schedule_failure_count: 0,
+  last_schedule_error: null,
+  retention_days: 180,
   platform_filters: ["youtube", "manual_url"],
   language: null,
   market: "Singapore",
@@ -29,6 +39,12 @@ test("cloud monitors retain their stable browser identity and normalized sources
   assert.deepEqual(monitor.sources, ["youtube", "manual"]);
   assert.equal(monitor.dataMode, "live");
   assert.deepEqual(monitor.builder.exclude, ["jobs"]);
+  assert.equal(monitor.scheduleFrequency, "weekly");
+  assert.equal(monitor.scheduleHour, 8);
+  assert.equal(monitor.scheduleTimezone, "Asia/Singapore");
+  assert.equal(monitor.scheduleEnabled, false);
+  assert.equal(monitor.scheduleFailureCount, 0);
+  assert.equal(monitor.retentionDays, 180);
 });
 
 test("personal Radar remains internal instead of appearing as a user project", () => {
@@ -36,6 +52,22 @@ test("personal Radar remains internal instead of appearing as a user project", (
   assert.equal(monitor.id, "cloud-monitor");
   assert.equal(monitor.projectId, "");
   assert.equal(monitor.dataMode, "empty");
+});
+
+test("unknown schedule and retention values fall back to non-destructive defaults", () => {
+  const monitor = monitoringQueryFromRow({
+    ...monitorRow,
+    schedule_frequency: "hourly",
+    schedule_hour: 99,
+    schedule_weekday: -1,
+    schedule_timezone: "",
+    retention_days: 30,
+  }, "project-local");
+  assert.equal(monitor.scheduleFrequency, "manual");
+  assert.equal(monitor.scheduleHour, 9);
+  assert.equal(monitor.scheduleWeekday, 1);
+  assert.equal(monitor.scheduleTimezone, "UTC");
+  assert.equal(monitor.retentionDays, null);
 });
 
 test("cloud conversations keep a stable UI evidence ID and inspectable topics", () => {

@@ -2,3 +2,6 @@ project_id = "sift"
 
 [functions.radar-connectors]
 verify_jwt = true
+
+[functions.radar-scheduler]
+verify_jwt = true

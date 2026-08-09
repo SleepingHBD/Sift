@@ -57,7 +57,7 @@ const rangeLabels: { id: DateRangeKey; label: string }[] = [
 
 export function RadarPage() {
   const { removeSavedIds, projects, researchItems, inspirationItems } = useApp();
-  const { monitors, addMonitor, editMonitor, removeMonitor, mentionsByMonitor, registerCloudMentions, runs, connectorSettings, saveConnectorSettings, completeMonitorRun, recordMonitorRun, savedIds, toggleSaved, evidenceLinks, addEvidenceLink, removeEvidenceLink, notes, saveNote, importantIds, toggleImportant, annotationError, clearAnnotationError, cloudStatus, cloudError, retryCloud, historyTruncated, pendingLocalRadar, pendingLocalAnnotations, importPendingRadar } = useRadarState(projects, researchItems, inspirationItems, removeSavedIds);
+  const { monitors, addMonitor, editMonitor, removeMonitor, mentionsByMonitor, registerCloudMentions, runs, connectorSettings, schedulerStatus, saveConnectorSettings, completeMonitorRun, recordMonitorRun, savedIds, toggleSaved, evidenceLinks, addEvidenceLink, removeEvidenceLink, notes, saveNote, importantIds, toggleImportant, annotationError, clearAnnotationError, cloudStatus, cloudError, retryCloud, historyTruncated, pendingLocalRadar, pendingLocalAnnotations, importPendingRadar } = useRadarState(projects, researchItems, inspirationItems, removeSavedIds);
   const [activeMonitorId, setActiveMonitorId] = useState("");
   const [activeView, setActiveView] = useState<RadarView>("overview");
   const [dateRange, setDateRange] = useState<DateRangeKey>("30d");
@@ -408,7 +408,7 @@ export function RadarPage() {
             </>
           )}
         />
-        <MonitorDialog key="new-monitor" open={monitorDialogOpen} connectorSettings={connectorSettings} backendConfigured={backendConfigured} onClose={closeMonitorDialog} onSave={saveMonitor} onManageSources={manageSourcesFromMonitor} />
+        <MonitorDialog key="new-monitor" open={monitorDialogOpen} connectorSettings={connectorSettings} backendConfigured={backendConfigured} schedulerAvailable={schedulerStatus.available} onClose={closeMonitorDialog} onSave={saveMonitor} onManageSources={manageSourcesFromMonitor} />
         <SourceDrawer open={sourceDrawerOpen} onClose={closeSourceDrawer} settings={connectorSettings} onSave={saveConnectorSettings} backendConfigured={backendConfigured} />
       </div>
     );
@@ -547,7 +547,7 @@ export function RadarPage() {
         </>
       )}
 
-      <MonitorDialog key={editingMonitor?.id ?? "new-monitor"} open={monitorDialogOpen} monitor={editingMonitor} connectorSettings={connectorSettings} backendConfigured={backendConfigured} onClose={closeMonitorDialog} onSave={saveMonitor} onManageSources={manageSourcesFromMonitor} />
+      <MonitorDialog key={editingMonitor?.id ?? "new-monitor"} open={monitorDialogOpen} monitor={editingMonitor} connectorSettings={connectorSettings} backendConfigured={backendConfigured} schedulerAvailable={schedulerStatus.available} onClose={closeMonitorDialog} onSave={saveMonitor} onManageSources={manageSourcesFromMonitor} />
       <DeleteMonitorDialog open={deleteDialogOpen} monitor={activeMonitor} mentionCount={allMentions.length} deleting={deleteState === "deleting"} error={deleteError} onClose={() => { if (deleteState !== "deleting") { setDeleteDialogOpen(false); setDeleteError(""); } }} onConfirm={confirmDeleteMonitor} />
       <SourceDrawer open={sourceDrawerOpen} onClose={closeSourceDrawer} settings={connectorSettings} onSave={saveConnectorSettings} backendConfigured={backendConfigured} />
       <SpikeDrawer spike={selectedSpike} mentions={allMentions} supportingStatus={supportingStatus} supportingError={supportingError} onClose={() => setSelectedSpikeId("")} onOpenMention={(mention) => { setSelectedSpikeId(""); setSelectedMention(mention); }} />

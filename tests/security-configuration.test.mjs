@@ -24,13 +24,14 @@ test("the Pages workflow uses Node 24 compatible action runtimes", async () => {
 });
 
 test("Radar requires verified JWTs and server-side quotas", async () => {
-  const [config, handler] = await Promise.all([
+  const [config, handler, collection] = await Promise.all([
     read("supabase/config.toml"),
     read("supabase/functions/radar-connectors/index.ts"),
+    read("supabase/functions/_shared/collection.ts"),
   ]);
 
   assert.match(config, /verify_jwt\s*=\s*true/);
-  assert.match(handler, /consume_radar_quota/);
+  assert.match(collection, /consume_radar_quota/);
   assert.match(handler, /65_536/);
 });
 
@@ -303,9 +304,9 @@ test("Phase 3 acceptance remediation caches project access and removes topic lin
 });
 
 test("Phase 4 Radar prevents overlapping runs and records recoverable execution state", async () => {
-  const [migration, handler, database] = await Promise.all([
+  const [migration, collection, database] = await Promise.all([
     read("supabase/migrations/20260809043245_phase_4_monitor_run_leases.sql"),
-    read("supabase/functions/radar-connectors/index.ts"),
+    read("supabase/functions/_shared/collection.ts"),
     read("supabase/functions/_shared/database.ts"),
   ]);
 
@@ -315,9 +316,9 @@ test("Phase 4 Radar prevents overlapping runs and records recoverable execution 
   assert.match(database, /beginCollectionRun/);
   assert.match(database, /lease_expires_at\.lt/);
   assert.match(database, /MonitorRunConflictError/);
-  assert.match(handler, /readMonitorCursor/);
-  assert.match(handler, /advanceMonitorCursor/);
-  assert.match(handler, /failCollectionRun/);
+  assert.match(collection, /readMonitorCursor/);
+  assert.match(collection, /advanceMonitorCursor/);
+  assert.match(collection, /failCollectionRun/);
 });
 
 test("Phase 4 Radar summaries are RLS-invoker, permanent-account scoped, and coverage aware", async () => {
@@ -370,4 +371,63 @@ test("Phase 4 Radar conversation pages use permanent-account RLS and keyset curs
   assert.match(migration, /grant execute[\s\S]*to authenticated/);
   assert.doesNotMatch(migration, /security definer/i);
   assert.doesNotMatch(migration, /\boffset\b/i);
+});
+
+test("Phase 4 monitor lifecycle preferences are additive and retention remains deletion-free", async () => {
+  const [migration, dialog] = await Promise.all([
+    read("supabase/migrations/20260809070413_phase_4_monitor_schedule_retention_preferences.sql"),
+    read("components/radar/monitor-dialog.tsx"),
+  ]);
+
+  assert.match(migration, /alter table public\.monitoring_queries/);
+  assert.match(migration, /schedule_frequency text not null default 'manual'/);
+  assert.match(migration, /schedule_enabled boolean not null default false/);
+  assert.match(migration, /retention_days smallint/);
+  assert.match(migration, /retention_days is null or retention_days in \(90, 180, 365\)/);
+  assert.match(migration, /monitoring_queries_scheduled_due_idx[\s\S]*where enabled[\s\S]*schedule_enabled/);
+  assert.match(migration, /create or replace function public\.radar_retention_preview/);
+  assert.match(migration, /security invoker/);
+  assert.match(migration, /is_anonymous/);
+  assert.match(migration, /mention\.is_important/);
+  assert.match(migration, /public\.saved_items/);
+  assert.match(migration, /public\.insight_sources/);
+  assert.match(migration, /public\.brief_sources/);
+  assert.match(migration, /revoke all[\s\S]*from public, anon/);
+  assert.match(migration, /grant execute[\s\S]*to authenticated/);
+  assert.doesNotMatch(migration, /security definer/i);
+  assert.doesNotMatch(migration, /delete from|pg_cron|pg_net/i);
+  assert.match(dialog, /Automatic runs/);
+  assert.match(dialog, /Preview only\. Sift will not delete conversations automatically/);
+  assert.match(dialog, /schedulerAvailable && !paused && scheduleFrequency !== "manual"/);
+});
+
+test("Phase 4 scheduled Radar uses Vault, atomic claims, and the shared collection path", async () => {
+  const [migration, config, scheduler, connector, collection, repository] = await Promise.all([
+    read("supabase/migrations/20260809074058_phase_4_trusted_radar_scheduler.sql"),
+    read("supabase/config.toml"),
+    read("supabase/functions/radar-scheduler/index.ts"),
+    read("supabase/functions/radar-connectors/index.ts"),
+    read("supabase/functions/_shared/collection.ts"),
+    read("lib/radar/repository.ts"),
+  ]);
+
+  assert.match(config, /\[functions\.radar-scheduler\][\s\S]*verify_jwt\s*=\s*true/);
+  assert.match(migration, /create extension if not exists pg_net/);
+  assert.match(migration, /create extension if not exists pg_cron/);
+  assert.match(migration, /vault\.decrypted_secrets/);
+  assert.match(migration, /for update of query skip locked/);
+  assert.match(migration, /schedule_claim_expires_at/);
+  assert.match(migration, /grant execute on function public\.claim_due_radar_monitors[\s\S]*to service_role/);
+  assert.match(migration, /cron\.schedule[\s\S]*sift-radar-scheduler/);
+  assert.doesNotMatch(migration, /delete from public\.mentions/i);
+  assert.match(scheduler, /x-sift-scheduler-token/);
+  assert.match(scheduler, /claim_due_radar_monitors/);
+  assert.match(scheduler, /finalize_radar_schedule_claim/);
+  assert.match(scheduler, /runRadarCollection[\s\S]*"scheduled"/);
+  assert.match(connector, /runRadarCollection[\s\S]*"manual"/);
+  assert.match(collection, /consume_radar_quota/);
+  assert.match(collection, /beginCollectionRun/);
+  assert.match(collection, /persistCollection/);
+  assert.match(repository, /connector_configs/);
+  assert.match(repository, /schedule_enabled: monitor\.status !== "paused"/);
 });

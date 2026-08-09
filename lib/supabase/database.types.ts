@@ -1348,12 +1348,24 @@ export type Database = {
           keywords: string[]
           language: string | null
           last_run_at: string | null
+          last_schedule_error: string | null
+          last_scheduled_run_at: string | null
           market: string | null
           name: string
+          next_scheduled_run_at: string | null
           parsed_query: Json | null
           platform_filters: Database["public"]["Enums"]["source_kind"][]
           project_id: string
           query: string
+          retention_days: number | null
+          schedule_claim_expires_at: string | null
+          schedule_claim_token: string | null
+          schedule_enabled: boolean
+          schedule_failure_count: number
+          schedule_frequency: string
+          schedule_hour: number
+          schedule_timezone: string
+          schedule_weekday: number
           updated_at: string
         }
         Insert: {
@@ -1367,12 +1379,24 @@ export type Database = {
           keywords?: string[]
           language?: string | null
           last_run_at?: string | null
+          last_schedule_error?: string | null
+          last_scheduled_run_at?: string | null
           market?: string | null
           name: string
+          next_scheduled_run_at?: string | null
           parsed_query?: Json | null
           platform_filters?: Database["public"]["Enums"]["source_kind"][]
           project_id: string
           query: string
+          retention_days?: number | null
+          schedule_claim_expires_at?: string | null
+          schedule_claim_token?: string | null
+          schedule_enabled?: boolean
+          schedule_failure_count?: number
+          schedule_frequency?: string
+          schedule_hour?: number
+          schedule_timezone?: string
+          schedule_weekday?: number
           updated_at?: string
         }
         Update: {
@@ -1386,12 +1410,24 @@ export type Database = {
           keywords?: string[]
           language?: string | null
           last_run_at?: string | null
+          last_schedule_error?: string | null
+          last_scheduled_run_at?: string | null
           market?: string | null
           name?: string
+          next_scheduled_run_at?: string | null
           parsed_query?: Json | null
           platform_filters?: Database["public"]["Enums"]["source_kind"][]
           project_id?: string
           query?: string
+          retention_days?: number | null
+          schedule_claim_expires_at?: string | null
+          schedule_claim_token?: string | null
+          schedule_enabled?: boolean
+          schedule_failure_count?: number
+          schedule_frequency?: string
+          schedule_hour?: number
+          schedule_timezone?: string
+          schedule_weekday?: number
           updated_at?: string
         }
         Relationships: [
@@ -1995,6 +2031,17 @@ export type Database = {
         Args: { target_project_id: string }
         Returns: boolean
       }
+      claim_due_radar_monitors: {
+        Args: { p_limit?: number; p_scheduler_token: string }
+        Returns: {
+          claim_token: string
+          connector_config: Json
+          monitor: Json
+          monitor_id: string
+          project: Json
+          user_id: string
+        }[]
+      }
       consume_evidence_extraction_quota: {
         Args: { target_user_id: string }
         Returns: {
@@ -2028,6 +2075,21 @@ export type Database = {
           reviewed_count: number
           total_count: number
           unreviewed_count: number
+        }[]
+      }
+      finalize_radar_schedule_claim: {
+        Args: {
+          p_claim_token: string
+          p_error?: string
+          p_monitor_id: string
+          p_retry_after_seconds?: number
+          p_scheduler_token: string
+          p_succeeded: boolean
+        }
+        Returns: {
+          last_schedule_error: string
+          next_scheduled_run_at: string
+          schedule_failure_count: number
         }[]
       }
       import_evidence_csv: {
@@ -2097,6 +2159,27 @@ export type Database = {
           scope_topic: string | null
           source_counts: Json
           unique_authors: number
+        }[]
+      }
+      radar_retention_preview: {
+        Args: {
+          p_monitor_id: string
+          p_retention_days: number
+        }
+        Returns: {
+          candidate_mentions: number
+          cutoff_at: string
+          eligible_mentions: number
+          oldest_candidate_at: string | null
+          protected_mentions: number
+        }[]
+      }
+      radar_scheduler_status: {
+        Args: never
+        Returns: {
+          available: boolean
+          last_dispatch_at: string
+          last_dispatch_status: string
         }[]
       }
       radar_monitor_analysis: {
