@@ -513,3 +513,35 @@ test("Phase 5 signals are project-scoped, evidence-traceable, and do not expose 
   assert.match(indexes, /signal_snapshots_signal_project_idx[\s\S]*\(signal_id, project_id\)/);
   assert.match(relationshipRepository, /new Set<.*>\(\["signal"/);
 });
+
+test("Phase 5 corrections preserve history and promotion remains database gated", async () => {
+  const migration = await read("supabase/migrations/20260809135140_phase_5_signal_corrections_and_promotion.sql");
+  const hardening = await read("supabase/migrations/20260809141447_harden_signal_operation_rpc_boundary.sql");
+
+  assert.match(migration, /create table public\.signal_revisions/);
+  assert.match(migration, /create table public\.signal_lineage/);
+  assert.match(migration, /alter table public\.signal_revisions enable row level security/);
+  assert.match(migration, /alter table public\.signal_lineage enable row level security/);
+  assert.match(migration, /grant select on table public\.signal_revisions, public\.signal_lineage[\s\S]*to authenticated/);
+  assert.doesNotMatch(migration, /grant (insert|update|delete).*signal_(revisions|lineage)[\s\S]*to authenticated/i);
+  assert.match(migration, /private\.record_signal_revision_after_update/);
+  assert.match(migration, /security definer[\s\S]*set search_path = ''/);
+  assert.match(migration, /create or replace function public\.merge_signals/);
+  assert.match(migration, /create or replace function public\.split_signal/);
+  assert.match(migration, /create or replace function public\.promote_signal_to_trend/);
+  assert.match(migration, /assessment\.created_at < candidate\.analysis_changed_at/);
+  assert.match(migration, /assessment\.supporting_count <> actual_supporting_count/);
+  assert.match(migration, /actual_source_diversity < 3/);
+  assert.match(migration, /actual_contradicting_count > actual_supporting_count \/ 2/);
+  assert.match(migration, /not coalesce\(\(+select auth\.jwt\(\)\)/);
+  assert.match(migration, /private\.accessible_project_ids\(\)/);
+  assert.match(migration, /revoke all on function public\.merge_signals/);
+  assert.match(migration, /grant execute on function public\.promote_signal_to_trend\(uuid\)[\s\S]*to authenticated, service_role/);
+  assert.match(hardening, /alter function public\.merge_signals\(uuid, uuid\[\]\) set schema private/);
+  assert.match(hardening, /rename to promote_signal_to_trend_internal/);
+  assert.match(hardening, /create or replace function public\.merge_signals[\s\S]*security invoker/);
+  assert.match(hardening, /create or replace function public\.split_signal[\s\S]*security invoker/);
+  assert.match(hardening, /create or replace function public\.promote_signal_to_trend[\s\S]*security invoker/);
+  assert.match(hardening, /set search_path = ''/);
+  assert.doesNotMatch(hardening, /create or replace function public\.[\s\S]*security definer/);
+});

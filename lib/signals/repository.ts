@@ -2,6 +2,7 @@ import { createBrowserSupabaseClient } from "../supabase/client.ts";
 import type { Json } from "../supabase/database.types.ts";
 import { searchEvidencePage } from "../evidence/search.ts";
 import type { EvidenceReference } from "../evidence/reference.ts";
+import { evidenceTopicSlug, normalizeEvidenceTopics } from "../evidence/topics.ts";
 import { buildSignalAssessmentDraft } from "./assessment.ts";
 import { signalFromRow, type SignalEvidenceCountRow, type SignalRow, type SignalSnapshotRow } from "./model.ts";
 import type {
@@ -12,8 +13,13 @@ import type {
   SignalEvidenceRelationship,
   SignalEvidenceSource,
   SignalRecord,
+  SignalLineageRecord,
+  SignalRevisionRecord,
   SignalSnapshotRecord,
   SignalStatus,
+  SignalTopicOption,
+  SplitSignalInput,
+  UpdateSignalInput,
 } from "./types.ts";
 
 function requireClient() {
@@ -22,7 +28,7 @@ function requireClient() {
   return client;
 }
 
-const signalSelect = "id,project_id,topic_id,title,observation,kind,status,movement,origin,scope_note,strategist_notes,created_at,updated_at";
+const signalSelect = "id,project_id,topic_id,title,observation,kind,status,movement,origin,scope_note,strategist_notes,analysis_changed_at,superseded_by_signal_id,promoted_trend_id,created_at,updated_at";
 const signalEvidenceSelect = "id,signal_id,project_id,evidence_type,evidence_id,relationship,weight,rationale,created_at";
 const signalSnapshotSelect = "id,signal_id,movement,evidence_sufficiency,strength_score,analysis_version,method,supporting_count,contradicting_count,source_diversity,author_diversity,growth_rate,recency_days,factor_breakdown,limitations,research_gaps,created_at";
 
@@ -172,6 +178,122 @@ export async function updateCloudSignalStatus(signalId: string, status: SignalSt
   const { data, error } = await client.from("signals").update({ status }).eq("id", signalId).select(signalSelect).single();
   if (error || !data) throw new Error(`Signal status could not be changed: ${error?.message ?? "No record was returned."}`);
   return signalFromRow(data as SignalRow);
+}
+
+export async function updateCloudSignal(
+  signalId: string,
+  projectId: string,
+  input: UpdateSignalInput,
+): Promise<SignalRecord> {
+  const client = requireClient();
+  const { data, error } = await client.from("signals").update({
+    title: input.title.trim(),
+    observation: input.observation.trim(),
+    kind: input.kind,
+    scope_note: input.scopeNote.trim(),
+    strategist_notes: input.strategistNotes.trim() || null,
+    topic_id: input.topicId,
+  }).eq("id", signalId).eq("project_id", projectId).select(signalSelect).single();
+  if (error || !data) throw new Error(`Signal could not be updated: ${error?.message ?? "No record was returned."}`);
+  return signalFromRow(data as SignalRow);
+}
+
+export async function listSignalTopics(projectId: string): Promise<SignalTopicOption[]> {
+  const client = requireClient();
+  const { data, error } = await client.from("topics").select("id,name").eq("project_id", projectId).order("name");
+  if (error) throw new Error(`Signal topics could not be loaded: ${error.message}`);
+  return (data ?? []).map((row) => ({ id: row.id, name: row.name }));
+}
+
+export async function ensureSignalTopic(projectId: string, rawName: string): Promise<SignalTopicOption> {
+  const client = requireClient();
+  const name = normalizeEvidenceTopics([rawName])[0];
+  const slug = name ? evidenceTopicSlug(name) : "";
+  if (!name || !slug) throw new Error("Enter a topic name.");
+  const existing = await client.from("topics").select("id,name").eq("project_id", projectId).eq("slug", slug).maybeSingle();
+  if (existing.error) throw new Error(`Topic could not be checked: ${existing.error.message}`);
+  if (existing.data) return existing.data;
+  const created = await client.from("topics").insert({ project_id: projectId, name, slug }).select("id,name").single();
+  if (created.error || !created.data) {
+    if (created.error?.code === "23505") {
+      const raced = await client.from("topics").select("id,name").eq("project_id", projectId).eq("slug", slug).single();
+      if (!raced.error && raced.data) return raced.data;
+    }
+    throw new Error(`Topic could not be created: ${created.error?.message ?? "No record was returned."}`);
+  }
+  return created.data;
+}
+
+function objectState(value: Json): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+export async function listSignalRevisions(signalId: string, projectId: string): Promise<SignalRevisionRecord[]> {
+  const client = requireClient();
+  const { data, error } = await client.from("signal_revisions")
+    .select("id,change_kind,changed_fields,before_state,after_state,created_at")
+    .eq("signal_id", signalId).eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`Signal history could not be loaded: ${error.message}`);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    changeKind: row.change_kind as SignalRevisionRecord["changeKind"],
+    changedFields: row.changed_fields,
+    beforeState: objectState(row.before_state),
+    afterState: objectState(row.after_state),
+    createdAt: row.created_at,
+  }));
+}
+
+export async function listSignalLineage(signalId: string, projectId: string): Promise<SignalLineageRecord[]> {
+  const client = requireClient();
+  const { data, error } = await client.from("signal_lineage")
+    .select("id,relationship,source_signal_id,target_signal_id,created_at")
+    .eq("project_id", projectId)
+    .or(`source_signal_id.eq.${signalId},target_signal_id.eq.${signalId}`)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`Signal lineage could not be loaded: ${error.message}`);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    relationship: row.relationship as SignalLineageRecord["relationship"],
+    sourceSignalId: row.source_signal_id,
+    targetSignalId: row.target_signal_id,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function mergeCloudSignals(targetSignalId: string, sourceSignalIds: string[]): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.rpc("merge_signals", {
+    p_target_signal_id: targetSignalId,
+    p_source_signal_ids: sourceSignalIds,
+  });
+  if (error) throw new Error(`Signals could not be merged: ${error.message}`);
+}
+
+export async function splitCloudSignal(input: SplitSignalInput): Promise<string> {
+  const client = requireClient();
+  const { data, error } = await client.rpc("split_signal", {
+    p_source_signal_id: input.sourceSignalId,
+    p_evidence_link_ids: input.evidenceLinkIds,
+    p_title: input.title.trim(),
+    p_observation: input.observation.trim(),
+    p_kind: input.kind,
+    p_scope_note: input.scopeNote.trim(),
+    p_strategist_notes: input.strategistNotes.trim() || null,
+    p_move_evidence: input.moveEvidence,
+  });
+  if (error || !data) throw new Error(`Signal could not be split: ${error?.message ?? "No record was returned."}`);
+  return data;
+}
+
+export async function promoteCloudSignal(signalId: string): Promise<string> {
+  const client = requireClient();
+  const { data, error } = await client.rpc("promote_signal_to_trend", { p_signal_id: signalId });
+  if (error || !data) throw new Error(`Signal could not be promoted: ${error?.message ?? "No trend was returned."}`);
+  return data;
 }
 
 export async function searchSignalEvidenceCandidates(projectId: string, search = ""): Promise<EvidenceReference[]> {

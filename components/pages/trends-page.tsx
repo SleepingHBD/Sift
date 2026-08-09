@@ -128,7 +128,7 @@ export function TrendsPage() {
         </>
       )}
       <SignalDialog key={`${dialogOpen}-${activeCloudProjectId}`} open={dialogOpen} projects={projects} initialProjectId={activeCloudProjectId} onClose={() => setDialogOpen(false)} onCreate={createSignal} />
-      <SignalDetailDrawer key={selectedSignal?.id ?? "closed-signal"} signal={selectedSignal} projectName={selectedSignal ? projectNames.get(selectedSignal.projectId) ?? "Project" : "Project"} onClose={() => setSelectedSignalId("")} onUpdated={loadSignals} />
+      <SignalDetailDrawer key={selectedSignal?.id ?? "closed-signal"} signal={selectedSignal} projectName={selectedSignal ? projectNames.get(selectedSignal.projectId) ?? "Project" : "Project"} projectSignals={selectedSignal ? signals.filter((signal) => signal.projectId === selectedSignal.projectId) : []} onClose={() => setSelectedSignalId("")} onUpdated={loadSignals} />
     </div>
   );
 }

@@ -13,6 +13,9 @@ export interface SignalRow {
   origin: SignalRecord["origin"];
   scope_note: string;
   strategist_notes: string | null;
+  analysis_changed_at: string;
+  superseded_by_signal_id: string | null;
+  promoted_trend_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +58,9 @@ export function signalFromRow(
     origin: row.origin,
     scopeNote: row.scope_note,
     strategistNotes: row.strategist_notes ?? "",
+    analysisChangedAt: row.analysis_changed_at,
+    supersededBySignalId: row.superseded_by_signal_id,
+    promotedTrendId: row.promoted_trend_id,
     evidenceCounts,
     latestSnapshot: latestSnapshot ? {
       id: latestSnapshot.id,

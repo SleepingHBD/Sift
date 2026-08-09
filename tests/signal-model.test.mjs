@@ -14,6 +14,9 @@ const row = {
   origin: "strategist",
   scope_note: "Observed only in this project's evidence.",
   strategist_notes: null,
+  analysis_changed_at: "2026-08-09T10:00:00.000Z",
+  superseded_by_signal_id: null,
+  promoted_trend_id: null,
   created_at: "2026-08-09T10:00:00.000Z",
   updated_at: "2026-08-09T10:00:00.000Z",
 };
@@ -29,6 +32,8 @@ test("signal mapping counts supporting and contradictory evidence separately", (
   assert.deepEqual(signal.evidenceCounts, { support: 2, contradict: 1, context: 1 });
   assert.equal(signal.scopeNote, "Observed only in this project's evidence.");
   assert.equal(signal.latestSnapshot, null);
+  assert.equal(signal.analysisChangedAt, row.analysis_changed_at);
+  assert.equal(signal.promotedTrendId, null);
 });
 
 test("signal mapping exposes the latest assessment version without reinterpreting it", () => {

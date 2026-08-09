@@ -21,19 +21,20 @@ interface SignalAssessmentPanelProps {
   snapshots: SignalSnapshotRecord[];
   evidenceCount: number;
   pending: boolean;
+  readOnly?: boolean;
   onCreate: () => void;
 }
 
-export function SignalAssessmentPanel({ snapshots, evidenceCount, pending, onCreate }: SignalAssessmentPanelProps) {
+export function SignalAssessmentPanel({ snapshots, evidenceCount, pending, readOnly = false, onCreate }: SignalAssessmentPanelProps) {
   const latest = snapshots[0];
   return (
     <section className="signal-detail__section signal-assessment" aria-labelledby="signal-assessment-heading">
       <div className="signal-detail__section-heading">
         <div><p className="drawer-section-label" id="signal-assessment-heading">Directional assessment</p><span>Transparent, versioned, and based only on linked project evidence.</span></div>
-        <Button size="sm" variant="dark" disabled={pending || evidenceCount === 0} onClick={onCreate}>
+        {!readOnly ? <Button size="sm" variant="dark" disabled={pending || evidenceCount === 0} onClick={onCreate}>
           {pending ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
           {latest ? "Reassess" : "Create assessment"}
-        </Button>
+        </Button> : <Badge>Assessment locked</Badge>}
       </div>
       {!evidenceCount ? <div className="signal-assessment__empty"><AlertTriangle size={17} /><span>Link at least one source before assessing this signal.</span></div> : null}
       {latest ? <>

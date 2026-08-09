@@ -1769,6 +1769,112 @@ export type Database = {
           },
         ]
       }
+      signal_lineage: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          metadata: Json
+          project_id: string
+          relationship: string
+          source_signal_id: string
+          target_signal_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          metadata?: Json
+          project_id: string
+          relationship: string
+          source_signal_id: string
+          target_signal_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          metadata?: Json
+          project_id?: string
+          relationship?: string
+          source_signal_id?: string
+          target_signal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_lineage_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_lineage_source_signal_project_fkey"
+            columns: ["source_signal_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "signals"
+            referencedColumns: ["id", "project_id"]
+          },
+          {
+            foreignKeyName: "signal_lineage_target_signal_project_fkey"
+            columns: ["target_signal_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "signals"
+            referencedColumns: ["id", "project_id"]
+          },
+        ]
+      }
+      signal_revisions: {
+        Row: {
+          after_state: Json
+          before_state: Json
+          change_kind: string
+          changed_by: string | null
+          changed_fields: string[]
+          created_at: string
+          id: string
+          project_id: string
+          signal_id: string
+        }
+        Insert: {
+          after_state: Json
+          before_state: Json
+          change_kind: string
+          changed_by?: string | null
+          changed_fields: string[]
+          created_at?: string
+          id?: string
+          project_id: string
+          signal_id: string
+        }
+        Update: {
+          after_state?: Json
+          before_state?: Json
+          change_kind?: string
+          changed_by?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          id?: string
+          project_id?: string
+          signal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_revisions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_revisions_signal_id_project_id_fkey"
+            columns: ["signal_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "signals"
+            referencedColumns: ["id", "project_id"]
+          },
+        ]
+      }
       signal_snapshots: {
         Row: {
           analysis_version: string
@@ -1858,6 +1964,7 @@ export type Database = {
       }
       signals: {
         Row: {
+          analysis_changed_at: string
           created_at: string
           created_by: string
           id: string
@@ -1865,15 +1972,18 @@ export type Database = {
           movement: string
           observation: string
           origin: string
+          promoted_trend_id: string | null
           project_id: string
           scope_note: string
           status: string
           strategist_notes: string | null
+          superseded_by_signal_id: string | null
           title: string
           topic_id: string | null
           updated_at: string
         }
         Insert: {
+          analysis_changed_at?: string
           created_at?: string
           created_by?: string
           id?: string
@@ -1881,15 +1991,18 @@ export type Database = {
           movement?: string
           observation: string
           origin?: string
+          promoted_trend_id?: string | null
           project_id: string
           scope_note?: string
           status?: string
           strategist_notes?: string | null
+          superseded_by_signal_id?: string | null
           title: string
           topic_id?: string | null
           updated_at?: string
         }
         Update: {
+          analysis_changed_at?: string
           created_at?: string
           created_by?: string
           id?: string
@@ -1897,21 +2010,37 @@ export type Database = {
           movement?: string
           observation?: string
           origin?: string
+          promoted_trend_id?: string | null
           project_id?: string
           scope_note?: string
           status?: string
           strategist_notes?: string | null
+          superseded_by_signal_id?: string | null
           title?: string
           topic_id?: string | null
           updated_at?: string
         }
         Relationships: [
           {
+            foreignKeyName: "signals_promoted_trend_project_fkey"
+            columns: ["promoted_trend_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "trends"
+            referencedColumns: ["id", "project_id"]
+          },
+          {
             foreignKeyName: "signals_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signals_superseded_by_signal_project_fkey"
+            columns: ["superseded_by_signal_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "signals"
+            referencedColumns: ["id", "project_id"]
           },
           {
             foreignKeyName: "signals_topic_id_fkey"
@@ -2413,6 +2542,14 @@ export type Database = {
         }
         Returns: Json
       }
+      merge_signals: {
+        Args: { p_source_signal_ids: string[]; p_target_signal_id: string }
+        Returns: string
+      }
+      promote_signal_to_trend: {
+        Args: { p_signal_id: string }
+        Returns: string
+      }
       list_evidence_relationships: {
         Args: {
           p_item_id: string
@@ -2555,6 +2692,19 @@ export type Database = {
           cursor_value: Json
           evidence: Json
         }[]
+      }
+      split_signal: {
+        Args: {
+          p_evidence_link_ids: string[]
+          p_kind: string
+          p_move_evidence?: boolean
+          p_observation: string
+          p_scope_note: string
+          p_source_signal_id: string
+          p_strategist_notes?: string | null
+          p_title: string
+        }
+        Returns: string
       }
       update_evidence_note: {
         Args: {

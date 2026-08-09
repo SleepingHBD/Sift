@@ -12,17 +12,22 @@ Phase 5 introduces a deliberate layer between collected evidence and promoted tr
 6. Search the signal's own project evidence and classify each original source as **Supports**, **Contradicts**, or **Adds context**. An optional rationale records exactly what the source contributes.
 7. Open any linked source URL, change its role, edit its rationale, or remove only the relationship without deleting the original evidence.
 8. Create a versioned directional assessment. Sift exposes its factor values, missing inputs, limitations, research gaps, and earlier snapshots.
+9. Use **Correct** to revise the working claim, analytical type, topic, scope, or notes. Sift keeps an immutable before/after revision instead of silently replacing the history.
+10. Use **Merge** to consolidate related working signals without deleting the source signals, or **Split** to move or copy selected evidence into a narrower child signal. Both operations retain visible lineage.
+11. Use **Promotion review** only when a watched, observed claim has a current sufficient assessment, at least six supporting sources, three source origins, four authors, and non-dominant contradiction. Promotion remains an explicit strategist decision.
 
-The current increment deliberately does not auto-generate candidates, infer evidence relationships, invent unavailable growth, or promote a trend. The strategist chooses the evidence and its role. Every assessment remains a directional prioritisation aid rather than a finding.
+The workflow deliberately does not auto-generate candidates, infer evidence relationships, invent unavailable growth, or auto-promote a trend. The strategist chooses the evidence and its role. Every assessment remains a directional prioritisation aid rather than a finding.
 
 ## Data model
 
-- `signals` stores the working claim, project, kind, status, movement, origin, scope qualifier, and strategist notes.
+- `signals` stores the working claim, project, kind, status, movement, origin, scope qualifier, strategist notes, latest analytical-change time, supersession link, and optional promoted Trend link.
 - `signal_evidence` links a signal to an original Radar mention, Research item, or Inspiration item as `support`, `contradict`, or `context`.
 - `signal_snapshots` appends versioned assessments. Authenticated clients have no update or delete grant on this table.
-- Existing `topics`, `mention_topics`, `trends`, and `trend_mentions` remain unchanged. A signal does not become a trend merely because it was created.
+- `signal_revisions` preserves immutable before/after states for corrections and controlled state changes.
+- `signal_lineage` preserves the source and target of every merge or split.
+- Existing `topics`, `mention_topics`, `trends`, and `trend_mentions` remain the observed-topic and promoted-trend layer. A signal does not become a trend merely because it was created.
 
-All three new tables have Row Level Security, require a permanent authenticated account, and are restricted to accessible projects. Composite foreign keys and write-time checks prevent cross-project signal, topic, and evidence links. Anonymous users have no grants.
+All Signal tables have Row Level Security, require a permanent authenticated account, and are restricted to accessible projects. Composite foreign keys and write-time checks prevent cross-project signal, topic, trend, and evidence links. Anonymous users have no grants. Revision and lineage records are read-only to the browser and can be written only by the controlled database operations.
 
 Signal-linked Radar mentions are protected from scheduled retention. Signal citations also appear as blocking relationships in guarded evidence deletion, so a strategist must deliberately remove the citation before removing the source.
 
@@ -45,12 +50,9 @@ It always returns evidence sufficiency, transparent factor values, limitations, 
 - A signal can show support, contradiction, and contextual material together. Contradiction is not hidden and reduces the deterministic assessment.
 - Assessment snapshots are append-only. Reassessment creates history instead of rewriting an earlier result.
 - Growth remains unavailable until a defensible comparison-window input exists.
+- Evidence on promoted or superseded signals is locked. The original analytical basis therefore remains inspectable after consolidation or promotion.
+- Promotion recounts the linked evidence inside the database and rejects a stale or fabricated assessment count.
 
-## Next increment
+## Next checkpoint
 
-Add strategist-controlled topic and signal correction before promotion:
-
-- rename and annotate signals without losing their history;
-- merge or split related working signals while preserving source provenance;
-- add explicit evidence-sufficiency gates before a signal may become an observed trend;
-- keep promotion a deliberate strategist action with visible unmet requirements.
+Run the Phase 5 acceptance checkpoint across correction history, topic changes, merge/split provenance, locked promoted evidence, contradiction behaviour, cross-project isolation, and responsive interaction. After that checkpoint passes, Phase 6 can add evidence-grounded Strategy AI without bypassing these source and promotion boundaries.

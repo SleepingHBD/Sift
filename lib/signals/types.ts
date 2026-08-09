@@ -86,10 +86,35 @@ export interface SignalRecord {
   origin: SignalOrigin;
   scopeNote: string;
   strategistNotes: string;
+  analysisChangedAt: string;
+  supersededBySignalId: string | null;
+  promotedTrendId: string | null;
   evidenceCounts: SignalEvidenceCounts;
   latestSnapshot: SignalSnapshotSummary | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SignalTopicOption {
+  id: string;
+  name: string;
+}
+
+export interface SignalRevisionRecord {
+  id: string;
+  changeKind: "correction" | "status" | "topic" | "merge" | "promotion";
+  changedFields: string[];
+  beforeState: Record<string, unknown>;
+  afterState: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface SignalLineageRecord {
+  id: string;
+  relationship: "merge" | "split";
+  sourceSignalId: string;
+  targetSignalId: string;
+  createdAt: string;
 }
 
 export interface CreateSignalInput {
@@ -99,4 +124,24 @@ export interface CreateSignalInput {
   kind: Extract<SignalKind, "signal" | "hypothesis">;
   scopeNote: string;
   strategistNotes?: string;
+}
+
+export interface UpdateSignalInput {
+  title: string;
+  observation: string;
+  kind: Extract<SignalKind, "signal" | "emerging_pattern" | "hypothesis">;
+  scopeNote: string;
+  strategistNotes: string;
+  topicId: string | null;
+}
+
+export interface SplitSignalInput {
+  sourceSignalId: string;
+  evidenceLinkIds: string[];
+  title: string;
+  observation: string;
+  kind: Extract<SignalKind, "signal" | "emerging_pattern" | "hypothesis">;
+  scopeNote: string;
+  strategistNotes: string;
+  moveEvidence: boolean;
 }
