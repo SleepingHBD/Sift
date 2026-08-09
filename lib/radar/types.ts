@@ -41,6 +41,7 @@ export interface MonitoringQuery {
   builder: QueryBuilderState;
   status: "active" | "paused" | "draft";
   dataMode: "live" | "empty";
+  totalMentionCount?: number;
   createdAt: string;
   lastRunAt?: string;
 }
@@ -178,6 +179,33 @@ export interface RadarMetrics {
   negative: number;
   uniqueAuthors: number;
   activeSources: number;
+}
+
+export interface RadarObservedSource {
+  source: RadarSource;
+  label: string;
+  records: number;
+  engagement: number;
+  firstObservedAt?: string;
+  lastObservedAt?: string;
+}
+
+export interface RadarMonitorSummary {
+  monitorId: string;
+  scopeTopic?: string;
+  rangeStart: string;
+  rangeEnd: string;
+  previousMentions: number;
+  allTimeMentions: number;
+  metrics: RadarMetrics;
+  rangeFirstObservedAt?: string;
+  rangeLastObservedAt?: string;
+  firstObservedAt?: string;
+  lastObservedAt?: string;
+  sources: RadarObservedSource[];
+  lastRunAt?: string;
+  lastSuccessfulRunAt?: string;
+  latestRunStatus?: string;
 }
 
 export interface StrategistObservation {

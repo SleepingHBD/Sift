@@ -2065,6 +2065,40 @@ export type Database = {
           row_number: number
         }[]
       }
+      radar_monitor_summary: {
+        Args: {
+          p_end: string
+          p_monitor_id: string
+          p_previous_end: string
+          p_previous_start: string
+          p_start: string
+          p_topic?: string
+        }
+        Returns: {
+          active_sources: number
+          all_time_mentions: number
+          current_mentions: number
+          estimated_engagement: number
+          first_observed_at: string | null
+          last_observed_at: string | null
+          last_run_at: string | null
+          last_successful_run_at: string | null
+          latest_run_status: string | null
+          mention_growth: number
+          monitor_id: string
+          negative_percent: number
+          neutral_percent: number
+          positive_percent: number
+          previous_mentions: number
+          range_end: string
+          range_first_observed_at: string | null
+          range_last_observed_at: string | null
+          range_start: string
+          scope_topic: string | null
+          source_counts: Json
+          unique_authors: number
+        }[]
+      }
       search_evidence_page: {
         Args: {
           p_cursor?: Json

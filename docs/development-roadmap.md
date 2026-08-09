@@ -311,7 +311,7 @@ Turn collection into an efficient review habit rather than an unstructured archi
 
 ## Phase 4 - Radar as transparent discovery
 
-Status: **In progress.** The monitor experience and connector-reliability foundation are complete. Radar now has project-safe editing, pause/resume controls, progressive monitor configuration, explicit source coverage, bounded retries/timeouts, run diagnostics, database-enforced overlap prevention, expiring run leases, stale-run recovery, and connector checkpoints. RSS and YouTube can omit records already observed under an unchanged monitor definition; manual URLs remain an honest full refresh. Scheduled jobs are still disabled until this locking and recovery behavior has passed real-use acceptance.
+Status: **In progress.** The monitor experience, connector-reliability foundation, and first server-analytics increment are complete. Radar now has project-safe editing, pause/resume controls, progressive monitor configuration, explicit collection scope, bounded retries/timeouts, run diagnostics, database-enforced overlap prevention, expiring run leases, stale-run recovery, connector checkpoints, precise metric labels, and a database-calculated coverage summary over the complete authorized monitor history. RSS and YouTube can omit records already observed under an unchanged monitor definition; manual URLs remain an honest full refresh. Detailed chart aggregation and conversation pagination remain the next analysis increment. Scheduled jobs are still disabled until this locking and recovery behavior has passed real-use acceptance.
 
 ### Goal
 
@@ -338,9 +338,9 @@ Make Radar genuinely useful within its observed coverage, without implying compr
 
 #### Radar analysis
 
-- Rename metrics to `Observed mentions`, `Growth in observed sources`, and similarly precise terms.
-- Add a coverage panel listing source, collection method, date range, and record count.
-- Drive metrics and filters from server queries rather than loading the full collection into memory.
+- Completed: rename headline metrics to precise observed-record, comparison-period, normalized-interaction, and detected-sentiment terms.
+- Completed: add separate collection-scope and analytics-coverage panels covering method, source representation, date span, record count, comparison count, stored history, and collection freshness.
+- In progress: headline metrics and detected-topic scope now use an RLS-invoker server query over complete history; chart aggregation and conversation filters still need server queries and paged retrieval.
 - Preserve clickable volume, sentiment, source, topic, keyword, mention, and spike exploration.
 - Route useful mentions into the evidence inbox and downstream relationships.
 

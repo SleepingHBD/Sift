@@ -68,7 +68,7 @@ export function MonitorCoveragePreview({
 function CoverageHeading({ runnableCount, attentionCount }: { runnableCount: number; attentionCount: number }) {
   return (
     <div className="monitor-coverage__heading">
-      <span>Source coverage</span>
+      <span>Collection scope</span>
       <strong>{runnableCount
         ? `${runnableCount} source${runnableCount === 1 ? "" : "s"} ready`
         : "No sources ready"}</strong>

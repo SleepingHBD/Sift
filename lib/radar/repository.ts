@@ -10,7 +10,8 @@ import {
   type MonitorRunRow,
   type RadarProjectRow,
 } from "@/lib/radar/model";
-import type { MonitorRun, MonitoringQuery, RadarMention, RadarSource } from "@/lib/radar/types";
+import { radarMonitorSummaryFromRow, type RadarMonitorSummaryRow } from "@/lib/radar/summary";
+import type { DateBounds, MonitorRun, MonitoringQuery, RadarMention, RadarMonitorSummary, RadarSource } from "@/lib/radar/types";
 import type { Project } from "@/lib/types";
 
 type SiftSupabaseClient = NonNullable<ReturnType<typeof createBrowserSupabaseClient>>;
@@ -156,6 +157,26 @@ export async function listCloudRadar(projects: Project[]): Promise<RadarCloudSna
     return monitor ? [monitorRunFromRow(row, monitor.id)] : [];
   });
   return { monitors, mentionsByMonitor, runs, truncated };
+}
+
+export async function getCloudRadarMonitorSummary(
+  monitorId: string,
+  bounds: DateBounds,
+  topic?: string,
+): Promise<RadarMonitorSummary> {
+  const client = requireClient();
+  const { data, error } = await client.rpc("radar_monitor_summary", {
+    p_monitor_id: monitorId,
+    p_start: bounds.start.toISOString(),
+    p_end: bounds.end.toISOString(),
+    p_previous_start: bounds.previousStart.toISOString(),
+    p_previous_end: bounds.previousEnd.toISOString(),
+    p_topic: topic?.trim() || undefined,
+  });
+  if (error) throw new Error(`Radar analytics could not be calculated: ${error.message}`);
+  const row = (data ?? [])[0] as unknown as RadarMonitorSummaryRow | undefined;
+  if (!row) throw new Error("Radar analytics did not return a coverage summary.");
+  return radarMonitorSummaryFromRow(row);
 }
 
 async function ensureRadarProject(client: SiftSupabaseClient, monitor: MonitoringQuery, project?: Project) {

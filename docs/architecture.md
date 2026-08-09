@@ -31,7 +31,7 @@ GitHub Pages cannot protect an OpenAI or connector secret. Radar calls an authen
 - Research and Inspiration hydrate from project-scoped Supabase repositories. Their stable client references and unique `(project_id, client_ref)` constraints make browser imports safe to retry.
 - New Research and Inspiration records derive `created_by` from `auth.uid()` and require an accessible destination project; the browser never supplies a user ID.
 - Brand/client context and competitors remain relational records; project cards use database-derived mention, research, and insight counts.
-- Radar monitors, connector-created mentions, topics, and monitor runs hydrate from authenticated Supabase repositories. Stable monitor and run references plus cursor indexes support retry-safe browser migration and bounded cloud reads. Monitor edits are constrained to the existing project boundary, while a reusable coverage model separately evaluates monitor scope, workspace connector configuration, backend availability, and genuine connector capability.
+- Radar monitors, connector-created mentions, topics, and monitor runs hydrate from authenticated Supabase repositories. Stable monitor and run references plus cursor indexes support retry-safe browser migration and bounded cloud reads. Monitor edits are constrained to the existing project boundary, while a reusable collection-scope model separately evaluates monitor configuration, backend availability, and genuine connector capability. A permanent-account-only, security-invoker `radar_monitor_summary` RPC calculates headline metrics and observed coverage over the full RLS-authorized monitor history for the selected period and optional detected topic.
 - Saved markers, Radar notes, important marks, and evidence relationships hydrate through authenticated per-user repositories. Their old browser keys exist only as reviewed migration inputs.
 - The interface does not seed records or infer analytics when the workspace is empty.
 - Connector runs use the verified permanent Supabase user and write through `owner_id`, project membership checks, and Row Level Security.
@@ -109,7 +109,7 @@ fetch → normalize → deduplicate → language → sentiment/topics/entities
       → retrieve evidence → structured AI claims + citations
 ```
 
-Radar processors handle sentiment, keyword extraction, topic assignment, engagement normalization, comparison-period growth, and spike detection outside React. Likely spike drivers appear only when a topic crosses a support threshold and at least two mentions can be cited; otherwise the interface reports that no clear driver was identified.
+Radar processors handle sentiment, keyword extraction, topic assignment, engagement normalization, comparison-period growth, and spike detection outside React. Headline counts, sentiment proportions, source diversity, author diversity, interaction totals, date span, and comparison-period growth are now calculated in PostgreSQL so the browser's bounded evidence hydration cannot silently limit them. Detailed charts, spikes, topics, and strategist observations still operate on the hydrated evidence window until their server-paged aggregate queries are implemented. Likely spike drivers appear only when a topic crosses a support threshold and at least two mentions can be cited; otherwise the interface reports that no clear driver was identified.
 
 ## Search and security
 

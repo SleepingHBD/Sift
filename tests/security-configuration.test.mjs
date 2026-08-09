@@ -319,3 +319,20 @@ test("Phase 4 Radar prevents overlapping runs and records recoverable execution 
   assert.match(handler, /advanceMonitorCursor/);
   assert.match(handler, /failCollectionRun/);
 });
+
+test("Phase 4 Radar summaries are RLS-invoker, permanent-account scoped, and coverage aware", async () => {
+  const migration = await read("supabase/migrations/20260809050928_phase_4_radar_monitor_summary.sql");
+
+  assert.match(migration, /mentions_query_observed_cursor_idx/);
+  assert.match(migration, /create or replace function public\.radar_monitor_summary/);
+  assert.match(migration, /security invoker/);
+  assert.match(migration, /private\.accessible_project_ids\(\)/);
+  assert.match(migration, /is_anonymous/);
+  assert.match(migration, /current_mentions bigint/);
+  assert.match(migration, /previous_mentions bigint/);
+  assert.match(migration, /source_counts jsonb/);
+  assert.match(migration, /coalesce\(published_at, created_at\)/);
+  assert.match(migration, /revoke all[\s\S]*from public, anon/);
+  assert.match(migration, /grant execute[\s\S]*to authenticated/);
+  assert.doesNotMatch(migration, /security definer/i);
+});

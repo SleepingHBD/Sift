@@ -131,6 +131,7 @@ export function monitoringQueryFromRow(
     builder: builder.includeAll.length || builder.includeAny.length || builder.exclude.length ? builder : emptyBuilder,
     status: row.enabled ? "active" : "paused",
     dataMode: mentionCount > 0 ? "live" : "empty",
+    totalMentionCount: mentionCount,
     createdAt: row.created_at,
     lastRunAt: row.last_run_at ?? undefined,
   };

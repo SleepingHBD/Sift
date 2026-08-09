@@ -23,6 +23,7 @@ import { DeleteMonitorDialog } from "@/components/radar/delete-monitor-dialog";
 import { EvidenceDialog } from "@/components/radar/evidence-dialog";
 import { MentionDetailDrawer } from "@/components/radar/mention-detail-drawer";
 import { MentionFeed } from "@/components/radar/mention-feed";
+import { MonitorAnalyticsCoverage } from "@/components/radar/monitor-analytics-coverage";
 import { MonitorCoveragePreview } from "@/components/radar/monitor-coverage";
 import { MonitorDialog } from "@/components/radar/monitor-dialog";
 import { RadarImportNotice } from "@/components/radar/radar-import-notice";
@@ -33,6 +34,7 @@ import { SourceDrawer } from "@/components/radar/source-drawer";
 import { SpikeDrawer } from "@/components/radar/spike-drawer";
 import { StrategistPanel } from "@/components/radar/strategist-panel";
 import { TopicIntelligence } from "@/components/radar/topic-intelligence";
+import { useMonitorSummary } from "@/components/radar/use-monitor-summary";
 import { useRadarState } from "@/components/radar/use-radar-state";
 import { Badge, Button, Card, Metric, PageIntro, SectionHeader } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
@@ -91,6 +93,13 @@ export function RadarPage() {
   const analytics = useMemo(() => activeTopic
     ? buildRadarAnalytics(allMentions, dateRange, analyticsNow, customDates, activeTopic)
     : baseAnalytics, [activeTopic, allMentions, analyticsNow, baseAnalytics, customDates, dateRange]);
+  const { summary: monitorSummary, status: monitorSummaryStatus, error: monitorSummaryError } = useMonitorSummary({
+    monitorId: activeMonitor?.cloudId,
+    bounds: analytics.bounds,
+    topic: activeTopic || undefined,
+    refreshKey: `${activeMonitor?.lastRunAt ?? ""}:${allMentions.length}`,
+  });
+  const reportedMetrics = monitorSummary?.metrics ?? analytics.metrics;
   const selectedSpike = analytics.spikes.find((spike) => spike.id === selectedSpikeId) ?? null;
   const relatedMentions = selectedMention
     ? allMentions.filter((mention) => mention.id !== selectedMention.id && mention.topics.some((topic) => selectedMention.topics.includes(topic))).sort((a, b) => b.engagement - a.engagement).slice(0, 4)
@@ -115,7 +124,7 @@ export function RadarPage() {
   const views: { id: RadarView; label: string; icon: typeof LayoutDashboard; count?: number }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "topics", label: "Topics", icon: Shapes, count: baseAnalytics.topics.length },
-    { id: "mentions", label: "Mentions", icon: MessageSquareText, count: baseAnalytics.currentMentions.length },
+    { id: "mentions", label: "Mentions", icon: MessageSquareText, count: monitorSummary?.metrics.totalMentions ?? analytics.currentMentions.length },
     { id: "evidence", label: "Evidence", icon: Bookmark, count: evidenceCount },
   ];
 
@@ -364,7 +373,7 @@ export function RadarPage() {
         </div>
         <div className="monitor-command-bar__query"><span>Listening for</span><code>{activeMonitor.query}</code></div>
         <div className="monitor-command-bar__context">
-          <Badge>{allMentions.length ? `${allMentions.length} mentions` : activeMonitor.lastRunAt ? "0 results" : "No data"}</Badge>
+          <Badge>{(activeMonitor.totalMentionCount ?? allMentions.length) ? `${formatNumber(activeMonitor.totalMentionCount ?? allMentions.length)} stored records` : activeMonitor.lastRunAt ? "0 results" : "No data"}</Badge>
           <span>{activeMonitor.market || "Any market"}</span>
           <span>{activeMonitor.language || "Any language"}</span>
         </div>
@@ -402,27 +411,30 @@ export function RadarPage() {
           </nav>
 
           {activeView !== "evidence" ? (
-            <div className="radar-date-toolbar radar-date-toolbar--quiet">
-              <div className="segmented" role="group" aria-label="Date range">{rangeLabels.map((range) => <button key={range.id} className={dateRange === range.id ? "active" : ""} onClick={() => setDateRange(range.id)}>{range.label}</button>)}</div>
-              {dateRange === "custom" ? <div className="custom-date-fields"><CalendarDays size={14} /><input type="date" value={customDates.start} max={customDates.end} onChange={(event) => setCustomDates((current) => ({ ...current, start: event.target.value }))} /><span>to</span><input type="date" value={customDates.end} min={customDates.start} max={todayDateInput()} onChange={(event) => setCustomDates((current) => ({ ...current, end: event.target.value }))} /></div> : null}
-              <div className="radar-date-toolbar__scope"><span>{activeTopic ? `Scoped to ${activeTopic}` : "All conversation"}</span>{activeTopic ? <button onClick={() => setActiveTopic("")}>Clear</button> : null}</div>
-            </div>
+            <>
+              <div className="radar-date-toolbar radar-date-toolbar--quiet">
+                <div className="segmented" role="group" aria-label="Date range">{rangeLabels.map((range) => <button key={range.id} className={dateRange === range.id ? "active" : ""} onClick={() => setDateRange(range.id)}>{range.label}</button>)}</div>
+                {dateRange === "custom" ? <div className="custom-date-fields"><CalendarDays size={14} /><input type="date" value={customDates.start} max={customDates.end} onChange={(event) => setCustomDates((current) => ({ ...current, start: event.target.value }))} /><span>to</span><input type="date" value={customDates.end} min={customDates.start} max={todayDateInput()} onChange={(event) => setCustomDates((current) => ({ ...current, end: event.target.value }))} /></div> : null}
+                <div className="radar-date-toolbar__scope"><span>{activeTopic ? `Detected topic: ${activeTopic}` : "All connector-observed records"}</span>{activeTopic ? <button onClick={() => setActiveTopic("")}>Clear</button> : null}</div>
+              </div>
+              <MonitorAnalyticsCoverage summary={monitorSummary} status={monitorSummaryStatus} error={monitorSummaryError} fallbackRecords={analytics.metrics.totalMentions} fallbackSources={analytics.metrics.activeSources} historyTruncated={historyTruncated} />
+            </>
           ) : null}
 
           {activeView === "overview" ? (
             <div className="radar-view radar-view--overview">
               <div className="radar-primary-metrics">
-                <Metric label="Mentions in selected period" value={formatNumber(analytics.metrics.totalMentions)} delta={`${analytics.metrics.mentionGrowth >= 0 ? "+" : ""}${analytics.metrics.mentionGrowth}% vs prior period`} tone={analytics.metrics.mentionGrowth >= 0 ? "positive" : "negative"} />
-                <Metric label="Mention growth" value={`${analytics.metrics.mentionGrowth >= 0 ? "+" : ""}${analytics.metrics.mentionGrowth}%`} delta="Directional change" tone={analytics.metrics.mentionGrowth >= 0 ? "positive" : "negative"} />
-                <Metric label="Estimated engagement" value={formatNumber(analytics.metrics.engagement)} delta="Normalized across sources" />
-                <Metric label="Conversation sentiment" value={`${analytics.metrics.positive}% positive`} delta={`${analytics.metrics.negative}% negative`} tone={analytics.metrics.positive >= analytics.metrics.negative ? "positive" : "negative"} />
+                <Metric label="Observed records" value={formatNumber(reportedMetrics.totalMentions)} delta="Collected in the selected period" />
+                <Metric label="Period-over-period change" value={`${reportedMetrics.mentionGrowth >= 0 ? "+" : ""}${reportedMetrics.mentionGrowth}%`} delta={`${formatNumber(monitorSummary?.previousMentions ?? analytics.previousMentions.length)} records in the comparison period`} tone={reportedMetrics.mentionGrowth >= 0 ? "positive" : "negative"} />
+                <Metric label="Estimated interaction score" value={formatNumber(reportedMetrics.engagement)} delta="Likes, comments, shares and views normalized" />
+                <Metric label="Detected sentiment" value={`${reportedMetrics.positive}% positive`} delta={`${reportedMetrics.negative}% negative · automated classification`} tone={reportedMetrics.positive >= reportedMetrics.negative ? "positive" : "negative"} />
               </div>
 
               <dl className="radar-secondary-metrics">
-                <div><dt>Neutral</dt><dd>{analytics.metrics.neutral}%</dd></div>
-                <div><dt>Negative</dt><dd>{analytics.metrics.negative}%</dd></div>
-                <div><dt>Unique authors</dt><dd>{formatNumber(analytics.metrics.uniqueAuthors)}</dd></div>
-                <div><dt>Active sources</dt><dd>{analytics.metrics.activeSources}</dd></div>
+                <div><dt>Neutral classification</dt><dd>{reportedMetrics.neutral}%</dd></div>
+                <div><dt>Negative classification</dt><dd>{reportedMetrics.negative}%</dd></div>
+                <div><dt>Distinct named authors</dt><dd>{formatNumber(reportedMetrics.uniqueAuthors)}</dd></div>
+                <div><dt>Sources represented</dt><dd>{reportedMetrics.activeSources}</dd></div>
               </dl>
 
               <div className="radar-primary-grid radar-primary-grid--focus">
