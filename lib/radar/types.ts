@@ -208,6 +208,14 @@ export interface RadarMonitorSummary {
   latestRunStatus?: string;
 }
 
+export interface RadarMonitorAnalysis {
+  volume: VolumePoint[];
+  sentiment: SentimentPoint[];
+  topics: TopicIntelligence[];
+  keywords: { keyword: string; count: number; growth: number }[];
+  spikes: SpikeInsight[];
+}
+
 export interface StrategistObservation {
   id: string;
   observation: string;

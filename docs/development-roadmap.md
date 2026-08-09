@@ -311,7 +311,7 @@ Turn collection into an efficient review habit rather than an unstructured archi
 
 ## Phase 4 - Radar as transparent discovery
 
-Status: **In progress.** The monitor experience, connector-reliability foundation, and first server-analytics increment are complete. Radar now has project-safe editing, pause/resume controls, progressive monitor configuration, explicit collection scope, bounded retries/timeouts, run diagnostics, database-enforced overlap prevention, expiring run leases, stale-run recovery, connector checkpoints, precise metric labels, and a database-calculated coverage summary over the complete authorized monitor history. RSS and YouTube can omit records already observed under an unchanged monitor definition; manual URLs remain an honest full refresh. Detailed chart aggregation and conversation pagination remain the next analysis increment. Scheduled jobs are still disabled until this locking and recovery behavior has passed real-use acceptance.
+Status: **In progress.** The monitor experience, connector-reliability foundation, and server-analytics increments are complete. Radar now has project-safe editing, pause/resume controls, progressive monitor configuration, explicit collection scope, bounded retries/timeouts, run diagnostics, database-enforced overlap prevention, expiring run leases, stale-run recovery, connector checkpoints, precise metric labels, and database-calculated coverage, timelines, sentiment, topics, keywords, and evidence-linked spikes over the complete authorized monitor history. RSS and YouTube can omit records already observed under an unchanged monitor definition; manual URLs remain an honest full refresh. Conversation pagination is the next analysis increment. Scheduled jobs are still disabled until this locking and recovery behavior has passed real-use acceptance.
 
 ### Goal
 
@@ -340,7 +340,8 @@ Make Radar genuinely useful within its observed coverage, without implying compr
 
 - Completed: rename headline metrics to precise observed-record, comparison-period, normalized-interaction, and detected-sentiment terms.
 - Completed: add separate collection-scope and analytics-coverage panels covering method, source representation, date span, record count, comparison count, stored history, and collection freshness.
-- In progress: headline metrics and detected-topic scope now use an RLS-invoker server query over complete history; chart aggregation and conversation filters still need server queries and paged retrieval.
+- Completed: headline metrics, detected-topic scope, timelines, sentiment, topic rankings, keyword rankings, and evidence-linked spike detection use RLS-invoker server queries over complete history.
+- Next: move the Radar mention feed and supporting-record retrieval to cursor-paged server queries so every aggregate can open evidence outside the newest browser hydration window.
 - Preserve clickable volume, sentiment, source, topic, keyword, mention, and spike exploration.
 - Route useful mentions into the evidence inbox and downstream relationships.
 
@@ -592,7 +593,7 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0, 1, 2, and 3 are complete. Phase 4 is in progress. Its first increment—editable monitor configuration and transparent source coverage—is complete. Connector reliability and run diagnostics are next. Phase 3 was delivered through these verified increments:
+Phases 0, 1, 2, and 3 are complete. Phase 4 is in progress. Monitor configuration, transparent source coverage, connector reliability, run diagnostics, run locking and recovery, and complete-history analytics are implemented. Cursor-paged Radar conversations and direct supporting-record retrieval are next. Phase 3 was delivered through these verified increments:
 
 1. Create a project evidence inbox over the shared evidence reference contract, with search, core filters, provenance, and a common detail drawer. **Completed.**
 2. Add persistent review states through an additive migration and explicit single-item review actions. **Completed.**

@@ -336,3 +336,19 @@ test("Phase 4 Radar summaries are RLS-invoker, permanent-account scoped, and cov
   assert.match(migration, /grant execute[\s\S]*to authenticated/);
   assert.doesNotMatch(migration, /security definer/i);
 });
+
+test("Phase 4 Radar analysis is RLS-invoker and returns evidence-linked aggregates", async () => {
+  const migration = await read("supabase/migrations/20260809053855_phase_4_radar_monitor_analysis.sql");
+
+  assert.match(migration, /create or replace function public\.radar_monitor_analysis/);
+  assert.match(migration, /security invoker/);
+  assert.match(migration, /private\.accessible_project_ids\(\)/);
+  assert.match(migration, /is_anonymous/);
+  assert.match(migration, /generate_series/);
+  assert.match(migration, /exampleMentions/);
+  assert.match(migration, /likelyDrivers/);
+  assert.match(migration, /topMentions/);
+  assert.match(migration, /revoke all[\s\S]*from public, anon/);
+  assert.match(migration, /grant execute[\s\S]*to authenticated/);
+  assert.doesNotMatch(migration, /security definer/i);
+});

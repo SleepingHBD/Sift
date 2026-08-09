@@ -2099,6 +2099,24 @@ export type Database = {
           unique_authors: number
         }[]
       }
+      radar_monitor_analysis: {
+        Args: {
+          p_bucket_seconds: number
+          p_end: string
+          p_monitor_id: string
+          p_previous_end: string
+          p_previous_start: string
+          p_start: string
+          p_topic?: string
+        }
+        Returns: {
+          keywords: Json
+          sentiment: Json
+          spikes: Json
+          topics: Json
+          volume: Json
+        }[]
+      }
       search_evidence_page: {
         Args: {
           p_cursor?: Json

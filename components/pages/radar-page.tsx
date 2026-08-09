@@ -34,13 +34,14 @@ import { SourceDrawer } from "@/components/radar/source-drawer";
 import { SpikeDrawer } from "@/components/radar/spike-drawer";
 import { StrategistPanel } from "@/components/radar/strategist-panel";
 import { TopicIntelligence } from "@/components/radar/topic-intelligence";
+import { useMonitorAnalysis } from "@/components/radar/use-monitor-analysis";
 import { useMonitorSummary } from "@/components/radar/use-monitor-summary";
 import { useRadarState } from "@/components/radar/use-radar-state";
 import { Badge, Button, Card, Metric, PageIntro, SectionHeader } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
 import { deleteRadarMonitor, enrichConnectorMentions, getRunnableSources, isRadarConnectorBackendConfigured, RadarRunConflictError, runRadarConnectors } from "@/lib/radar/connector-service";
 import { buildRadarAnalytics } from "@/lib/radar/processing";
-import type { DateRangeKey, EvidenceDestination, MonitorRun, MonitoringQuery, RadarMention } from "@/lib/radar/types";
+import type { DateRangeKey, EvidenceDestination, MonitorRun, MonitoringQuery, RadarMention, RadarMonitorSummary, SourceBreakdown } from "@/lib/radar/types";
 import { formatNumber } from "@/lib/utils";
 
 type RadarView = "overview" | "topics" | "mentions" | "evidence";
@@ -90,15 +91,40 @@ export function RadarPage() {
   const allMentions = useMemo(() => activeMonitor ? mentionsByMonitor[activeMonitor.id] ?? [] : [], [activeMonitor, mentionsByMonitor]);
   const analyticsNow = useMemo(() => new Date(), []);
   const baseAnalytics = useMemo(() => buildRadarAnalytics(allMentions, dateRange, analyticsNow, customDates), [allMentions, analyticsNow, customDates, dateRange]);
-  const analytics = useMemo(() => activeTopic
+  const clientAnalytics = useMemo(() => activeTopic
     ? buildRadarAnalytics(allMentions, dateRange, analyticsNow, customDates, activeTopic)
     : baseAnalytics, [activeTopic, allMentions, analyticsNow, baseAnalytics, customDates, dateRange]);
+  const analyticsRefreshKey = `${activeMonitor?.lastRunAt ?? ""}:${allMentions.length}`;
   const { summary: monitorSummary, status: monitorSummaryStatus, error: monitorSummaryError } = useMonitorSummary({
     monitorId: activeMonitor?.cloudId,
-    bounds: analytics.bounds,
+    bounds: clientAnalytics.bounds,
     topic: activeTopic || undefined,
-    refreshKey: `${activeMonitor?.lastRunAt ?? ""}:${allMentions.length}`,
+    refreshKey: analyticsRefreshKey,
   });
+  const { analysis: baseMonitorAnalysis, status: baseMonitorAnalysisStatus, error: baseMonitorAnalysisError } = useMonitorAnalysis({
+    monitorId: activeMonitor?.cloudId,
+    monitorClientId: activeMonitor?.id,
+    bounds: baseAnalytics.bounds,
+    range: dateRange,
+    refreshKey: analyticsRefreshKey,
+  });
+  const { analysis: scopedMonitorAnalysis, status: scopedMonitorAnalysisStatus, error: scopedMonitorAnalysisError } = useMonitorAnalysis({
+    monitorId: activeTopic ? activeMonitor?.cloudId : undefined,
+    monitorClientId: activeTopic ? activeMonitor?.id : undefined,
+    bounds: clientAnalytics.bounds,
+    range: dateRange,
+    topic: activeTopic || undefined,
+    refreshKey: analyticsRefreshKey,
+  });
+  const monitorAnalysis = activeTopic ? scopedMonitorAnalysis : baseMonitorAnalysis;
+  const monitorAnalysisStatus = activeTopic ? scopedMonitorAnalysisStatus : baseMonitorAnalysisStatus;
+  const monitorAnalysisError = activeTopic ? scopedMonitorAnalysisError : baseMonitorAnalysisError;
+  const analytics = useMemo(() => monitorAnalysis ? {
+    ...clientAnalytics,
+    ...monitorAnalysis,
+    sources: monitorSummary ? sourceBreakdownFromSummary(monitorSummary) : clientAnalytics.sources,
+  } : clientAnalytics, [clientAnalytics, monitorAnalysis, monitorSummary]);
+  const monitorTopics = baseMonitorAnalysis?.topics ?? baseAnalytics.topics;
   const reportedMetrics = monitorSummary?.metrics ?? analytics.metrics;
   const selectedSpike = analytics.spikes.find((spike) => spike.id === selectedSpikeId) ?? null;
   const relatedMentions = selectedMention
@@ -123,7 +149,7 @@ export function RadarPage() {
 
   const views: { id: RadarView; label: string; icon: typeof LayoutDashboard; count?: number }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
-    { id: "topics", label: "Topics", icon: Shapes, count: baseAnalytics.topics.length },
+    { id: "topics", label: "Topics", icon: Shapes, count: monitorTopics.length },
     { id: "mentions", label: "Mentions", icon: MessageSquareText, count: monitorSummary?.metrics.totalMentions ?? analytics.currentMentions.length },
     { id: "evidence", label: "Evidence", icon: Bookmark, count: evidenceCount },
   ];
@@ -417,7 +443,7 @@ export function RadarPage() {
                 {dateRange === "custom" ? <div className="custom-date-fields"><CalendarDays size={14} /><input type="date" value={customDates.start} max={customDates.end} onChange={(event) => setCustomDates((current) => ({ ...current, start: event.target.value }))} /><span>to</span><input type="date" value={customDates.end} min={customDates.start} max={todayDateInput()} onChange={(event) => setCustomDates((current) => ({ ...current, end: event.target.value }))} /></div> : null}
                 <div className="radar-date-toolbar__scope"><span>{activeTopic ? `Detected topic: ${activeTopic}` : "All connector-observed records"}</span>{activeTopic ? <button onClick={() => setActiveTopic("")}>Clear</button> : null}</div>
               </div>
-              <MonitorAnalyticsCoverage summary={monitorSummary} status={monitorSummaryStatus} error={monitorSummaryError} fallbackRecords={analytics.metrics.totalMentions} fallbackSources={analytics.metrics.activeSources} historyTruncated={historyTruncated} />
+              <MonitorAnalyticsCoverage summary={monitorSummary} status={monitorSummaryStatus} error={monitorSummaryError} analysisStatus={monitorAnalysisStatus} analysisError={monitorAnalysisError} fallbackRecords={analytics.metrics.totalMentions} fallbackSources={analytics.metrics.activeSources} historyTruncated={historyTruncated} />
             </>
           ) : null}
 
@@ -460,7 +486,7 @@ export function RadarPage() {
 
           {activeView === "topics" ? (
             <div className="radar-view radar-view--topics">
-              <TopicIntelligence topics={baseAnalytics.topics} mentions={baseAnalytics.currentMentions} activeTopic={activeTopic} onSelect={(topic) => { setActiveTopic(topic); setSelectedSpikeId(""); }} onOpenMention={setSelectedMention} onInspectMentions={() => setActiveView("mentions")} />
+              <TopicIntelligence topics={monitorTopics} mentions={baseAnalytics.currentMentions} activeTopic={activeTopic} onSelect={(topic) => { setActiveTopic(topic); setSelectedSpikeId(""); }} onOpenMention={setSelectedMention} onInspectMentions={() => setActiveView("mentions")} />
               <div className="radar-topic-context-grid">
                 <section><SectionHeader eyebrow="Sentiment" title="How tone is moving" /><RadarSentimentChart data={analytics.sentiment} /></section>
                 <section><SectionHeader eyebrow="Sources" title="Where signals appear" description="Select a bar to inspect mentions." /><RadarSourceChart data={analytics.sources} onSelect={inspectSource} /></section>
@@ -471,7 +497,7 @@ export function RadarPage() {
 
           {activeView === "mentions" ? (
             <div className="radar-view radar-view--mentions">
-              <MentionFeed mentions={baseAnalytics.currentMentions} topics={baseAnalytics.topics} sourceFilter={sourceFilter} topicFilter={activeTopic} keywordFilter={keywordFilter} projectLabel={projectLabel} savedIds={savedIds} importantIds={importantIds} onSourceFilter={setSourceFilter} onTopicFilter={setActiveTopic} onKeywordFilter={setKeywordFilter} onOpenMention={setSelectedMention} onToggleSaved={toggleSaved} onToggleImportant={toggleImportant} onUseEvidence={setEvidenceMention} onQuickLink={quickEvidenceLink} />
+              <MentionFeed mentions={baseAnalytics.currentMentions} topics={monitorTopics} sourceFilter={sourceFilter} topicFilter={activeTopic} keywordFilter={keywordFilter} projectLabel={projectLabel} savedIds={savedIds} importantIds={importantIds} onSourceFilter={setSourceFilter} onTopicFilter={setActiveTopic} onKeywordFilter={setKeywordFilter} onOpenMention={setSelectedMention} onToggleSaved={toggleSaved} onToggleImportant={toggleImportant} onUseEvidence={setEvidenceMention} onQuickLink={quickEvidenceLink} />
             </div>
           ) : null}
 
@@ -501,4 +527,15 @@ function defaultCustomDates() {
   const end = new Date();
   const start = new Date(end.getTime() - 30 * 86_400_000);
   return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
+function sourceBreakdownFromSummary(summary: RadarMonitorSummary): SourceBreakdown[] {
+  const total = Math.max(1, summary.metrics.totalMentions);
+  return summary.sources.map((source) => ({
+    source: source.source,
+    label: source.label,
+    mentions: source.records,
+    share: Math.round((source.records / total) * 100),
+    engagement: source.engagement,
+  }));
 }

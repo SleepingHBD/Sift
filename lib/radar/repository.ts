@@ -10,8 +10,10 @@ import {
   type MonitorRunRow,
   type RadarProjectRow,
 } from "@/lib/radar/model";
+import { radarMonitorAnalysisFromRow, type RadarMonitorAnalysisRow } from "@/lib/radar/analysis";
+import { radarBucketMilliseconds } from "@/lib/radar/processing";
 import { radarMonitorSummaryFromRow, type RadarMonitorSummaryRow } from "@/lib/radar/summary";
-import type { DateBounds, MonitorRun, MonitoringQuery, RadarMention, RadarMonitorSummary, RadarSource } from "@/lib/radar/types";
+import type { DateBounds, DateRangeKey, MonitorRun, MonitoringQuery, RadarMention, RadarMonitorAnalysis, RadarMonitorSummary, RadarSource } from "@/lib/radar/types";
 import type { Project } from "@/lib/types";
 
 type SiftSupabaseClient = NonNullable<ReturnType<typeof createBrowserSupabaseClient>>;
@@ -177,6 +179,29 @@ export async function getCloudRadarMonitorSummary(
   const row = (data ?? [])[0] as unknown as RadarMonitorSummaryRow | undefined;
   if (!row) throw new Error("Radar analytics did not return a coverage summary.");
   return radarMonitorSummaryFromRow(row);
+}
+
+export async function getCloudRadarMonitorAnalysis(
+  monitorId: string,
+  monitorClientId: string,
+  bounds: DateBounds,
+  range: DateRangeKey,
+  topic?: string,
+): Promise<RadarMonitorAnalysis> {
+  const client = requireClient();
+  const { data, error } = await client.rpc("radar_monitor_analysis", {
+    p_monitor_id: monitorId,
+    p_start: bounds.start.toISOString(),
+    p_end: bounds.end.toISOString(),
+    p_previous_start: bounds.previousStart.toISOString(),
+    p_previous_end: bounds.previousEnd.toISOString(),
+    p_bucket_seconds: Math.round(radarBucketMilliseconds(range, bounds.start, bounds.end) / 1000),
+    p_topic: topic?.trim() || undefined,
+  });
+  if (error) throw new Error(`Radar timelines could not be calculated: ${error.message}`);
+  const row = (data ?? [])[0] as unknown as RadarMonitorAnalysisRow | undefined;
+  if (!row) throw new Error("Radar timelines did not return an analysis result.");
+  return radarMonitorAnalysisFromRow(row, monitorClientId, range);
 }
 
 async function ensureRadarProject(client: SiftSupabaseClient, monitor: MonitoringQuery, project?: Project) {

@@ -82,12 +82,12 @@ export function getDateBounds(range: DateRangeKey, now: Date, custom?: { start?:
   return { start, end, previousStart: new Date(start.getTime() - duration), previousEnd: new Date(start.getTime() - 1) };
 }
 
-function dateLabel(date: Date, range: DateRangeKey) {
+export function radarDateLabel(date: Date, range: DateRangeKey) {
   if (range === "24h") return date.toLocaleTimeString("en-SG", { hour: "numeric", hour12: true, timeZone: "UTC" });
   return date.toLocaleDateString("en-SG", { day: "2-digit", month: "short", timeZone: "UTC" });
 }
 
-function intervalFor(range: DateRangeKey, start: Date, end: Date) {
+export function radarBucketMilliseconds(range: DateRangeKey, start: Date, end: Date) {
   if (range === "24h") return 3 * HOUR;
   if (range === "7d") return DAY;
   if (range === "90d") return 7 * DAY;
@@ -108,7 +108,7 @@ function countByBin(mentions: RadarMention[], start: Date, interval: number, bin
 }
 
 function buildVolume(current: RadarMention[], previous: RadarMention[], range: DateRangeKey, start: Date, end: Date, previousStart: Date) {
-  const interval = intervalFor(range, start, end);
+  const interval = radarBucketMilliseconds(range, start, end);
   const binCount = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / interval));
   const currentCounts = countByBin(current, start, interval, binCount);
   const previousCounts = countByBin(previous, previousStart, interval, binCount);
@@ -117,7 +117,7 @@ function buildVolume(current: RadarMention[], previous: RadarMention[], range: D
     const rolling = recent.length ? recent.reduce((sum, value) => sum + value, 0) / recent.length : previousCounts[index] ?? 0;
     const baseline = Math.max(1, Math.round(((previousCounts[index] ?? 0) + rolling) / 2));
     const timestamp = new Date(start.getTime() + index * interval).toISOString();
-    return { timestamp, label: dateLabel(new Date(timestamp), range), mentions, baseline };
+    return { timestamp, label: radarDateLabel(new Date(timestamp), range), mentions, baseline };
   });
 }
 
@@ -136,7 +136,7 @@ function rankCounts(values: string[]) {
 }
 
 function detectSpikes(volume: VolumePoint[], current: RadarMention[], range: DateRangeKey, start: Date, end: Date) {
-  const interval = intervalFor(range, start, end);
+  const interval = radarBucketMilliseconds(range, start, end);
   const candidates = volume.filter((point) => point.mentions >= 4 && calculateGrowth(point.mentions, point.baseline) >= 75);
   return candidates.map((point, index): SpikeInsight => {
     const bucket = mentionsForPoint(current, point, interval);
@@ -163,7 +163,7 @@ function detectSpikes(volume: VolumePoint[], current: RadarMention[], range: Dat
 }
 
 function buildSentiment(volume: VolumePoint[], current: RadarMention[], range: DateRangeKey, start: Date, end: Date): SentimentPoint[] {
-  const interval = intervalFor(range, start, end);
+  const interval = radarBucketMilliseconds(range, start, end);
   return volume.map((point) => {
     const bucket = mentionsForPoint(current, point, interval);
     const total = Math.max(1, bucket.length);
