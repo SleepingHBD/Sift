@@ -20,6 +20,60 @@ export interface SignalSnapshotSummary {
   createdAt: string;
 }
 
+export interface SignalAssessmentFactorRecord {
+  value: number | null;
+  normalized: number | null;
+  weight: number;
+  available: boolean;
+}
+
+export interface SignalSnapshotRecord extends SignalSnapshotSummary {
+  method: string;
+  supportingCount: number;
+  contradictingCount: number;
+  sourceDiversity: number;
+  authorDiversity: number;
+  growthRate: number | null;
+  recencyDays: number | null;
+  factors: Record<string, SignalAssessmentFactorRecord>;
+  limitations: string[];
+  researchGaps: string[];
+}
+
+export interface SignalEvidenceSource {
+  id: string;
+  projectId: string;
+  kind: "mention" | "research" | "inspiration";
+  title: string;
+  author: string | null;
+  sourceLabel: string;
+  excerpt: string | null;
+  excerptOrigin: "source" | "interpretation" | "notes" | null;
+  originalUrl: string | null;
+  publishedAt: string | null;
+  capturedAt: string;
+}
+
+export interface SignalEvidenceLink {
+  id: string;
+  signalId: string;
+  projectId: string;
+  relationship: SignalEvidenceRelationship;
+  rationale: string;
+  weight: number;
+  createdAt: string;
+  source: SignalEvidenceSource;
+}
+
+export interface AddSignalEvidenceInput {
+  signalId: string;
+  projectId: string;
+  evidenceType: SignalEvidenceSource["kind"];
+  evidenceId: string;
+  relationship: SignalEvidenceRelationship;
+  rationale?: string;
+}
+
 export interface SignalRecord {
   id: string;
   projectId: string;

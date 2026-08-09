@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, CircleDashed, Eye, Lightbulb, LoaderCircle, Plus, Radar, RotateCcw, XCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowRight, CheckCircle2, CircleDashed, Eye, Lightbulb, LoaderCircle, Plus, Radar, RotateCcw, Search, XCircle } from "lucide-react";
 import { useApp } from "@/components/app-provider";
 import { SignalDialog } from "@/components/signals/signal-dialog";
+import { SignalDetailDrawer } from "@/components/signals/signal-detail-drawer";
 import { Badge, Button, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
 import { createCloudSignal, listCloudSignals, updateCloudSignalStatus } from "@/lib/signals/repository";
@@ -34,31 +35,32 @@ export function TrendsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState("");
+  const [selectedSignalId, setSelectedSignalId] = useState("");
+
+  const loadSignals = useCallback(async () => {
+    if (workspaceStatus !== "ready" || !projectIds.length) return;
+    setLoading(true);
+    setError("");
+    try {
+      setSignals(await listCloudSignals(projectIds));
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Signals could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }, [projectIds, workspaceStatus]);
 
   useEffect(() => {
-    if (workspaceStatus !== "ready" || !projectIds.length) return;
-    let active = true;
-    async function loadSignals() {
-      setLoading(true);
-      setError("");
-      try {
-        const rows = await listCloudSignals(projectIds);
-        if (active) setSignals(rows);
-      } catch (loadError) {
-        if (active) setError(loadError instanceof Error ? loadError.message : "Signals could not be loaded.");
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-    void loadSignals();
-    return () => { active = false; };
-  }, [projectIds, workspaceStatus]);
+    const timer = window.setTimeout(() => void loadSignals(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadSignals]);
 
   const projectNames = useMemo(() => new Map(projects.flatMap((project) => project.cloudId ? [[project.cloudId, project.name] as const] : [])), [projects]);
   const visibleSignals = projectFilter === "all" ? signals : signals.filter((signal) => signal.projectId === projectFilter);
   const activeCount = visibleSignals.filter((signal) => signal.status !== "dismissed").length;
   const watchingCount = visibleSignals.filter((signal) => signal.status === "watching").length;
   const evidenceCount = visibleSignals.reduce((total, signal) => total + signal.evidenceCounts.support + signal.evidenceCounts.contradict + signal.evidenceCounts.context, 0);
+  const selectedSignal = signals.find((signal) => signal.id === selectedSignalId) ?? null;
 
   async function createSignal(input: CreateSignalInput) {
     const created = await createCloudSignal(input);
@@ -118,7 +120,7 @@ export function TrendsPage() {
                   <div className="signal-card__assessment">
                     <div><span>Supporting</span><strong>{signal.evidenceCounts.support}</strong></div><div><span>Contradicting</span><strong>{signal.evidenceCounts.contradict}</strong></div><div><span>Context</span><strong>{signal.evidenceCounts.context}</strong></div><div><span>Assessment</span><strong>{signal.latestSnapshot ? `${signal.latestSnapshot.strengthScore}/100` : "Not assessed"}</strong></div>
                   </div>
-                  <footer><div>{totalEvidence ? <span><CheckCircle2 size={14} />{totalEvidence} connected {totalEvidence === 1 ? "source" : "sources"}</span> : <span className="signal-card__needs-evidence"><Lightbulb size={14} />Needs evidence before interpretation</span>}<Link href="/evidence">Review evidence <ArrowRight size={13} /></Link></div><div className="signal-card__actions">{signal.status === "candidate" ? <Button size="sm" variant="dark" disabled={pending} onClick={() => void changeStatus(signal, "watching")}>{pending ? "Saving…" : "Start watching"}</Button> : null}{signal.status === "watching" ? <><Button size="sm" disabled={pending} onClick={() => void changeStatus(signal, "candidate")}><RotateCcw size={13} />Candidate</Button><Button size="sm" disabled={pending} onClick={() => void changeStatus(signal, "dismissed")}>Dismiss</Button></> : null}{signal.status === "dismissed" ? <Button size="sm" disabled={pending} onClick={() => void changeStatus(signal, "candidate")}><RotateCcw size={13} />Reopen</Button> : null}</div></footer>
+                  <footer><div>{totalEvidence ? <span><CheckCircle2 size={14} />{totalEvidence} connected {totalEvidence === 1 ? "source" : "sources"}</span> : <span className="signal-card__needs-evidence"><Lightbulb size={14} />Needs evidence before interpretation</span>}<Button size="sm" onClick={() => setSelectedSignalId(signal.id)}><Search size={13} />Open analysis</Button></div><div className="signal-card__actions">{signal.status === "candidate" ? <Button size="sm" variant="dark" disabled={pending} onClick={() => void changeStatus(signal, "watching")}>{pending ? "Saving…" : "Start watching"}</Button> : null}{signal.status === "watching" ? <><Button size="sm" disabled={pending} onClick={() => void changeStatus(signal, "candidate")}><RotateCcw size={13} />Candidate</Button><Button size="sm" disabled={pending} onClick={() => void changeStatus(signal, "dismissed")}>Dismiss</Button></> : null}{signal.status === "dismissed" ? <Button size="sm" disabled={pending} onClick={() => void changeStatus(signal, "candidate")}><RotateCcw size={13} />Reopen</Button> : null}</div></footer>
                 </article>;
               })}
             </div>
@@ -126,6 +128,7 @@ export function TrendsPage() {
         </>
       )}
       <SignalDialog key={`${dialogOpen}-${activeCloudProjectId}`} open={dialogOpen} projects={projects} initialProjectId={activeCloudProjectId} onClose={() => setDialogOpen(false)} onCreate={createSignal} />
+      <SignalDetailDrawer key={selectedSignal?.id ?? "closed-signal"} signal={selectedSignal} projectName={selectedSignal ? projectNames.get(selectedSignal.projectId) ?? "Project" : "Project"} onClose={() => setSelectedSignalId("")} onUpdated={loadSignals} />
     </div>
   );
 }

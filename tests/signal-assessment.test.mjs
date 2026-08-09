@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assessSignal, SIGNAL_ANALYSIS_VERSION } from "../lib/signals/assessment.ts";
+import { assessSignal, buildSignalAssessmentDraft, SIGNAL_ANALYSIS_VERSION } from "../lib/signals/assessment.ts";
 
 test("signal assessment remains cautious when evidence is absent", () => {
   const result = assessSignal({
@@ -69,4 +69,45 @@ test("movement compares versioned assessments instead of declaring acceleration 
 
   assert.equal(strengthening.movement, "strengthening");
   assert.equal(firstAssessment.movement, "new");
+});
+
+test("assessment draft derives counts, diversity, and recency from the linked evidence trail", () => {
+  const source = (id, sourceLabel, author, publishedAt) => ({
+    id,
+    projectId: "project-1",
+    kind: "mention",
+    title: `Source ${id}`,
+    author,
+    sourceLabel,
+    excerpt: "Preserved source text",
+    excerptOrigin: "source",
+    originalUrl: null,
+    publishedAt,
+    capturedAt: publishedAt,
+  });
+  const link = (id, relationship, evidenceSource) => ({
+    id,
+    signalId: "signal-1",
+    projectId: "project-1",
+    relationship,
+    rationale: "",
+    weight: 1,
+    createdAt: "2026-08-09T00:00:00.000Z",
+    source: evidenceSource,
+  });
+  const result = buildSignalAssessmentDraft([
+    link("link-1", "support", source("source-1", "YouTube", "Author A", "2026-08-07T12:00:00.000Z")),
+    link("link-2", "support", source("source-2", "youtube", "author a", "2026-08-06T12:00:00.000Z")),
+    link("link-3", "contradict", source("source-3", "Research report", "Author B", "2026-08-05T12:00:00.000Z")),
+    link("link-4", "context", source("source-4", "YouTube", null, "2026-08-04T12:00:00.000Z")),
+  ], [{ strengthScore: 42 }], new Date("2026-08-09T12:00:00.000Z"));
+
+  assert.equal(result.input.supportingEvidence, 2);
+  assert.equal(result.input.contradictingEvidence, 1);
+  assert.equal(result.input.sourceDiversity, 2);
+  assert.equal(result.input.authorDiversity, 2);
+  assert.equal(result.input.daysSinceNewestEvidence, 2);
+  assert.equal(result.input.recentGrowthPercent, null);
+  assert.equal(result.input.previousStrengthScore, 42);
+  assert.equal(result.assessment.factors.recentGrowth.available, false);
 });

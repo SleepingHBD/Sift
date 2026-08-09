@@ -1,6 +1,20 @@
 import { createBrowserSupabaseClient } from "../supabase/client.ts";
+import type { Json } from "../supabase/database.types.ts";
+import { searchEvidencePage } from "../evidence/search.ts";
+import type { EvidenceReference } from "../evidence/reference.ts";
+import { buildSignalAssessmentDraft } from "./assessment.ts";
 import { signalFromRow, type SignalEvidenceCountRow, type SignalRow, type SignalSnapshotRow } from "./model.ts";
-import type { CreateSignalInput, SignalRecord, SignalStatus } from "./types.ts";
+import type {
+  AddSignalEvidenceInput,
+  CreateSignalInput,
+  SignalAssessmentFactorRecord,
+  SignalEvidenceLink,
+  SignalEvidenceRelationship,
+  SignalEvidenceSource,
+  SignalRecord,
+  SignalSnapshotRecord,
+  SignalStatus,
+} from "./types.ts";
 
 function requireClient() {
   const client = createBrowserSupabaseClient();
@@ -9,6 +23,111 @@ function requireClient() {
 }
 
 const signalSelect = "id,project_id,topic_id,title,observation,kind,status,movement,origin,scope_note,strategist_notes,created_at,updated_at";
+const signalEvidenceSelect = "id,signal_id,project_id,evidence_type,evidence_id,relationship,weight,rationale,created_at";
+const signalSnapshotSelect = "id,signal_id,movement,evidence_sufficiency,strength_score,analysis_version,method,supporting_count,contradicting_count,source_diversity,author_diversity,growth_rate,recency_days,factor_breakdown,limitations,research_gaps,created_at";
+
+interface SignalEvidenceRow {
+  id: string;
+  signal_id: string;
+  project_id: string;
+  evidence_type: SignalEvidenceSource["kind"];
+  evidence_id: string;
+  relationship: SignalEvidenceRelationship;
+  weight: number;
+  rationale: string | null;
+  created_at: string;
+}
+
+interface MentionSourceRow {
+  id: string;
+  project_id: string;
+  author: string | null;
+  content: string;
+  url: string | null;
+  published_at: string | null;
+  created_at: string;
+  platform: string;
+}
+
+interface ResearchSourceRow {
+  id: string;
+  project_id: string;
+  title: string;
+  url: string | null;
+  author: string | null;
+  publication: string | null;
+  key_findings: string | null;
+  notes: string | null;
+  metadata: Json;
+  published_at: string | null;
+  created_at: string;
+}
+
+interface InspirationSourceRow {
+  id: string;
+  project_id: string;
+  title: string;
+  url: string | null;
+  brand_name: string | null;
+  extracted_text: string | null;
+  notes: string | null;
+  item_type: string;
+  created_at: string;
+}
+
+interface SignalSnapshotDetailRow extends SignalSnapshotRow {
+  method: string;
+  supporting_count: number;
+  contradicting_count: number;
+  source_diversity: number;
+  author_diversity: number;
+  growth_rate: number | null;
+  recency_days: number | null;
+  limitations: string[];
+  research_gaps: string[];
+}
+
+function excerpt(value: string | null, length = 360) {
+  if (!value) return null;
+  const clean = value.trim();
+  return clean.length > length ? `${clean.slice(0, length - 1).trimEnd()}…` : clean;
+}
+
+function sourceLabel(value: string) {
+  return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function jsonRecord(value: Json): Record<string, Json | undefined> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function jsonText(value: Json | undefined) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function snapshotFromRow(row: SignalSnapshotDetailRow): SignalSnapshotRecord {
+  const factors = row.factor_breakdown && typeof row.factor_breakdown === "object" && !Array.isArray(row.factor_breakdown)
+    ? row.factor_breakdown as unknown as Record<string, SignalAssessmentFactorRecord>
+    : {};
+  return {
+    id: row.id,
+    movement: row.movement,
+    evidenceSufficiency: row.evidence_sufficiency,
+    strengthScore: Number(row.strength_score),
+    analysisVersion: row.analysis_version,
+    method: row.method,
+    supportingCount: row.supporting_count,
+    contradictingCount: row.contradicting_count,
+    sourceDiversity: row.source_diversity,
+    authorDiversity: row.author_diversity,
+    growthRate: row.growth_rate == null ? null : Number(row.growth_rate),
+    recencyDays: row.recency_days == null ? null : Number(row.recency_days),
+    factors,
+    limitations: row.limitations ?? [],
+    researchGaps: row.research_gaps ?? [],
+    createdAt: row.created_at,
+  };
+}
 
 export async function listCloudSignals(projectIds: string[]): Promise<SignalRecord[]> {
   if (!projectIds.length) return [];
@@ -53,4 +172,186 @@ export async function updateCloudSignalStatus(signalId: string, status: SignalSt
   const { data, error } = await client.from("signals").update({ status }).eq("id", signalId).select(signalSelect).single();
   if (error || !data) throw new Error(`Signal status could not be changed: ${error?.message ?? "No record was returned."}`);
   return signalFromRow(data as SignalRow);
+}
+
+export async function searchSignalEvidenceCandidates(projectId: string, search = ""): Promise<EvidenceReference[]> {
+  const page = await searchEvidencePage({ projectId, search, sort: "newest", pageSize: 50 });
+  return page.items.filter((item) => item.projectId === projectId);
+}
+
+export async function listSignalSnapshots(signalId: string, projectId: string): Promise<SignalSnapshotRecord[]> {
+  const client = requireClient();
+  const { data, error } = await client.from("signal_snapshots")
+    .select(signalSnapshotSelect)
+    .eq("signal_id", signalId)
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`Signal assessments could not be loaded: ${error.message}`);
+  return ((data ?? []) as SignalSnapshotDetailRow[]).map(snapshotFromRow);
+}
+
+export async function listSignalEvidence(signalId: string, projectId: string): Promise<SignalEvidenceLink[]> {
+  const client = requireClient();
+  const { data, error } = await client.from("signal_evidence")
+    .select(signalEvidenceSelect)
+    .eq("signal_id", signalId)
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`Signal evidence could not be loaded: ${error.message}`);
+  const rows = (data ?? []) as SignalEvidenceRow[];
+  if (!rows.length) return [];
+
+  const ids = (kind: SignalEvidenceSource["kind"]) => rows.filter((row) => row.evidence_type === kind).map((row) => row.evidence_id);
+  const mentionIds = ids("mention");
+  const researchIds = ids("research");
+  const inspirationIds = ids("inspiration");
+  const [mentionResult, researchResult, inspirationResult] = await Promise.all([
+    mentionIds.length
+      ? client.from("mentions").select("id,project_id,author,content,url,published_at,created_at,platform").eq("project_id", projectId).in("id", mentionIds)
+      : Promise.resolve({ data: [], error: null }),
+    researchIds.length
+      ? client.from("research_items").select("id,project_id,title,url,author,publication,key_findings,notes,metadata,published_at,created_at").eq("project_id", projectId).in("id", researchIds)
+      : Promise.resolve({ data: [], error: null }),
+    inspirationIds.length
+      ? client.from("inspiration_items").select("id,project_id,title,url,brand_name,extracted_text,notes,item_type,created_at").eq("project_id", projectId).in("id", inspirationIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const sourceError = mentionResult.error ?? researchResult.error ?? inspirationResult.error;
+  if (sourceError) throw new Error(`Signal source records could not be loaded: ${sourceError.message}`);
+
+  const sources = new Map<string, SignalEvidenceSource>();
+  for (const row of (mentionResult.data ?? []) as MentionSourceRow[]) {
+    const label = sourceLabel(row.platform);
+    sources.set(`mention:${row.id}`, {
+      id: row.id,
+      projectId: row.project_id,
+      kind: "mention",
+      title: row.author ? `${label} · ${row.author}` : `${label} mention`,
+      author: row.author,
+      sourceLabel: label,
+      excerpt: excerpt(row.content),
+      excerptOrigin: "source",
+      originalUrl: row.url,
+      publishedAt: row.published_at,
+      capturedAt: row.created_at,
+    });
+  }
+  for (const row of (researchResult.data ?? []) as ResearchSourceRow[]) {
+    const metadata = jsonRecord(row.metadata);
+    const sourceText = jsonText(metadata.source_text) ?? jsonText(metadata.sourceText) ?? jsonText(metadata.quoted_text) ?? jsonText(metadata.quotedText);
+    const interpretation = row.key_findings?.trim() || null;
+    const note = row.notes?.trim() || null;
+    sources.set(`research:${row.id}`, {
+      id: row.id,
+      projectId: row.project_id,
+      kind: "research",
+      title: row.title,
+      author: row.author,
+      sourceLabel: row.publication || "Personal research",
+      excerpt: excerpt(sourceText || interpretation || note),
+      excerptOrigin: sourceText ? "source" : interpretation ? "interpretation" : note ? "notes" : null,
+      originalUrl: row.url,
+      publishedAt: row.published_at,
+      capturedAt: row.created_at,
+    });
+  }
+  for (const row of (inspirationResult.data ?? []) as InspirationSourceRow[]) {
+    sources.set(`inspiration:${row.id}`, {
+      id: row.id,
+      projectId: row.project_id,
+      kind: "inspiration",
+      title: row.title,
+      author: row.brand_name,
+      sourceLabel: row.brand_name || sourceLabel(row.item_type),
+      excerpt: excerpt(row.extracted_text || row.notes),
+      excerptOrigin: row.extracted_text?.trim() ? "source" : row.notes?.trim() ? "notes" : null,
+      originalUrl: row.url,
+      publishedAt: null,
+      capturedAt: row.created_at,
+    });
+  }
+
+  return rows.map((row) => {
+    const source = sources.get(`${row.evidence_type}:${row.evidence_id}`);
+    if (!source) throw new Error("A linked source is unavailable or no longer belongs to this project.");
+    return {
+      id: row.id,
+      signalId: row.signal_id,
+      projectId: row.project_id,
+      relationship: row.relationship,
+      rationale: row.rationale ?? "",
+      weight: Number(row.weight),
+      createdAt: row.created_at,
+      source,
+    };
+  });
+}
+
+export async function addSignalEvidence(input: AddSignalEvidenceInput): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.from("signal_evidence").insert({
+    signal_id: input.signalId,
+    project_id: input.projectId,
+    evidence_type: input.evidenceType,
+    evidence_id: input.evidenceId,
+    relationship: input.relationship,
+    rationale: input.rationale?.trim() || null,
+  });
+  if (error) {
+    if (error.code === "23505") throw new Error("This source is already linked to the signal in that role.");
+    throw new Error(`Evidence could not be linked: ${error.message}`);
+  }
+}
+
+export async function updateSignalEvidence(
+  linkId: string,
+  signalId: string,
+  projectId: string,
+  changes: { relationship?: SignalEvidenceRelationship; rationale?: string },
+): Promise<void> {
+  const client = requireClient();
+  const values: { relationship?: SignalEvidenceRelationship; rationale?: string | null } = {};
+  if (changes.relationship) values.relationship = changes.relationship;
+  if (changes.rationale !== undefined) values.rationale = changes.rationale.trim() || null;
+  const { data, error } = await client.from("signal_evidence").update(values)
+    .eq("id", linkId).eq("signal_id", signalId).eq("project_id", projectId).select("id").single();
+  if (error || !data) throw new Error(`Evidence link could not be updated: ${error?.message ?? "No record was returned."}`);
+}
+
+export async function removeSignalEvidence(linkId: string, signalId: string, projectId: string): Promise<void> {
+  const client = requireClient();
+  const { data, error } = await client.from("signal_evidence").delete()
+    .eq("id", linkId).eq("signal_id", signalId).eq("project_id", projectId).select("id").single();
+  if (error || !data) throw new Error(`Evidence link could not be removed: ${error?.message ?? "No record was returned."}`);
+}
+
+export async function createSignalSnapshot(
+  signalId: string,
+  projectId: string,
+  links: SignalEvidenceLink[],
+  snapshots: SignalSnapshotRecord[],
+  now = new Date(),
+): Promise<SignalSnapshotRecord> {
+  const client = requireClient();
+  const { input, assessment } = buildSignalAssessmentDraft(links, snapshots, now);
+  const { data, error } = await client.from("signal_snapshots").insert({
+    signal_id: signalId,
+    project_id: projectId,
+    analysis_version: assessment.analysisVersion,
+    method: "deterministic",
+    movement: assessment.movement,
+    evidence_sufficiency: assessment.evidenceSufficiency,
+    strength_score: assessment.strengthScore,
+    supporting_count: input.supportingEvidence,
+    contradicting_count: input.contradictingEvidence,
+    source_diversity: input.sourceDiversity,
+    author_diversity: input.authorDiversity,
+    growth_rate: input.recentGrowthPercent ?? null,
+    recency_days: input.daysSinceNewestEvidence ?? null,
+    factor_breakdown: assessment.factors as unknown as Json,
+    limitations: assessment.limitations,
+    research_gaps: assessment.researchGaps,
+  }).select(signalSnapshotSelect).single();
+  if (error || !data) throw new Error(`Assessment could not be created: ${error?.message ?? "No record was returned."}`);
+  return snapshotFromRow(data as SignalSnapshotDetailRow);
 }

@@ -1,4 +1,4 @@
-import type { SignalEvidenceSufficiency, SignalMovement } from "./types.ts";
+import type { SignalEvidenceLink, SignalEvidenceSufficiency, SignalMovement, SignalSnapshotRecord } from "./types.ts";
 
 export const SIGNAL_ANALYSIS_VERSION = "signal-heuristic-v1";
 export const SIGNAL_ASSESSMENT_DISCLAIMER =
@@ -30,6 +30,11 @@ export interface SignalAssessment {
   limitations: string[];
   researchGaps: string[];
   disclaimer: string;
+}
+
+export interface SignalAssessmentDraft {
+  input: SignalAssessmentInput;
+  assessment: SignalAssessment;
 }
 
 const clamp = (value: number) => Math.max(0, Math.min(100, value));
@@ -94,4 +99,34 @@ export function assessSignal(input: SignalAssessmentInput): SignalAssessment {
     researchGaps,
     disclaimer: SIGNAL_ASSESSMENT_DISCLAIMER,
   };
+}
+
+function uniqueCount(values: Array<string | null | undefined>) {
+  return new Set(values.flatMap((value) => value?.trim() ? [value.trim().toLocaleLowerCase()] : [])).size;
+}
+
+export function buildSignalAssessmentDraft(
+  links: SignalEvidenceLink[],
+  snapshots: Pick<SignalSnapshotRecord, "strengthScore">[] = [],
+  now = new Date(),
+): SignalAssessmentDraft {
+  const evidenceDates = links.flatMap((link) => {
+    const value = link.source.publishedAt ?? link.source.capturedAt;
+    const time = Date.parse(value);
+    return Number.isFinite(time) ? [time] : [];
+  });
+  const newestEvidence = evidenceDates.length ? Math.max(...evidenceDates) : null;
+  const daysSinceNewestEvidence = newestEvidence === null
+    ? null
+    : Math.max(0, Math.floor((now.getTime() - newestEvidence) / 86_400_000));
+  const input: SignalAssessmentInput = {
+    supportingEvidence: links.filter((link) => link.relationship === "support").length,
+    contradictingEvidence: links.filter((link) => link.relationship === "contradict").length,
+    sourceDiversity: uniqueCount(links.map((link) => link.source.sourceLabel)),
+    authorDiversity: uniqueCount(links.map((link) => link.source.author)),
+    recentGrowthPercent: null,
+    daysSinceNewestEvidence,
+    previousStrengthScore: snapshots[0]?.strengthScore ?? null,
+  };
+  return { input, assessment: assessSignal(input) };
 }

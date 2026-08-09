@@ -366,7 +366,7 @@ Current checkpoint: the manual and scheduled Radar workflows passed the acceptan
 
 ## Phase 5 - Signals and analytical reasoning
 
-Status: **In progress.** The first increment is implemented locally and in Supabase: a project-scoped Signals workspace, manual candidate/hypothesis capture, candidate/watch/dismiss status changes, visible evidence-scope qualifiers, generic support/contradiction/context relationships, immutable versioned assessment snapshots, deterministic assessment rules, and evidence-retention/deletion protection. No candidate is automatically promoted, and no assessment score appears until a snapshot exists. The next increment is the evidence-linking and inspectable signal-detail workflow.
+Status: **In progress.** The first two increments are implemented locally and in Supabase: a project-scoped Signals workspace; manual candidate/hypothesis capture; candidate/watch/dismiss status changes; visible evidence-scope qualifiers; project-scoped evidence search; strategist-controlled support/contradiction/context links and rationales; original-source access; deliberate link removal/reclassification; transparent deterministic assessments; immutable versioned snapshot history; and evidence-retention/deletion protection. No candidate is automatically promoted, no relationship is inferred, unavailable growth stays missing, and no assessment score appears until the strategist creates a snapshot. The next increment is strategist-controlled signal correction, merge/split provenance, and explicit promotion gates.
 
 ### Goal
 
@@ -595,7 +595,7 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0, 1, 2, 3, and 4 are complete. Phase 5 is now active. Its first increment establishes evidence-scoped working signals without confusing them with promoted trends; the immediate next increment connects evidence, contradiction, and versioned assessments through an inspectable detail workflow. Monitor configuration, transparent source coverage, connector reliability, run diagnostics, run locking and recovery, complete-history analytics, cursor-paged conversations, direct supporting-record retrieval, cloud-synced connector settings, trusted scheduling, explicit retention opt-in, protected-evidence previews, bounded enforcement, and retention audit records are implemented. Phase 3 was delivered through these verified increments:
+Phases 0, 1, 2, 3, and 4 are complete. Phase 5 is now active. Its first increment established evidence-scoped working signals without confusing them with promoted trends; its second adds an inspectable evidence trail, contradiction handling, source rationales, and append-only deterministic assessments. The immediate next increment adds strategist-controlled correction and explicit promotion gates. Monitor configuration, transparent source coverage, connector reliability, run diagnostics, run locking and recovery, complete-history analytics, cursor-paged conversations, direct supporting-record retrieval, cloud-synced connector settings, trusted scheduling, explicit retention opt-in, protected-evidence previews, bounded enforcement, and retention audit records are implemented. Phase 3 was delivered through these verified increments:
 
 1. Create a project evidence inbox over the shared evidence reference contract, with search, core filters, provenance, and a common detail drawer. **Completed.**
 2. Add persistent review states through an additive migration and explicit single-item review actions. **Completed.**
