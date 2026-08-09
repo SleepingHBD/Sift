@@ -43,7 +43,7 @@ export function Topbar() {
           <Plus size={16} />
           <span>Capture evidence</span>
         </button>
-        <button className="global-search-button" onClick={() => setSearchOpen(true)}>
+        <button className="global-search-button" onClick={() => setSearchOpen(true)} aria-label="Search everything" title="Search everything">
           <Search size={16} />
           <span>Search everything</span>
           <kbd>⌘ K</kbd>

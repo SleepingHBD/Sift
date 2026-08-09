@@ -628,7 +628,7 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 @media (max-width: 900px) {
   .sidebar { width: 252px; transform: translateX(-100%); }.sidebar--mobile-open { transform: translateX(0); box-shadow: var(--shadow-lg); }.sidebar--mobile-open .wordmark__text, .sidebar--mobile-open .workspace-copy, .sidebar--mobile-open .sidebar-link__label, .sidebar--mobile-open .sidebar__label, .sidebar--mobile-open .sidebar-link__count { opacity: 1; pointer-events: auto; }.sidebar--mobile-open .sidebar-link { justify-content: flex-start; padding: 0 11px; }.sidebar--mobile-open .sidebar__workspace { padding-left: 10px; }.sidebar--mobile-open .sidebar__collapse { display: none; }.sidebar__mobile-close { display: grid; }
   .mobile-scrim { position: fixed; inset: 0; z-index: 39; width: 100%; background: rgba(0,0,0,.52); }
-  .app-frame, .sidebar--collapsed + .app-frame { margin-left: 0; }.mobile-menu { display: grid; }
+  .sidebar + .app-frame, .sidebar--collapsed + .app-frame { margin-left: 0; }.mobile-menu { display: grid; }
   .topbar { padding: 0 18px; }.global-search-button, .topbar-capture-button { width: 37px; padding: 0; justify-content: center; }.global-search-button span, .global-search-button kbd, .topbar-capture-button span { display: none; }
   .page { padding: 32px 22px 65px; }
   .page-intro { align-items: flex-start; flex-direction: column; }.page-intro__actions { width: 100%; }
@@ -647,7 +647,13 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 }
 
 @media (max-width: 600px) {
-  .topbar { height: 58px; padding: 0 12px; }.project-select-wrap { min-width: 0; width: 160px; }.topbar__notification { display: none; }
+  .topbar { height: 58px; gap: 6px; padding: 0 12px; }
+  .topbar__left { flex: 1 1 auto; min-width: 0; gap: 6px; }
+  .topbar__actions { flex: 0 0 auto; gap: 6px; }
+  .project-select-wrap { flex: 1 1 160px; min-width: 0; width: auto; max-width: 160px; }
+  .project-select-wrap select { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .global-search-button, .topbar-capture-button { width: 35px; }
+  .topbar__notification { display: none; }
   .page { padding: 27px 14px 55px; }.page-intro { margin-bottom: 26px; }.page-intro h1 { font-size: 42px; letter-spacing: -2.6px; }.page-intro__actions { flex-wrap: wrap; }
   .home-intro { padding-top: 0; }.home-intro h1 { font-size: 52px; letter-spacing: -3.8px; }.home-intro p { line-height: 1.5; }
   .strategist-input-section { margin-bottom: 45px; }.strategist-input textarea { font-size: 19px; }.strategist-input__footer span { display: none; }
