@@ -12,7 +12,7 @@ interface CommentThread {
   snippet?: { topLevelComment?: { id?: string; snippet?: { authorDisplayName?: string; authorChannelUrl?: string; textOriginal?: string; textDisplay?: string; likeCount?: number; publishedAt?: string; updatedAt?: string } } };
 }
 
-export async function collectYouTube(monitor: MonitorInput, apiKey: string): Promise<NormalizedMention[]> {
+export async function collectYouTube(monitor: MonitorInput, apiKey: string, signal?: AbortSignal): Promise<NormalizedMention[]> {
   if (!apiKey) throw new Error("YouTube is enabled, but YOUTUBE_API_KEY is not configured in Function secrets.");
   const query = buildYouTubeQuery(monitor);
   if (!query) throw new Error("The monitor does not contain a YouTube search term.");
@@ -26,18 +26,19 @@ export async function collectYouTube(monitor: MonitorInput, apiKey: string): Pro
     publishedAfter,
     safeSearch: "moderate",
     key: apiKey,
-  });
+  }, signal);
   const items = (search.items ?? []).filter((item) => item.id?.videoId);
   const videoIds = items.map((item) => item.id?.videoId).filter((id): id is string => Boolean(id));
   const statistics = videoIds.length ? await googleRequest<{ items?: { id?: string; statistics?: { viewCount?: string; likeCount?: string; commentCount?: string } }[] }>("videos", {
     part: "statistics",
     id: videoIds.join(","),
     key: apiKey,
-  }) : { items: [] };
+  }, signal) : { items: [] };
   const stats = new Map((statistics.items ?? []).map((item) => [item.id, item.statistics]));
   const mentions: NormalizedMention[] = [];
 
   for (const item of items) {
+    signal?.throwIfAborted();
     const videoId = item.id?.videoId;
     if (!videoId) continue;
     const snippet = item.snippet ?? {};
@@ -70,7 +71,7 @@ export async function collectYouTube(monitor: MonitorInput, apiKey: string): Pro
         order: "relevance",
         textFormat: "plainText",
         key: apiKey,
-      });
+      }, signal);
       for (const thread of commentResponse.items ?? []) {
         const comment = thread.snippet?.topLevelComment;
         const commentSnippet = comment?.snippet;
@@ -94,6 +95,7 @@ export async function collectYouTube(monitor: MonitorInput, apiKey: string): Pro
         });
       }
     } catch {
+      signal?.throwIfAborted();
       // Comments may be disabled for an otherwise valid video. Keep the video result.
     }
   }
@@ -112,10 +114,10 @@ function quote(value: string) {
   return cleaned.includes(" ") ? `"${cleaned}"` : cleaned;
 }
 
-async function googleRequest<T>(resource: string, parameters: Record<string, string>): Promise<T> {
+async function googleRequest<T>(resource: string, parameters: Record<string, string>, signal?: AbortSignal): Promise<T> {
   const url = new URL(`${API_ROOT}/${resource}`);
   Object.entries(parameters).forEach(([key, value]) => url.searchParams.set(key, value));
-  const response = await fetch(url, { signal: AbortSignal.timeout(12_000) });
+  const response = await fetch(url, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(12_000)]) : AbortSignal.timeout(12_000) });
   const body = await response.json() as T & { error?: { message?: string } };
   if (!response.ok) throw new Error(body.error?.message || `YouTube API returned HTTP ${response.status}.`);
   return body;

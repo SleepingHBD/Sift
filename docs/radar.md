@@ -26,6 +26,14 @@ The shared coverage model reports each source as **Ready**, **Needs setup**, **B
 
 New monitor definitions persist immediately to the authenticated Supabase workspace and start with no records. Updates target both the monitor ID and its original project ID under the existing project-access Row Level Security policy. A run invokes the JWT-protected connector function, writes normalized evidence and an auditable run to PostgreSQL through Row Level Security, then reloads the authoritative cloud rows. The server enforces atomic limits of six Radar runs per minute and 100 per day for the permanent user.
 
+## Collection reliability and diagnostics
+
+Eligible sources run independently so one failed source does not discard records collected from another. Each source receives an 18-second collection budget and one bounded retry for transient timeouts, rate limits, network failures, and HTTP server errors. Configuration and validation failures are not retried. RSS and manual URL collectors stop promptly when the source-level budget is exhausted; YouTube requests share the same run signal while retaining their shorter request limit.
+
+The compact **Collection health** panel stays collapsed during normal analysis. It exposes the latest run's retrieved, newly created, refreshed, and deduplicated counts; total duration; per-source duration, attempts, timeout or failure message, and last successful run; quota remaining after collection; cloud-persistence confirmation; and the five most recent run summaries. A run is visibly labelled partial when one source fails and another succeeds. These diagnostics report collection mechanics only and make no claim about market-wide coverage.
+
+Deduplication uses the normalized `(platform, external_id)` identity before persistence. The database then checks existing `(source_id, external_id)` records before the idempotent upsert, allowing run history to distinguish new records from refreshed records without treating an update as a second mention.
+
 ## Normalized mentions
 
 All connector records use the shared `RadarMention` / `NormalizedMention` contract: platform, external ID, source, author, content, optional URL, publication time, likes, comments, shares, views, normalized engagement, language, sentiment, topics, keywords, relevance, and metadata.

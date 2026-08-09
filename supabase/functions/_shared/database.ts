@@ -1,7 +1,7 @@
 // The Edge Function runtime supplies the authenticated, RLS-scoped client.
 // deno-lint-ignore-file no-explicit-any
 import { processMention, slugify } from "./processing.ts";
-import type { MonitorInput, NormalizedMention, ProjectInput, SourceRunResult } from "./types.ts";
+import type { CollectionDiagnostics, MonitorInput, NormalizedMention, ProjectInput, SourceRunResult } from "./types.ts";
 
 export async function persistCollection(
   supabase: any,
@@ -11,6 +11,7 @@ export async function persistCollection(
   mentions: NormalizedMention[],
   sourceResults: SourceRunResult[],
   startedAt: string,
+  diagnostics: CollectionDiagnostics,
 ) {
   const projectId = await ensureProject(supabase, userId, monitor, project);
   const queryId = await ensureMonitoringQuery(supabase, projectId, monitor);
@@ -38,13 +39,16 @@ export async function persistCollection(
     metadata: mention.metadata,
   }));
 
-  let mentionRows: { id: string; external_id: string }[] = [];
+  const existingKeys = await existingMentionKeys(supabase, rows);
+  let mentionRows: { id: string; source_id: string; external_id: string }[] = [];
   if (rows.length) {
-    const { data, error } = await supabase.from("mentions").upsert(rows, { onConflict: "source_id,external_id" }).select("id,external_id");
+    const { data, error } = await supabase.from("mentions").upsert(rows, { onConflict: "source_id,external_id" }).select("id,source_id,external_id");
     if (error) throw error;
     mentionRows = data ?? [];
-    await linkTopics(supabase, projectId, processed, mentionRows);
+    await linkTopics(supabase, projectId, processed, mentionRows, sourceIds);
   }
+  const mentionsUpdated = rows.filter((row) => existingKeys.has(mentionKey(row.source_id, row.external_id))).length;
+  const mentionsCreated = rows.length - mentionsUpdated;
 
   await supabase.from("monitoring_queries").update({ last_run_at: new Date().toISOString(), enabled: true }).eq("id", queryId);
   const status = sourceResults.every((result) => result.status === "failed") ? "failed" : "completed";
@@ -57,14 +61,44 @@ export async function persistCollection(
     status,
     started_at: startedAt,
     completed_at: new Date().toISOString(),
-    mentions_fetched: mentions.length,
-    mentions_created: mentionRows.length,
-    mentions_updated: 0,
+    mentions_fetched: diagnostics.mentionsFetched,
+    mentions_created: mentionsCreated,
+    mentions_updated: mentionsUpdated,
     error_message: status === "failed" ? sourceResults.map((result) => result.message).filter(Boolean).join(" ") : null,
-    run_metadata: { sourceResults },
+    run_metadata: {
+      sourceResults,
+      duplicatesRemoved: diagnostics.duplicatesRemoved,
+      durationMs: diagnostics.durationMs,
+      quota: diagnostics.quota,
+    },
   }).select("id").single();
   if (runError) throw runError;
-  return { runId: run.id as string, projectId, queryId };
+  return { runId: run.id as string, projectId, queryId, mentionsCreated, mentionsUpdated };
+}
+
+async function existingMentionKeys(supabase: any, rows: { source_id: string; external_id: string }[]) {
+  const keys = new Set<string>();
+  const externalIdsBySource = new Map<string, string[]>();
+  for (const row of rows) {
+    const values = externalIdsBySource.get(row.source_id) ?? [];
+    values.push(row.external_id);
+    externalIdsBySource.set(row.source_id, values);
+  }
+  for (const [sourceId, externalIds] of externalIdsBySource) {
+    for (let index = 0; index < externalIds.length; index += 200) {
+      const { data, error } = await supabase.from("mentions")
+        .select("source_id,external_id")
+        .eq("source_id", sourceId)
+        .in("external_id", externalIds.slice(index, index + 200));
+      if (error) throw error;
+      for (const row of data ?? []) keys.add(mentionKey(row.source_id, row.external_id));
+    }
+  }
+  return keys;
+}
+
+function mentionKey(sourceId: string, externalId: string) {
+  return `${sourceId}:${externalId}`;
 }
 
 export async function deleteStoredMonitor(
@@ -184,14 +218,24 @@ async function ensureSources(supabase: any, projectId: string, mentions: Normali
   return ids;
 }
 
-async function linkTopics(supabase: any, projectId: string, processed: ReturnType<typeof processMention>[], mentionRows: { id: string; external_id: string }[]) {
+async function linkTopics(
+  supabase: any,
+  projectId: string,
+  processed: ReturnType<typeof processMention>[],
+  mentionRows: { id: string; source_id: string; external_id: string }[],
+  sourceIds: Map<string, string>,
+) {
   const topicNames = [...new Set(processed.flatMap((item) => item.topics))];
   if (!topicNames.length) return;
   const { data: topicRows, error: topicError } = await supabase.from("topics").upsert(topicNames.map((name) => ({ project_id: projectId, name, slug: slugify(name) })), { onConflict: "project_id,slug" }).select("id,name");
   if (topicError) throw topicError;
   const topicIds = new Map((topicRows ?? []).map((topic: { id: string; name: string }) => [topic.name, topic.id]));
-  const mentionIds = new Map(mentionRows.map((mention) => [mention.external_id, mention.id]));
-  const links = processed.flatMap((item) => item.topics.map((topic) => ({ mention_id: mentionIds.get(item.mention.externalId), topic_id: topicIds.get(topic), confidence: 0.7 }))).filter((link) => link.mention_id && link.topic_id);
+  const mentionIds = new Map(mentionRows.map((mention) => [mentionKey(mention.source_id, mention.external_id), mention.id]));
+  const links = processed.flatMap((item) => item.topics.map((topic) => ({
+    mention_id: mentionIds.get(mentionKey(sourceIds.get(item.mention.platform) ?? "", item.mention.externalId)),
+    topic_id: topicIds.get(topic),
+    confidence: 0.7,
+  }))).filter((link) => link.mention_id && link.topic_id);
   if (!links.length) return;
   const { error } = await supabase.from("mention_topics").upsert(links, { onConflict: "mention_id,topic_id" });
   if (error) throw error;

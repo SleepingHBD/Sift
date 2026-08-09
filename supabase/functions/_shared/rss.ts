@@ -2,22 +2,24 @@ import { firstTag, matchesMonitor, stableId, stripMarkup, validDate } from "./co
 import { fetchPublicDocument } from "./security.ts";
 import type { MonitorInput, NormalizedMention } from "./types.ts";
 
-export async function collectRssFeeds(urls: string[], monitor: MonitorInput) {
+export async function collectRssFeeds(urls: string[], monitor: MonitorInput, signal?: AbortSignal) {
   const mentions: NormalizedMention[] = [];
   const failures: string[] = [];
   for (const url of urls.slice(0, 10)) {
+    signal?.throwIfAborted();
     try {
-      mentions.push(...await collectFeed(url, monitor));
+      mentions.push(...await collectFeed(url, monitor, signal));
     } catch (error) {
-      failures.push(`${url}: ${error instanceof Error ? error.message : "Feed retrieval failed."}`);
+      signal?.throwIfAborted();
+      failures.push(error instanceof Error ? error.message : "Feed retrieval failed.");
     }
   }
   return { mentions, failures };
 }
 
-async function collectFeed(url: string, monitor: MonitorInput): Promise<NormalizedMention[]> {
+async function collectFeed(url: string, monitor: MonitorInput, signal?: AbortSignal): Promise<NormalizedMention[]> {
   const fetchedAt = new Date().toISOString();
-  const document = await fetchPublicDocument(url, ["xml", "rss", "atom", "text/plain"]);
+  const document = await fetchPublicDocument(url, ["xml", "rss", "atom", "text/plain"], signal);
   const feedTitle = firstTag(document.text, ["title"]) || new URL(document.finalUrl).hostname;
   const blocks = document.text.match(/<(item|entry)\b[\s\S]*?<\/\1>/gi) ?? [];
   return blocks.slice(0, 50).map((block) => {

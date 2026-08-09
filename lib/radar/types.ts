@@ -89,8 +89,21 @@ export interface MonitorRun {
   completedAt?: string;
   mentionsFetched: number;
   mentionsCreated: number;
+  mentionsUpdated?: number;
+  duplicatesRemoved?: number;
+  durationMs?: number;
   persisted: boolean;
-  sourceResults: { source: RadarSource; status: "completed" | "failed"; count: number; message?: string }[];
+  quota?: { remainingMinute: number; remainingDay: number };
+  sourceResults: {
+    source: RadarSource;
+    status: "completed" | "failed";
+    count: number;
+    message?: string;
+    durationMs?: number;
+    attempts?: number;
+    timedOut?: boolean;
+    duplicatesRemoved?: number;
+  }[];
   error?: string;
 }
 

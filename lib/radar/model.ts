@@ -66,6 +66,7 @@ export interface MonitorRunRow {
   completed_at: string | null;
   mentions_fetched: number;
   mentions_created: number;
+  mentions_updated: number;
   error_message: string | null;
   run_metadata: unknown;
 }
@@ -196,12 +197,18 @@ function sourceResultsFrom(value: unknown): MonitorRun["sourceResults"] {
       status: result.status,
       count: typeof result.count === "number" ? result.count : 0,
       message: typeof result.message === "string" ? result.message : undefined,
+      durationMs: typeof result.durationMs === "number" ? result.durationMs : undefined,
+      attempts: typeof result.attempts === "number" ? result.attempts : undefined,
+      timedOut: result.timedOut === true,
+      duplicatesRemoved: typeof result.duplicatesRemoved === "number" ? result.duplicatesRemoved : undefined,
     }];
   });
 }
 
 export function monitorRunFromRow(row: MonitorRunRow, monitorClientRef: string): MonitorRun {
+  const metadata = record(row.run_metadata);
   const sourceResults = sourceResultsFrom(row.run_metadata);
+  const quota = record(metadata.quota);
   return {
     id: row.client_ref ?? row.id,
     cloudId: row.id,
@@ -213,6 +220,12 @@ export function monitorRunFromRow(row: MonitorRunRow, monitorClientRef: string):
     completedAt: row.completed_at ?? undefined,
     mentionsFetched: row.mentions_fetched,
     mentionsCreated: row.mentions_created,
+    mentionsUpdated: row.mentions_updated,
+    duplicatesRemoved: typeof metadata.duplicatesRemoved === "number" ? metadata.duplicatesRemoved : 0,
+    durationMs: typeof metadata.durationMs === "number" ? metadata.durationMs : undefined,
+    quota: typeof quota.remainingMinute === "number" && typeof quota.remainingDay === "number"
+      ? { remainingMinute: quota.remainingMinute, remainingDay: quota.remainingDay }
+      : undefined,
     persisted: true,
     sourceResults,
     error: row.error_message ?? undefined,

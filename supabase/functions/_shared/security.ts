@@ -11,8 +11,8 @@ export interface PublicDocument {
   contentType: string;
 }
 
-export async function fetchPublicDocument(input: string, acceptedTypes: string[]): Promise<PublicDocument> {
-  return fetchWithRedirects(assertPublicUrl(input), acceptedTypes, 0);
+export async function fetchPublicDocument(input: string, acceptedTypes: string[], signal?: AbortSignal): Promise<PublicDocument> {
+  return fetchWithRedirects(assertPublicUrl(input), acceptedTypes, 0, signal);
 }
 
 export function assertPublicUrl(input: string) {
@@ -29,19 +29,19 @@ export function assertPublicUrl(input: string) {
   return url;
 }
 
-async function fetchWithRedirects(url: URL, acceptedTypes: string[], depth: number): Promise<PublicDocument> {
+async function fetchWithRedirects(url: URL, acceptedTypes: string[], depth: number, signal?: AbortSignal): Promise<PublicDocument> {
   if (depth > MAX_REDIRECTS) throw new Error("The source redirected too many times.");
   await assertPublicDns(url.hostname);
   const response = await fetch(url, {
     redirect: "manual",
-    signal: AbortSignal.timeout(12_000),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(12_000)]) : AbortSignal.timeout(12_000),
     headers: { "user-agent": "Sift-Radar/1.0 (+permitted-source-ingestion)" },
   });
 
   if (response.status >= 300 && response.status < 400) {
     const location = response.headers.get("location");
     if (!location) throw new Error("The source returned an invalid redirect.");
-    return fetchWithRedirects(assertPublicUrl(new URL(location, url).toString()), acceptedTypes, depth + 1);
+    return fetchWithRedirects(assertPublicUrl(new URL(location, url).toString()), acceptedTypes, depth + 1, signal);
   }
   if (!response.ok) throw new Error(`The source returned HTTP ${response.status}.`);
 

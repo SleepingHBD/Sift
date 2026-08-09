@@ -12,7 +12,7 @@ It combines social-listening workflows, cultural research, inspiration, competit
 - Cloud-backed project creation, editing, switching, archiving, restoring, and deletion
 - Radar monitor creation with a simple guided query form and an advanced Boolean editor
 - Functional Radar collection through RSS/Atom feeds, manually supplied public URLs, and the official YouTube Data API
-- Cloud-backed Radar monitors, connector run history, normalized conversations, notes, saved and important markers, and evidence relationships with views for metrics, timelines, topics, spikes, source detail, and evidence
+- Cloud-backed Radar monitors, source-level collection health and run diagnostics, normalized conversations, notes, saved and important markers, and evidence relationships with views for metrics, timelines, topics, spikes, source detail, and evidence
 - Cloud-backed Research and Inspiration libraries with project assignment, search, filtering, source links, relationship-aware protected deletion, CSV evidence import, and reviewed browser-data migration
 - Persistent evidence capture for project-scoped links, notes, social posts, screenshots, images, and PDFs, including secure URL metadata inspection, canonical duplicate warnings, private file previews, and manual-save fallback
 - Unified project evidence inbox across Radar mentions, Research, social captures, files, CSV imports, and Inspiration, with PostgreSQL full-text retrieval, stable cursor pagination, durable private saved views, filters, sorting, grouping, matched-term highlighting, review progress, durable single and bulk review states, shared tags, project-scoped strategist topics, editable notes, non-destructive project links, and a provenance-first detail drawer that shows downstream relationships
@@ -98,6 +98,8 @@ Connector contracts live in `lib/connectors`, while the deployable runtime is in
 The implemented sources are RSS/Atom feeds, manually supplied public URLs, and YouTube video search with public top-level comments through the official API. Manual imports reject local/private network targets, non-web protocols, nonstandard ports, oversized responses, and excessive redirects. Reddit and other social platforms remain unavailable until official access is configured. Sift must not scrape sources in violation of their terms.
 
 The static client never receives connector credentials. Monitor runs and URL metadata inspection execute in the authenticated Supabase Edge Function and the database remains protected by project-scoped Row Level Security. URL inspection applies project access checks, a separate extraction quota, private-network and redirect protections, response limits, and an explicit raw-link fallback when a page cannot be read.
+
+Connector runs execute eligible sources independently, apply an 18-second source budget and one bounded retry for transient timeouts, rate limits, network failures, and server errors, and preserve successful results when another source fails. Run history records retrieved, created, refreshed, and deduplicated counts; source duration, attempts, timeout state, last success, quota remaining, and cloud-persistence status are visible in Radar's collapsed **Collection health** panel.
 
 ## Strategy AI on GitHub Pages
 

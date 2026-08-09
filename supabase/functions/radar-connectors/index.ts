@@ -1,7 +1,9 @@
 import { withSupabase } from "npm:@supabase/server@1.4.1";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { deleteStoredMonitor, persistCollection } from "../_shared/database.ts";
+import { deduplicateMentions } from "../_shared/deduplicate.ts";
 import { createConnectorRegistry } from "../_shared/registry.ts";
+import { runReliableOperation } from "../_shared/reliability.ts";
 import type { ConnectorSource, DeleteMonitorRequest, ExtractUrlRequest, NormalizedMention, ProjectInput, RunRequest, SourceRunResult } from "../_shared/types.ts";
 import { comparableUrl, extractUrlMetadata } from "../_shared/url-metadata.ts";
 
@@ -66,34 +68,69 @@ export default {
       }
 
       const startedAt = new Date().toISOString();
-      const mentions: NormalizedMention[] = [];
-      const sourceResults: SourceRunResult[] = [];
       const registry = createConnectorRegistry(input, { youtubeApiKey: Deno.env.get("YOUTUBE_API_KEY") || "" });
-
-      for (const source of input.monitor.sources) {
+      const collectionStartedAt = Date.now();
+      const collectionResults = await Promise.all(input.monitor.sources.map(async (source) => {
         const connector = registry.get(source);
         if (!connector) {
-          sourceResults.push({ source, status: "failed", count: 0, message: "This connector is not implemented." });
-          continue;
+          return {
+            mentions: [] as NormalizedMention[],
+            result: { source, status: "failed", count: 0, message: "This connector is not implemented.", attempts: 0, durationMs: 0 } satisfies SourceRunResult,
+          };
         }
-        try {
-          const collected = await connector.collect();
-          mentions.push(...collected.mentions);
-          sourceResults.push(collected.result);
-        } catch (error) {
-          sourceResults.push({ source, status: "failed", count: 0, message: error instanceof Error ? error.message : `${source} retrieval failed.` });
+        const outcome = await runReliableOperation((signal) => connector.collect(signal));
+        if (!outcome.ok || !outcome.value) {
+          return {
+            mentions: [] as NormalizedMention[],
+            result: {
+              source,
+              status: "failed",
+              count: 0,
+              message: outcome.timedOut ? "Collection timed out before this source completed." : outcome.error || `${source} retrieval failed.`,
+              attempts: outcome.attempts,
+              durationMs: outcome.durationMs,
+              timedOut: outcome.timedOut,
+            } satisfies SourceRunResult,
+          };
         }
-      }
+        return {
+          mentions: outcome.value.mentions,
+          result: {
+            ...outcome.value.result,
+            attempts: outcome.attempts,
+            durationMs: outcome.durationMs,
+            timedOut: false,
+          } satisfies SourceRunResult,
+        };
+      }));
 
-      const deduplicated = deduplicateMentions(mentions);
+      const mentions = collectionResults.flatMap((result) => result.mentions);
+      const deduplication = deduplicateMentions(mentions);
+      const sourceResults = collectionResults.map(({ result }) => ({
+        ...result,
+        duplicatesRemoved: deduplication.duplicatesBySource[result.source] ?? 0,
+      }));
+      const diagnostics = {
+        mentionsFetched: mentions.length,
+        duplicatesRemoved: deduplication.duplicatesRemoved,
+        durationMs: Date.now() - collectionStartedAt,
+        quota: {
+          remainingMinute: quota.remainingMinute,
+          remainingDay: quota.remainingDay,
+        },
+      };
       let persisted = false;
       let persistenceError: string | undefined;
       let runId = `run-${crypto.randomUUID()}`;
+      let mentionsCreated = deduplication.mentions.length;
+      let mentionsUpdated = 0;
       try {
         // The function is the trusted write boundary: it derives ownership from
         // the verified JWT and never accepts a database owner ID from the client.
-        const stored = await persistCollection(context.supabaseAdmin, userId, input.monitor, input.project, deduplicated, sourceResults, startedAt);
+        const stored = await persistCollection(context.supabaseAdmin, userId, input.monitor, input.project, deduplication.mentions, sourceResults, startedAt, diagnostics);
         runId = stored.runId;
+        mentionsCreated = stored.mentionsCreated;
+        mentionsUpdated = stored.mentionsUpdated;
         persisted = true;
       } catch (error) {
         persistenceError = errorMessage(error, "Database persistence failed.");
@@ -102,8 +139,13 @@ export default {
 
       return Response.json({
         runId,
-        mentions: deduplicated,
+        mentions: deduplication.mentions,
         sourceResults,
+        mentionsFetched: diagnostics.mentionsFetched,
+        mentionsCreated,
+        mentionsUpdated,
+        duplicatesRemoved: diagnostics.duplicatesRemoved,
+        durationMs: diagnostics.durationMs,
         persisted,
         persistenceError,
         quota: {
@@ -258,12 +300,6 @@ function cleanTerms(values: unknown) {
 
 function cleanUrls(values: unknown) {
   return Array.isArray(values) ? [...new Set(values.map(String).map((value) => value.trim()).filter(Boolean))].slice(0, 10) : [];
-}
-
-function deduplicateMentions(mentions: NormalizedMention[]) {
-  const unique = new Map<string, NormalizedMention>();
-  mentions.forEach((mention) => unique.set(`${mention.platform}:${mention.externalId}`, mention));
-  return [...unique.values()];
 }
 
 async function findDuplicateEvidence(client: SupabaseClient, projectId: string, candidates: string[]) {

@@ -81,6 +81,7 @@ test("cloud run metadata returns source diagnostics", () => {
     completed_at: "2026-08-08T00:01:00.000Z",
     mentions_fetched: 4,
     mentions_created: 4,
+    mentions_updated: 0,
     error_message: null,
     run_metadata: { sourceResults: [{ source: "youtube", status: "completed", count: 4 }] },
   }, "monitor-local");

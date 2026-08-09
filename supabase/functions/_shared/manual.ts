@@ -2,23 +2,25 @@ import { firstMeta, matchesMonitor, stableId, stripMarkup, validDate } from "./c
 import { fetchPublicDocument } from "./security.ts";
 import type { MonitorInput, NormalizedMention } from "./types.ts";
 
-export async function collectManualUrls(urls: string[], monitor: MonitorInput) {
+export async function collectManualUrls(urls: string[], monitor: MonitorInput, signal?: AbortSignal) {
   const mentions: NormalizedMention[] = [];
   const failures: string[] = [];
   for (const url of urls.slice(0, 10)) {
+    signal?.throwIfAborted();
     try {
-      const mention = await collectPage(url, monitor);
+      const mention = await collectPage(url, monitor, signal);
       if (mention) mentions.push(mention);
     } catch (error) {
-      failures.push(`${url}: ${error instanceof Error ? error.message : "URL import failed."}`);
+      signal?.throwIfAborted();
+      failures.push(error instanceof Error ? error.message : "URL import failed.");
     }
   }
   return { mentions, failures };
 }
 
-async function collectPage(url: string, monitor: MonitorInput): Promise<NormalizedMention | null> {
+async function collectPage(url: string, monitor: MonitorInput, signal?: AbortSignal): Promise<NormalizedMention | null> {
   const fetchedAt = new Date().toISOString();
-  const document = await fetchPublicDocument(url, ["text/html", "application/xhtml"]);
+  const document = await fetchPublicDocument(url, ["text/html", "application/xhtml"], signal);
   const title = firstMeta(document.text, ["og:title", "twitter:title"])
     || stripMarkup(document.text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "")
     || new URL(document.finalUrl).hostname;

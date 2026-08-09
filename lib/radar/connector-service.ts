@@ -11,12 +11,22 @@ export interface RadarRunSourceResult {
   status: "completed" | "failed";
   count: number;
   message?: string;
+  durationMs?: number;
+  attempts?: number;
+  timedOut?: boolean;
+  duplicatesRemoved?: number;
 }
 
 export interface RadarConnectorRunResult {
   runId: string;
   mentions: NormalizedMention[];
   sourceResults: RadarRunSourceResult[];
+  mentionsFetched: number;
+  mentionsCreated: number;
+  mentionsUpdated: number;
+  duplicatesRemoved: number;
+  durationMs: number;
+  quota?: { remainingMinute: number; remainingDay: number };
   persisted: boolean;
   persistenceError?: string;
   fetchedAt: string;
@@ -67,7 +77,7 @@ export async function runRadarConnectors(
 
   if (error) throw new Error(await readFunctionError(error));
   if (!isRunResponse(data)) throw new Error("The connector service returned an invalid response.");
-  return data;
+  return normalizeRunResponse(data);
 }
 
 export async function deleteRadarMonitor(
@@ -179,6 +189,21 @@ function isRunResponse(value: unknown): value is RadarConnectorRunResult {
     && Array.isArray(candidate.sourceResults)
     && typeof candidate.persisted === "boolean"
     && typeof candidate.fetchedAt === "string";
+}
+
+function normalizeRunResponse(value: RadarConnectorRunResult): RadarConnectorRunResult {
+  return {
+    ...value,
+    mentionsFetched: finiteNumber(value.mentionsFetched, value.mentions.length),
+    mentionsCreated: finiteNumber(value.mentionsCreated, value.mentions.length),
+    mentionsUpdated: finiteNumber(value.mentionsUpdated, 0),
+    duplicatesRemoved: finiteNumber(value.duplicatesRemoved, 0),
+    durationMs: finiteNumber(value.durationMs, 0),
+  };
+}
+
+function finiteNumber(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
 function isDeleteResponse(value: unknown): value is RadarMonitorDeleteResult {

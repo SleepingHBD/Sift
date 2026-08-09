@@ -70,4 +70,20 @@ export interface SourceRunResult {
   status: "completed" | "failed";
   count: number;
   message?: string;
+  durationMs?: number;
+  attempts?: number;
+  timedOut?: boolean;
+  duplicatesRemoved?: number;
+}
+
+export interface RunQuotaSnapshot {
+  remainingMinute: number;
+  remainingDay: number;
+}
+
+export interface CollectionDiagnostics {
+  mentionsFetched: number;
+  duplicatesRemoved: number;
+  durationMs: number;
+  quota: RunQuotaSnapshot;
 }

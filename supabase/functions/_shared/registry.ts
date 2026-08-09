@@ -5,7 +5,7 @@ import { collectYouTube } from "./youtube.ts";
 
 export interface RuntimeConnector {
   readonly source: ConnectorSource;
-  collect(): Promise<{ mentions: NormalizedMention[]; result: SourceRunResult }>;
+  collect(signal: AbortSignal): Promise<{ mentions: NormalizedMention[]; result: SourceRunResult }>;
 }
 
 export function createConnectorRegistry(input: RunRequest, secrets: { youtubeApiKey: string }) {
@@ -20,9 +20,10 @@ export function createConnectorRegistry(input: RunRequest, secrets: { youtubeApi
 function createRssConnector(monitor: MonitorInput, urls: string[]): RuntimeConnector {
   return {
     source: "rss",
-    async collect() {
+    async collect(signal) {
       if (!urls.length) throw new Error("Add at least one RSS or Atom feed URL.");
-      const collected = await collectRssFeeds(urls, monitor);
+      const collected = await collectRssFeeds(urls, monitor, signal);
+      if (collected.failures.length && !collected.mentions.length) throw new Error(collected.failures[0]);
       return {
         mentions: collected.mentions,
         result: {
@@ -39,9 +40,10 @@ function createRssConnector(monitor: MonitorInput, urls: string[]): RuntimeConne
 function createManualConnector(monitor: MonitorInput, urls: string[]): RuntimeConnector {
   return {
     source: "manual",
-    async collect() {
+    async collect(signal) {
       if (!urls.length) throw new Error("Add at least one public URL.");
-      const collected = await collectManualUrls(urls, monitor);
+      const collected = await collectManualUrls(urls, monitor, signal);
+      if (collected.failures.length && !collected.mentions.length) throw new Error(collected.failures[0]);
       return {
         mentions: collected.mentions,
         result: {
@@ -58,9 +60,9 @@ function createManualConnector(monitor: MonitorInput, urls: string[]): RuntimeCo
 function createYouTubeConnector(monitor: MonitorInput, enabled: boolean, apiKey: string): RuntimeConnector {
   return {
     source: "youtube",
-    async collect() {
+    async collect(signal) {
       if (!enabled) throw new Error("YouTube is not enabled in source settings.");
-      const mentions = await collectYouTube(monitor, apiKey);
+      const mentions = await collectYouTube(monitor, apiKey, signal);
       return { mentions, result: { source: "youtube", status: "completed", count: mentions.length } };
     },
   };

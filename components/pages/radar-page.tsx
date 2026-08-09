@@ -28,6 +28,7 @@ import { MonitorDialog } from "@/components/radar/monitor-dialog";
 import { RadarImportNotice } from "@/components/radar/radar-import-notice";
 import { RadarSentimentChart, RadarSourceChart, RadarVolumeChart } from "@/components/radar/radar-charts";
 import { RadarEvidenceView } from "@/components/radar/radar-evidence-view";
+import { RunDiagnostics } from "@/components/radar/run-diagnostics";
 import { SourceDrawer } from "@/components/radar/source-drawer";
 import { SpikeDrawer } from "@/components/radar/spike-drawer";
 import { StrategistPanel } from "@/components/radar/strategist-panel";
@@ -52,7 +53,7 @@ const rangeLabels: { id: DateRangeKey; label: string }[] = [
 
 export function RadarPage() {
   const { removeSavedIds, projects, researchItems, inspirationItems } = useApp();
-  const { monitors, addMonitor, editMonitor, removeMonitor, mentionsByMonitor, connectorSettings, saveConnectorSettings, completeMonitorRun, recordMonitorRun, savedIds, toggleSaved, evidenceLinks, addEvidenceLink, removeEvidenceLink, notes, saveNote, importantIds, toggleImportant, annotationError, clearAnnotationError, cloudStatus, cloudError, retryCloud, historyTruncated, pendingLocalRadar, pendingLocalAnnotations, importPendingRadar } = useRadarState(projects, researchItems, inspirationItems, removeSavedIds);
+  const { monitors, addMonitor, editMonitor, removeMonitor, mentionsByMonitor, runs, connectorSettings, saveConnectorSettings, completeMonitorRun, recordMonitorRun, savedIds, toggleSaved, evidenceLinks, addEvidenceLink, removeEvidenceLink, notes, saveNote, importantIds, toggleImportant, annotationError, clearAnnotationError, cloudStatus, cloudError, retryCloud, historyTruncated, pendingLocalRadar, pendingLocalAnnotations, importPendingRadar } = useRadarState(projects, researchItems, inspirationItems, removeSavedIds);
   const [activeMonitorId, setActiveMonitorId] = useState("");
   const [activeView, setActiveView] = useState<RadarView>("overview");
   const [dateRange, setDateRange] = useState<DateRangeKey>("30d");
@@ -200,11 +201,15 @@ export function RadarPage() {
         id: result.runId,
         monitorId: activeMonitor.id,
         connectorIds: runnableSources,
-        status: "completed",
+        status: result.sourceResults.every((source) => source.status === "failed") ? "failed" : "completed",
         startedAt,
         completedAt,
-        mentionsFetched: result.mentions.length,
-        mentionsCreated: processed.length,
+        mentionsFetched: result.mentionsFetched,
+        mentionsCreated: result.mentionsCreated,
+        mentionsUpdated: result.mentionsUpdated,
+        duplicatesRemoved: result.duplicatesRemoved,
+        durationMs: result.durationMs,
+        quota: result.quota,
         persisted: result.persisted,
         sourceResults: result.sourceResults,
       };
@@ -213,7 +218,7 @@ export function RadarPage() {
       setRunNotice({
         tone: failedSources.length || !result.persisted ? "error" : "success",
         message: processed.length
-          ? `Collected ${processed.length} genuine source record${processed.length === 1 ? "" : "s"}.${failedSources.length ? ` ${failedSources.length} source failed; open Sources for details.` : ""}${!result.persisted ? ` These results are temporary and may be lost because cloud persistence failed${result.persistenceError ? `: ${result.persistenceError}` : "."}` : ""}`
+          ? `Collected ${processed.length} genuine source record${processed.length === 1 ? "" : "s"}.${failedSources.length ? ` ${failedSources.length} source failed; expand Collection health for details.` : ""}${!result.persisted ? ` These results are temporary and may be lost because cloud persistence failed${result.persistenceError ? `: ${result.persistenceError}` : "."}` : ""}`
           : !result.persisted
             ? `The source run completed, but cloud persistence failed${result.persistenceError ? `: ${result.persistenceError}` : "."}`
             : failedSources.length
@@ -361,6 +366,7 @@ export function RadarPage() {
       </Card>
 
       <MonitorCoveragePreview selectedSources={activeMonitor.sources} settings={connectorSettings} backendConfigured={backendConfigured} onManageSources={openSourceDrawer} collapsible />
+      <RunDiagnostics monitorId={activeMonitor.id} selectedSources={activeMonitor.sources} runs={runs} />
 
       {runNotice ? <div className={`radar-run-notice radar-run-notice--${runNotice.tone}`} role="status"><span>{runNotice.message}</span><button onClick={() => setRunNotice(null)} aria-label="Dismiss run status">×</button></div> : null}
 
