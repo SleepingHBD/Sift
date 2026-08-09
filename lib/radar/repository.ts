@@ -232,6 +232,50 @@ export async function createCloudMonitor(monitor: MonitoringQuery, projects: Pro
   return monitoringQueryFromRow(data as unknown as MonitoringQueryRow, project?.id ?? internalRadarProjectRef, monitor.brand, monitor.competitors, 0);
 }
 
+export async function updateCloudMonitor(monitor: MonitoringQuery, projects: Project[]) {
+  if (!monitor.cloudId || !monitor.cloudProjectId) throw new Error("This monitor has not been verified in the cloud yet.");
+  const client = requireClient();
+  const project = monitor.projectId ? projectByClientRef(projects).get(monitor.projectId) : undefined;
+  if (monitor.projectId && !project) throw new Error("The selected project is no longer available.");
+  const requestedProjectId = project?.cloudId ?? monitor.cloudProjectId;
+  if (requestedProjectId !== monitor.cloudProjectId) throw new Error("Moving a monitor between projects is not supported yet.");
+
+  const brandId = monitor.brand ? await ensureNamedContext(client, "brands", monitor.cloudProjectId, monitor.brand) : null;
+  const payload = {
+    brand_id: brandId || null,
+    name: monitor.name.trim(),
+    query: monitor.query,
+    description: monitor.description.trim() || null,
+    parsed_query: {
+      includeAll: monitor.builder.includeAll,
+      includeAny: monitor.builder.includeAny,
+      exclude: monitor.builder.exclude,
+    },
+    enabled: monitor.status !== "paused",
+    platform_filters: monitor.sources.map(sourceToDatabase),
+    language: monitor.language === "Any language" ? null : monitor.language,
+    market: monitor.market.trim() || null,
+    keywords: monitor.keywords,
+    excluded_keywords: monitor.excludedKeywords,
+  };
+  const { data, error } = await client.from("monitoring_queries")
+    .update(payload)
+    .eq("id", monitor.cloudId)
+    .eq("project_id", monitor.cloudProjectId)
+    .select(monitorSelect)
+    .single();
+  if (error || !data) throw new Error(`Monitor could not be updated: ${error?.message ?? "No record was returned."}`);
+  await syncMonitorCompetitors(client, monitor.cloudId, monitor.cloudProjectId, monitor.competitors);
+  const updated = monitoringQueryFromRow(
+    data as unknown as MonitoringQueryRow,
+    project?.id ?? internalRadarProjectRef,
+    monitor.brand,
+    monitor.competitors,
+    monitor.dataMode === "live" ? 1 : 0,
+  );
+  return { ...updated, dataMode: monitor.dataMode };
+}
+
 export async function saveCloudMonitorRun(run: MonitorRun, monitor: MonitoringQuery) {
   if (!shouldPersistMonitorRun(run) || !monitor.cloudId || !monitor.cloudProjectId) return;
   const client = requireClient();

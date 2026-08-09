@@ -15,7 +15,7 @@ import {
   type RadarAnnotationSnapshot,
 } from "@/lib/radar/annotation-repository";
 import { defaultRadarConnectorSettings, mergeRadarMentions, type RadarConnectorSettings } from "@/lib/radar/connector-service";
-import { createCloudMonitor, importLocalRadar, listCloudRadar, saveCloudMonitorRun, type LocalRadarPayload, type RadarCloudSnapshot } from "@/lib/radar/repository";
+import { createCloudMonitor, importLocalRadar, listCloudRadar, saveCloudMonitorRun, updateCloudMonitor, type LocalRadarPayload, type RadarCloudSnapshot } from "@/lib/radar/repository";
 import type { MonitorRun, MonitoringQuery, RadarEvidenceLink, RadarMention } from "@/lib/radar/types";
 import type { InspirationItem, Project, ResearchItem } from "@/lib/types";
 import {
@@ -184,6 +184,12 @@ export function useRadarState(
     return created;
   }
 
+  async function editMonitor(monitor: MonitoringQuery) {
+    const updated = await updateCloudMonitor(monitor, projects);
+    setMonitors((current) => current.map((item) => item.id === updated.id ? updated : item));
+    return updated;
+  }
+
   function removeMonitor(monitorId: string) {
     const mentionIds = new Set((mentionsByMonitor[monitorId] ?? []).map((mention) => mention.id));
     setMonitors((current) => current.filter((monitor) => monitor.id !== monitorId));
@@ -328,6 +334,7 @@ export function useRadarState(
   return {
     monitors,
     addMonitor,
+    editMonitor,
     removeMonitor,
     mentionsByMonitor,
     runs,

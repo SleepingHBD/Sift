@@ -16,11 +16,15 @@ monitor definition
   → saved evidence relationship
 ```
 
-## Monitor definitions
+## Monitor definitions and coverage
 
-The default monitor form asks only for a topic and monitor name. An optional advanced editor supports `AND`, `OR`, `NOT`, exact phrases, parentheses, exclusions, project context, language, market, and requested sources.
+The default monitor form asks for a natural-language monitoring subject and derives an inspectable name and query. The optional advanced editor keeps the research question, project context, brand, competitors, language, market, source scope, and `AND` / `OR` / `NOT` rules out of the primary flow. Existing monitors can be edited and paused without changing or deleting their collected evidence. A monitor stays in its original project because moving it would also change the ownership boundary of its evidence.
 
-New monitor definitions persist immediately to the authenticated Supabase workspace and start with no records. A run invokes the JWT-protected connector function, writes normalized evidence and an auditable run to PostgreSQL through Row Level Security, then reloads the authoritative cloud rows. The server enforces atomic limits of six Radar runs per minute and 100 per day for the permanent user.
+Connector configuration remains separate from monitor configuration. The Sources drawer controls workspace-level RSS feeds, public page URLs, and YouTube availability; the monitor only narrows which configured sources are eligible. Leaving the monitor's source scope empty means "use every configured permitted source", not "search every platform".
+
+The shared coverage model reports each source as **Ready**, **Needs setup**, **Backend setup**, **Not included**, or **Unavailable**. It names the collection method, configuration state, and retrievable record types. Unsupported Reddit and news access cannot be enabled, and Instagram, TikTok, LinkedIn, Facebook, and X remain strategist-capture inputs rather than connector-collected data.
+
+New monitor definitions persist immediately to the authenticated Supabase workspace and start with no records. Updates target both the monitor ID and its original project ID under the existing project-access Row Level Security policy. A run invokes the JWT-protected connector function, writes normalized evidence and an auditable run to PostgreSQL through Row Level Security, then reloads the authoritative cloud rows. The server enforces atomic limits of six Radar runs per minute and 100 per day for the permanent user.
 
 ## Normalized mentions
 

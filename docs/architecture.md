@@ -31,7 +31,7 @@ GitHub Pages cannot protect an OpenAI or connector secret. Radar calls an authen
 - Research and Inspiration hydrate from project-scoped Supabase repositories. Their stable client references and unique `(project_id, client_ref)` constraints make browser imports safe to retry.
 - New Research and Inspiration records derive `created_by` from `auth.uid()` and require an accessible destination project; the browser never supplies a user ID.
 - Brand/client context and competitors remain relational records; project cards use database-derived mention, research, and insight counts.
-- Radar monitors, connector-created mentions, topics, and monitor runs hydrate from authenticated Supabase repositories. Stable monitor and run references plus cursor indexes support retry-safe browser migration and bounded cloud reads.
+- Radar monitors, connector-created mentions, topics, and monitor runs hydrate from authenticated Supabase repositories. Stable monitor and run references plus cursor indexes support retry-safe browser migration and bounded cloud reads. Monitor edits are constrained to the existing project boundary, while a reusable coverage model separately evaluates monitor scope, workspace connector configuration, backend availability, and genuine connector capability.
 - Saved markers, Radar notes, important marks, and evidence relationships hydrate through authenticated per-user repositories. Their old browser keys exist only as reviewed migration inputs.
 - The interface does not seed records or infer analytics when the workspace is empty.
 - Connector runs use the verified permanent Supabase user and write through `owner_id`, project membership checks, and Row Level Security.

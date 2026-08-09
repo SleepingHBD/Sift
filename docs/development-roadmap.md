@@ -311,6 +311,8 @@ Turn collection into an efficient review habit rather than an unstructured archi
 
 ## Phase 4 - Radar as transparent discovery
 
+Status: **In progress.** Increment 1 is complete: project-safe monitor editing, pause/resume controls, a basic-versus-advanced configuration split, separate connector management, and an inspectable source-coverage model. Coverage now identifies configured and runnable permitted sources without implying that unavailable platforms are observed. The increment passed its unit, type, lint, production-build, authenticated UI, and rollback-only Row Level Security checks.
+
 ### Goal
 
 Make Radar genuinely useful within its observed coverage, without implying comprehensive social-platform access.
@@ -588,7 +590,7 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0, 1, 2, and 3 are complete. Phase 4 is the next implementation phase. Phase 3 was delivered through these verified increments:
+Phases 0, 1, 2, and 3 are complete. Phase 4 is in progress. Its first increment—editable monitor configuration and transparent source coverage—is complete. Connector reliability and run diagnostics are next. Phase 3 was delivered through these verified increments:
 
 1. Create a project evidence inbox over the shared evidence reference contract, with search, core filters, provenance, and a common detail drawer. **Completed.**
 2. Add persistent review states through an additive migration and explicit single-item review actions. **Completed.**

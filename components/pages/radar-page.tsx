@@ -7,6 +7,7 @@ import {
   ChevronDown,
   LayoutDashboard,
   MessageSquareText,
+  Pencil,
   Play,
   Plus,
   Radio,
@@ -22,6 +23,7 @@ import { DeleteMonitorDialog } from "@/components/radar/delete-monitor-dialog";
 import { EvidenceDialog } from "@/components/radar/evidence-dialog";
 import { MentionDetailDrawer } from "@/components/radar/mention-detail-drawer";
 import { MentionFeed } from "@/components/radar/mention-feed";
+import { MonitorCoveragePreview } from "@/components/radar/monitor-coverage";
 import { MonitorDialog } from "@/components/radar/monitor-dialog";
 import { RadarImportNotice } from "@/components/radar/radar-import-notice";
 import { RadarSentimentChart, RadarSourceChart, RadarVolumeChart } from "@/components/radar/radar-charts";
@@ -50,7 +52,7 @@ const rangeLabels: { id: DateRangeKey; label: string }[] = [
 
 export function RadarPage() {
   const { removeSavedIds, projects, researchItems, inspirationItems } = useApp();
-  const { monitors, addMonitor, removeMonitor, mentionsByMonitor, connectorSettings, saveConnectorSettings, completeMonitorRun, recordMonitorRun, savedIds, toggleSaved, evidenceLinks, addEvidenceLink, removeEvidenceLink, notes, saveNote, importantIds, toggleImportant, annotationError, clearAnnotationError, cloudStatus, cloudError, retryCloud, historyTruncated, pendingLocalRadar, pendingLocalAnnotations, importPendingRadar } = useRadarState(projects, researchItems, inspirationItems, removeSavedIds);
+  const { monitors, addMonitor, editMonitor, removeMonitor, mentionsByMonitor, connectorSettings, saveConnectorSettings, completeMonitorRun, recordMonitorRun, savedIds, toggleSaved, evidenceLinks, addEvidenceLink, removeEvidenceLink, notes, saveNote, importantIds, toggleImportant, annotationError, clearAnnotationError, cloudStatus, cloudError, retryCloud, historyTruncated, pendingLocalRadar, pendingLocalAnnotations, importPendingRadar } = useRadarState(projects, researchItems, inspirationItems, removeSavedIds);
   const [activeMonitorId, setActiveMonitorId] = useState("");
   const [activeView, setActiveView] = useState<RadarView>("overview");
   const [dateRange, setDateRange] = useState<DateRangeKey>("30d");
@@ -59,7 +61,9 @@ export function RadarPage() {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [keywordFilter, setKeywordFilter] = useState("");
   const [monitorDialogOpen, setMonitorDialogOpen] = useState(false);
+  const [editingMonitor, setEditingMonitor] = useState<MonitoringQuery | undefined>();
   const [sourceDrawerOpen, setSourceDrawerOpen] = useState(false);
+  const [resumeMonitorAfterSources, setResumeMonitorAfterSources] = useState(false);
   const [selectedSpikeId, setSelectedSpikeId] = useState("");
   const [selectedMention, setSelectedMention] = useState<RadarMention | null>(null);
   const [evidenceMention, setEvidenceMention] = useState<RadarMention | null>(null);
@@ -72,6 +76,7 @@ export function RadarPage() {
   useEffect(() => {
     if (window.location.hash !== "#new-monitor") return;
     const openFromLink = window.setTimeout(() => {
+      setEditingMonitor(undefined);
       setMonitorDialogOpen(true);
       window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
     }, 0);
@@ -94,7 +99,14 @@ export function RadarPage() {
   const projectLabel = monitorProject?.name ?? "Personal Radar";
   const backendConfigured = isRadarConnectorBackendConfigured();
   const runnableSources = activeMonitor ? getRunnableSources(activeMonitor, connectorSettings) : [];
-  const canRun = backendConfigured && runnableSources.length > 0 && runState !== "running";
+  const canRun = backendConfigured && activeMonitor?.status !== "paused" && runnableSources.length > 0 && runState !== "running";
+  const runDisabledReason = activeMonitor?.status === "paused"
+    ? "Resume this monitor in Monitor settings before collecting."
+    : !backendConfigured
+      ? "Configure Supabase before running this monitor."
+      : !runnableSources.length
+        ? "Configure at least one eligible source."
+        : undefined;
 
   const views: { id: RadarView; label: string; icon: typeof LayoutDashboard; count?: number }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -112,9 +124,45 @@ export function RadarPage() {
     setSelectedSpikeId("");
   }
 
-  async function createMonitor(monitor: MonitoringQuery) {
-    const created = await addMonitor(monitor);
-    selectMonitor(created.id);
+  async function saveMonitor(monitor: MonitoringQuery) {
+    const saved = editingMonitor ? await editMonitor(monitor) : await addMonitor(monitor);
+    setEditingMonitor(undefined);
+    selectMonitor(saved.id);
+  }
+
+  function openNewMonitor() {
+    setEditingMonitor(undefined);
+    setMonitorDialogOpen(true);
+  }
+
+  function openMonitorSettings() {
+    if (!activeMonitor) return;
+    setEditingMonitor(activeMonitor);
+    setMonitorDialogOpen(true);
+  }
+
+  function closeMonitorDialog() {
+    setMonitorDialogOpen(false);
+    setEditingMonitor(undefined);
+  }
+
+  function openSourceDrawer() {
+    setResumeMonitorAfterSources(false);
+    setSourceDrawerOpen(true);
+  }
+
+  function manageSourcesFromMonitor() {
+    setMonitorDialogOpen(false);
+    setResumeMonitorAfterSources(true);
+    setSourceDrawerOpen(true);
+  }
+
+  function closeSourceDrawer() {
+    setSourceDrawerOpen(false);
+    if (resumeMonitorAfterSources) {
+      setResumeMonitorAfterSources(false);
+      setMonitorDialogOpen(true);
+    }
   }
 
   function inspectSource(source: string) {
@@ -256,8 +304,8 @@ export function RadarPage() {
           title="Read the room."
           description="Monitor a brand, competitor, campaign, topic, product, or cultural conversation."
         >
-          <Button onClick={() => setSourceDrawerOpen(true)}><Settings2 size={15} />Sources</Button>
-          <Button variant="dark" onClick={() => setMonitorDialogOpen(true)}><Plus size={16} />Create monitor</Button>
+          <Button onClick={openSourceDrawer}><Settings2 size={15} />Sources</Button>
+          <Button variant="dark" onClick={openNewMonitor}><Plus size={16} />Create monitor</Button>
         </PageIntro>
         {pendingLocalRadar || pendingLocalAnnotations ? <RadarImportNotice payload={pendingLocalRadar} annotations={pendingLocalAnnotations} onImport={importPendingRadar} /> : null}
         <EmptyState
@@ -267,13 +315,13 @@ export function RadarPage() {
           description="Create a monitor to track a brand, competitor, campaign, topic, or cultural conversation. Analytics will appear only after evidence is collected."
           actions={(
             <>
-              <Button variant="dark" onClick={() => setMonitorDialogOpen(true)}><Plus size={15} />Create monitor</Button>
-              <Button onClick={() => setSourceDrawerOpen(true)}><Settings2 size={15} />View sources</Button>
+              <Button variant="dark" onClick={openNewMonitor}><Plus size={15} />Create monitor</Button>
+              <Button onClick={openSourceDrawer}><Settings2 size={15} />View sources</Button>
             </>
           )}
         />
-        <MonitorDialog open={monitorDialogOpen} onClose={() => setMonitorDialogOpen(false)} onCreate={createMonitor} />
-        <SourceDrawer open={sourceDrawerOpen} onClose={() => setSourceDrawerOpen(false)} settings={connectorSettings} onSave={saveConnectorSettings} backendConfigured={backendConfigured} />
+        <MonitorDialog key="new-monitor" open={monitorDialogOpen} connectorSettings={connectorSettings} backendConfigured={backendConfigured} onClose={closeMonitorDialog} onSave={saveMonitor} onManageSources={manageSourcesFromMonitor} />
+        <SourceDrawer open={sourceDrawerOpen} onClose={closeSourceDrawer} settings={connectorSettings} onSave={saveConnectorSettings} backendConfigured={backendConfigured} />
       </div>
     );
   }
@@ -285,8 +333,8 @@ export function RadarPage() {
         title="Read the room."
         description="Start with the signal. Drill into topics, conversations, and evidence only when you need them."
       >
-        <Button onClick={() => setSourceDrawerOpen(true)}><Settings2 size={15} />Sources</Button>
-        <Button variant="dark" onClick={() => setMonitorDialogOpen(true)}><Plus size={16} />New monitor</Button>
+        <Button onClick={openSourceDrawer}><Settings2 size={15} />Sources</Button>
+        <Button variant="dark" onClick={openNewMonitor}><Plus size={16} />New monitor</Button>
       </PageIntro>
 
       {pendingLocalRadar || pendingLocalAnnotations ? <RadarImportNotice payload={pendingLocalRadar} annotations={pendingLocalAnnotations} onImport={importPendingRadar} /> : null}
@@ -306,10 +354,13 @@ export function RadarPage() {
           <span>{activeMonitor.language || "Any language"}</span>
         </div>
         <div className="monitor-command-bar__actions">
-          <Button disabled={!canRun} title={!backendConfigured ? "Configure Supabase before running this monitor" : !runnableSources.length ? "Configure at least one eligible source" : undefined} onClick={runMonitor}>{runState === "running" ? <RefreshCw className="spin" size={14} /> : <Play size={14} />}{runState === "running" ? "Collecting" : "Run monitor"}</Button>
+          <Button onClick={openMonitorSettings}><Pencil size={14} />Edit</Button>
+          <Button disabled={!canRun} title={runDisabledReason} onClick={runMonitor}>{runState === "running" ? <RefreshCw className="spin" size={14} /> : <Play size={14} />}{runState === "running" ? "Collecting" : "Run monitor"}</Button>
           <Button size="icon" className="monitor-delete-trigger" disabled={runState === "running"} title="Delete this monitor" aria-label={`Delete ${activeMonitor.name}`} onClick={() => { setDeleteError(""); setDeleteDialogOpen(true); }}><Trash2 size={15} /></Button>
         </div>
       </Card>
+
+      <MonitorCoveragePreview selectedSources={activeMonitor.sources} settings={connectorSettings} backendConfigured={backendConfigured} onManageSources={openSourceDrawer} collapsible />
 
       {runNotice ? <div className={`radar-run-notice radar-run-notice--${runNotice.tone}`} role="status"><span>{runNotice.message}</span><button onClick={() => setRunNotice(null)} aria-label="Dismiss run status">×</button></div> : null}
 
@@ -320,8 +371,8 @@ export function RadarPage() {
           <h2>{activeMonitor.lastRunAt ? "No conversations matched this monitor." : "Nothing on the radar yet."}</h2>
           <p>{activeMonitor.lastRunAt ? "The source run completed without matching records. Review the query or source selection and try again." : "Connect a permitted source to begin collecting conversations for this monitor."}</p>
           <div>
-            <Button variant="dark" disabled={!canRun} title={!backendConfigured ? "Configure Supabase first" : !runnableSources.length ? "Configure a source first" : undefined} onClick={runMonitor}>{runState === "running" ? <RefreshCw className="spin" size={14} /> : <Play size={14} />}{runState === "running" ? "Collecting" : "Run monitor"}</Button>
-            <Button onClick={() => setSourceDrawerOpen(true)}><Settings2 size={14} />Configure sources</Button>
+            <Button variant="dark" disabled={!canRun} title={runDisabledReason} onClick={runMonitor}>{runState === "running" ? <RefreshCw className="spin" size={14} /> : <Play size={14} />}{runState === "running" ? "Collecting" : "Run monitor"}</Button>
+            <Button onClick={openSourceDrawer}><Settings2 size={14} />Configure sources</Button>
           </div>
           <small>{!backendConfigured ? "Deploy the secure connector function and add the public Supabase environment values to enable collection." : !runnableSources.length ? "Add an RSS feed, a public URL, or enable YouTube in Sources." : `${runnableSources.length} source${runnableSources.length === 1 ? " is" : "s are"} ready for this monitor.`}</small>
         </Card>
@@ -404,9 +455,9 @@ export function RadarPage() {
         </>
       )}
 
-      <MonitorDialog open={monitorDialogOpen} onClose={() => setMonitorDialogOpen(false)} onCreate={createMonitor} />
+      <MonitorDialog key={editingMonitor?.id ?? "new-monitor"} open={monitorDialogOpen} monitor={editingMonitor} connectorSettings={connectorSettings} backendConfigured={backendConfigured} onClose={closeMonitorDialog} onSave={saveMonitor} onManageSources={manageSourcesFromMonitor} />
       <DeleteMonitorDialog open={deleteDialogOpen} monitor={activeMonitor} mentionCount={allMentions.length} deleting={deleteState === "deleting"} error={deleteError} onClose={() => { if (deleteState !== "deleting") { setDeleteDialogOpen(false); setDeleteError(""); } }} onConfirm={confirmDeleteMonitor} />
-      <SourceDrawer open={sourceDrawerOpen} onClose={() => setSourceDrawerOpen(false)} settings={connectorSettings} onSave={saveConnectorSettings} backendConfigured={backendConfigured} />
+      <SourceDrawer open={sourceDrawerOpen} onClose={closeSourceDrawer} settings={connectorSettings} onSave={saveConnectorSettings} backendConfigured={backendConfigured} />
       <SpikeDrawer spike={selectedSpike} mentions={analytics.currentMentions} onClose={() => setSelectedSpikeId("")} onOpenMention={(mention) => { setSelectedSpikeId(""); setSelectedMention(mention); }} />
       <MentionDetailDrawer mention={selectedMention} related={relatedMentions} note={selectedMention ? notes[selectedMention.id] ?? "" : ""} links={selectedMention ? evidenceLinks.filter((link) => link.mentionId === selectedMention.id) : []} saved={Boolean(selectedMention && savedIds.includes(selectedMention.id))} important={Boolean(selectedMention && importantIds.includes(selectedMention.id))} onClose={() => setSelectedMention(null)} onSaveNote={(note) => selectedMention ? saveNote(selectedMention.id, note) : Promise.resolve()} onRemoveEvidence={removeEvidenceLink} onToggleSaved={() => { if (selectedMention) void toggleSaved(selectedMention.id); }} onToggleImportant={() => { if (selectedMention) void toggleImportant(selectedMention.id); }} onUseEvidence={() => selectedMention && setEvidenceMention(selectedMention)} onOpenRelated={setSelectedMention} onFilterKeyword={inspectKeyword} />
       <EvidenceDialog mention={evidenceMention} onClose={() => setEvidenceMention(null)} onSave={addEvidenceLink} />
