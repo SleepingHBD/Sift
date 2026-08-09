@@ -1,4 +1,4 @@
-import { BookOpenText, ExternalLink, FileSearch, MessageSquareText, Sparkles } from "lucide-react";
+import { BookOpenText, ExternalLink, FileSearch, LoaderCircle, MessageSquareText, Sparkles } from "lucide-react";
 import { Badge, Button } from "@/components/ui/primitives";
 import type { StrategyEvidencePreview } from "@/lib/strategy-ai/types";
 
@@ -12,10 +12,16 @@ export function StrategyEvidenceScope({
   preview,
   selected,
   onToggle,
+  onAnalyze,
+  analysisStatus,
+  analysisError,
 }: {
   preview: StrategyEvidencePreview | null;
   selected: Set<string>;
   onToggle: (identity: string) => void;
+  onAnalyze: () => void;
+  analysisStatus: "idle" | "loading" | "error";
+  analysisError: string;
 }) {
   if (!preview) {
     return (
@@ -39,7 +45,7 @@ export function StrategyEvidenceScope({
       {preview.evidence.length ? (
         <div className="strategy-scope__list">
           {preview.evidence.map((item, index) => (
-            <article className={`strategy-source ${selected.has(item.identity) ? "strategy-source--selected" : ""}`} key={item.identity}>
+            <article id={`strategy-source-${encodeURIComponent(item.identity)}`} className={`strategy-source ${selected.has(item.identity) ? "strategy-source--selected" : ""}`} key={item.identity}>
               <label>
                 <input type="checkbox" checked={selected.has(item.identity)} onChange={() => onToggle(item.identity)} />
                 <span className="strategy-source__number">{String(index + 1).padStart(2, "0")}</span>
@@ -58,7 +64,15 @@ export function StrategyEvidenceScope({
       )}
       <div className="strategy-scope__footer">
         <div><MessageSquareText size={15} /><span>Irrelevant and archived sources are excluded automatically.</span></div>
-        <Button disabled title="Model generation will be connected in the next Phase 6 increment">Analysis not connected yet</Button>
+        {analysisError ? <p className="strategy-scope__error" role="alert">{analysisError}</p> : null}
+        <Button
+          variant={preview.analysis.available ? "dark" : "secondary"}
+          disabled={!preview.analysis.available || !selected.size || analysisStatus === "loading"}
+          title={preview.analysis.reason || (!selected.size ? "Select at least one source" : "Generate analysis from this exact evidence scope")}
+          onClick={onAnalyze}
+        >
+          {analysisStatus === "loading" ? <><LoaderCircle className="spin" size={15} />Generating cited analysis…</> : preview.analysis.available ? "Generate cited analysis" : "Model activation pending"}
+        </Button>
       </div>
     </aside>
   );

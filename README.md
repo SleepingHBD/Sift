@@ -120,9 +120,9 @@ Production status: the scheduler was explicitly activated and verified on 9 Augu
 
 ## Strategy AI on GitHub Pages
 
-GitHub Pages cannot protect an OpenAI API key. Phase 6 therefore begins behind the JWT-protected Supabase `strategy-ai` Edge Function. The current backend foundation authenticates the user, verifies project access through RLS, retrieves normalized full-text evidence with stable source IDs, and lets the strategist inspect and narrow that scope. It deliberately makes no OpenAI request yet. Direct browser writes to AI conversations and messages are revoked so future assistant content, citations, model IDs, and usage records cannot be forged through the Data API.
+GitHub Pages cannot protect an OpenAI API key, so Phase 6 runs behind the JWT-protected Supabase `strategy-ai` Edge Function. The backend authenticates the user, verifies project access through RLS, retrieves normalized full-text evidence with stable source IDs, and lets the strategist inspect and narrow that scope. The model-ready analysis path then revalidates the exact selected sources, requires a bounded structured response, rejects missing or inaccessible citations, and persists the conversation atomically through a service-only database function. Direct browser writes to AI conversations and messages remain revoked.
 
-The later model connection will keep `OPENAI_API_KEY` only in Edge Function secrets, use bounded structured output, and require stored evidence IDs for workspace-backed claims. General brainstorming will remain separately labelled. See [docs/strategy-ai.md](docs/strategy-ai.md).
+Live generation is deliberately unconfigured. Activating it later requires both `OPENAI_API_KEY` and an explicit `OPENAI_STRATEGY_MODEL` in Edge Function secrets; neither belongs in a `NEXT_PUBLIC_` variable, GitHub Pages bundle, database row, or repository file. Until both are present, the interface clearly labels generation as unavailable and makes no OpenAI request. General brainstorming remains a separate future mode rather than being presented as workspace evidence. See [docs/strategy-ai.md](docs/strategy-ai.md).
 
 ## GitHub Pages deployment
 

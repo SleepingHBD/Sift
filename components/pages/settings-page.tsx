@@ -37,7 +37,7 @@ export function SettingsPage() {
           </section>
           <section>
             <SectionHeader eyebrow="Services" title="Production readiness" />
-            <div className="service-grid"><Card><Database size={19} /><div><strong>Supabase</strong><span>Private cloud workspace and RLS active</span></div><Badge>Connected</Badge></Card><Card><KeyRound size={19} /><div><strong>Strategy AI</strong><span>Authenticated evidence scope prepared; model connection pending</span></div><Badge>Foundation</Badge></Card><Card><ShieldCheck size={19} /><div><strong>GitHub Pages</strong><span>Static deployment workflow prepared</span></div><Badge>Ready</Badge></Card></div>
+            <div className="service-grid"><Card><Database size={19} /><div><strong>Supabase</strong><span>Private cloud workspace and RLS active</span></div><Badge>Connected</Badge></Card><Card><KeyRound size={19} /><div><strong>Strategy AI</strong><span>Cited analysis pipeline ready; model activation pending</span></div><Badge>Model pending</Badge></Card><Card><ShieldCheck size={19} /><div><strong>GitHub Pages</strong><span>Static deployment workflow prepared</span></div><Badge>Ready</Badge></Card></div>
           </section>
         </div>
       </div>

@@ -17,6 +17,7 @@ export type Database = {
       ai_conversations: {
         Row: {
           analysis_mode: string
+          client_request_id: string | null
           created_at: string
           id: string
           project_id: string
@@ -27,6 +28,7 @@ export type Database = {
         }
         Insert: {
           analysis_mode?: string
+          client_request_id?: string | null
           created_at?: string
           id?: string
           project_id: string
@@ -37,6 +39,7 @@ export type Database = {
         }
         Update: {
           analysis_mode?: string
+          client_request_id?: string | null
           created_at?: string
           id?: string
           project_id?: string
@@ -66,6 +69,7 @@ export type Database = {
           request_id: string | null
           role: string
           structured_claims: Json
+          structured_response: Json
           usage: Json
         }
         Insert: {
@@ -78,6 +82,7 @@ export type Database = {
           request_id?: string | null
           role: string
           structured_claims?: Json
+          structured_response?: Json
           usage?: Json
         }
         Update: {
@@ -90,6 +95,7 @@ export type Database = {
           request_id?: string | null
           role?: string
           structured_claims?: Json
+          structured_response?: Json
           usage?: Json
         }
         Relationships: [
@@ -2529,6 +2535,23 @@ export type Database = {
           unreviewed_count: number
         }[]
       }
+      persist_strategy_analysis: {
+        Args: {
+          p_citations: Json
+          p_client_request_id: string
+          p_model: string
+          p_project_id: string
+          p_question: string
+          p_request_id: string
+          p_source_scope: Json
+          p_structured_claims: Json
+          p_structured_response: Json
+          p_title: string
+          p_usage: Json
+          p_user_id: string
+        }
+        Returns: Json
+      }
       finalize_radar_schedule_claim: {
         Args: {
           p_claim_token: string
@@ -2716,6 +2739,10 @@ export type Database = {
           cursor_value: Json
           evidence: Json
         }[]
+      }
+      resolve_strategy_evidence: {
+        Args: { p_identities: string[]; p_project_id: string }
+        Returns: { evidence: Json }[]
       }
       split_signal: {
         Args: {

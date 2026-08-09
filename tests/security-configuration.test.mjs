@@ -54,6 +54,33 @@ test("Strategy AI preview is JWT-protected, RLS-scoped, and cannot be forged thr
   assert.doesNotMatch(repository, /OPENAI_API_KEY|service_role/i);
 });
 
+test("Strategy AI generation revalidates citations and persists only through the service boundary", async () => {
+  const [handler, shared, migration, repository] = await Promise.all([
+    read("supabase/functions/strategy-ai/index.ts"),
+    read("supabase/functions/_shared/strategy-ai.ts"),
+    read("supabase/migrations/20260809170012_phase_6_cited_strategy_analysis.sql"),
+    read("lib/strategy-ai/repository.ts"),
+  ]);
+
+  assert.match(handler, /context\.supabase\.rpc\("resolve_strategy_evidence"/);
+  assert.match(handler, /context\.supabaseAdmin\.rpc\("persist_strategy_analysis"/);
+  assert.match(handler, /https:\/\/api\.openai\.com\/v1\/responses/);
+  assert.match(handler, /OPENAI_API_KEY/);
+  assert.match(handler, /OPENAI_STRATEGY_MODEL/);
+  assert.doesNotMatch(repository, /OPENAI_API_KEY|supabaseAdmin|service_role/i);
+  assert.match(shared, /store: false/);
+  assert.match(shared, /strict: true/);
+  assert.match(shared, /untrusted research material/);
+  assert.match(shared, /cites evidence outside the selected scope/);
+  assert.match(migration, /create or replace function public\.resolve_strategy_evidence[\s\S]*security invoker/);
+  assert.match(migration, /revoke all on function public\.resolve_strategy_evidence[\s\S]*from public, anon/);
+  assert.match(migration, /grant execute on function public\.resolve_strategy_evidence[\s\S]*to authenticated/);
+  assert.match(migration, /create or replace function public\.persist_strategy_analysis[\s\S]*security definer/);
+  assert.match(migration, /revoke all on function public\.persist_strategy_analysis[\s\S]*from public, anon, authenticated/);
+  assert.match(migration, /grant execute on function public\.persist_strategy_analysis[\s\S]*to service_role/);
+  assert.match(migration, /claim cites evidence outside the authorized source scope/i);
+});
+
 test("the client cannot perform manual identity linking", async () => {
   const provider = await read("components/auth/auth-provider.tsx");
 
