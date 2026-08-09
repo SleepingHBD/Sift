@@ -1348,6 +1348,9 @@ export type Database = {
           keywords: string[]
           language: string | null
           last_run_at: string | null
+          last_retention_deleted_count: number
+          last_retention_error: string | null
+          last_retention_run_at: string | null
           last_schedule_error: string | null
           last_scheduled_run_at: string | null
           market: string | null
@@ -1358,6 +1361,7 @@ export type Database = {
           project_id: string
           query: string
           retention_days: number | null
+          retention_enabled: boolean
           schedule_claim_expires_at: string | null
           schedule_claim_token: string | null
           schedule_enabled: boolean
@@ -1379,6 +1383,9 @@ export type Database = {
           keywords?: string[]
           language?: string | null
           last_run_at?: string | null
+          last_retention_deleted_count?: number
+          last_retention_error?: string | null
+          last_retention_run_at?: string | null
           last_schedule_error?: string | null
           last_scheduled_run_at?: string | null
           market?: string | null
@@ -1389,6 +1396,7 @@ export type Database = {
           project_id: string
           query: string
           retention_days?: number | null
+          retention_enabled?: boolean
           schedule_claim_expires_at?: string | null
           schedule_claim_token?: string | null
           schedule_enabled?: boolean
@@ -1410,6 +1418,9 @@ export type Database = {
           keywords?: string[]
           language?: string | null
           last_run_at?: string | null
+          last_retention_deleted_count?: number
+          last_retention_error?: string | null
+          last_retention_run_at?: string | null
           last_schedule_error?: string | null
           last_scheduled_run_at?: string | null
           market?: string | null
@@ -1420,6 +1431,7 @@ export type Database = {
           project_id?: string
           query?: string
           retention_days?: number | null
+          retention_enabled?: boolean
           schedule_claim_expires_at?: string | null
           schedule_claim_token?: string | null
           schedule_enabled?: boolean
@@ -1547,6 +1559,84 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      radar_retention_runs: {
+        Row: {
+          batch_limit: number
+          candidate_mentions: number
+          completed_at: string | null
+          cutoff_at: string
+          deleted_mention_ids: string[]
+          deleted_mentions: number
+          eligible_mentions_before: number
+          error_message: string | null
+          id: string
+          metadata: Json
+          monitoring_query_id: string
+          owner_id: string | null
+          project_id: string
+          protected_mentions: number
+          remaining_eligible_mentions: number
+          retention_days: number
+          started_at: string
+          status: string
+        }
+        Insert: {
+          batch_limit: number
+          candidate_mentions?: number
+          completed_at?: string | null
+          cutoff_at: string
+          deleted_mention_ids?: string[]
+          deleted_mentions?: number
+          eligible_mentions_before?: number
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          monitoring_query_id: string
+          owner_id?: string | null
+          project_id: string
+          protected_mentions?: number
+          remaining_eligible_mentions?: number
+          retention_days: number
+          started_at?: string
+          status: string
+        }
+        Update: {
+          batch_limit?: number
+          candidate_mentions?: number
+          completed_at?: string | null
+          cutoff_at?: string
+          deleted_mention_ids?: string[]
+          deleted_mentions?: number
+          eligible_mentions_before?: number
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          monitoring_query_id?: string
+          owner_id?: string | null
+          project_id?: string
+          protected_mentions?: number
+          remaining_eligible_mentions?: number
+          retention_days?: number
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_retention_runs_monitoring_query_id_fkey"
+            columns: ["monitoring_query_id"]
+            isOneToOne: false
+            referencedRelation: "monitoring_queries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radar_retention_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       research_items: {
         Row: {
@@ -2058,6 +2148,19 @@ export type Database = {
           remaining_day: number
           remaining_minute: number
           retry_after_seconds: number
+        }[]
+      }
+      enforce_radar_retention: {
+        Args: { p_batch_limit?: number; p_monitor_id: string }
+        Returns: {
+          candidate_mentions: number
+          deleted_mentions: number
+          protected_mentions: number
+          remaining_eligible_mentions: number
+          retention_cutoff_at: string
+          retention_error: string
+          retention_run_id: string
+          retention_status: string
         }[]
       }
       delete_evidence_item: {

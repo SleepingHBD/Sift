@@ -22,6 +22,10 @@ const monitorRow = {
   schedule_failure_count: 0,
   last_schedule_error: null,
   retention_days: 180,
+  retention_enabled: true,
+  last_retention_run_at: "2026-08-08T02:00:00.000Z",
+  last_retention_deleted_count: 3,
+  last_retention_error: null,
   platform_filters: ["youtube", "manual_url"],
   language: null,
   market: "Singapore",
@@ -45,6 +49,8 @@ test("cloud monitors retain their stable browser identity and normalized sources
   assert.equal(monitor.scheduleEnabled, false);
   assert.equal(monitor.scheduleFailureCount, 0);
   assert.equal(monitor.retentionDays, 180);
+  assert.equal(monitor.retentionEnabled, true);
+  assert.equal(monitor.lastRetentionDeletedCount, 3);
 });
 
 test("personal Radar remains internal instead of appearing as a user project", () => {
@@ -62,12 +68,14 @@ test("unknown schedule and retention values fall back to non-destructive default
     schedule_weekday: -1,
     schedule_timezone: "",
     retention_days: 30,
+    retention_enabled: false,
   }, "project-local");
   assert.equal(monitor.scheduleFrequency, "manual");
   assert.equal(monitor.scheduleHour, 9);
   assert.equal(monitor.scheduleWeekday, 1);
   assert.equal(monitor.scheduleTimezone, "UTC");
   assert.equal(monitor.retentionDays, null);
+  assert.equal(monitor.retentionEnabled, false);
 });
 
 test("cloud conversations keep a stable UI evidence ID and inspectable topics", () => {

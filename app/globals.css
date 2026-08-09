@@ -989,6 +989,12 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .retention-preview__metrics { width: 100%; display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
 .retention-preview__metrics span { display: flex; flex-direction: column; gap: 2px; color: var(--muted); font-size: 10px; line-height: 1.35; }
 .retention-preview__metrics b { color: var(--text); font-size: 15px; }
+.monitor-lifecycle-card > .retention-opt-in { min-height: 58px; display: grid; grid-template-columns: 18px minmax(0,1fr); align-items: start; gap: 10px; margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); cursor: pointer; }
+.retention-opt-in input { width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--acid-dark); }
+.monitor-lifecycle-card .retention-opt-in > span { display: flex; flex-direction: column; gap: 3px; color: var(--text); font-size: 11px; font-weight: 400; letter-spacing: 0; line-height: 1.4; text-transform: none; }
+.retention-opt-in strong { font-size: 12px; }
+.retention-opt-in small { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.retention-opt-in.disabled { cursor: not-allowed; opacity: .58; }
 .monitor-coverage--compact { margin: 8px 0 0; background: transparent; }
 .monitor-coverage--compact > summary { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 14px; cursor: pointer; list-style: none; }
 .monitor-coverage--compact > summary::-webkit-details-marker { display: none; }

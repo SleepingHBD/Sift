@@ -373,7 +373,7 @@ test("Phase 4 Radar conversation pages use permanent-account RLS and keyset curs
   assert.doesNotMatch(migration, /\boffset\b/i);
 });
 
-test("Phase 4 monitor lifecycle preferences are additive and retention remains deletion-free", async () => {
+test("Phase 4 monitor lifecycle preferences are additive and retention preview remains non-destructive by default", async () => {
   const [migration, dialog] = await Promise.all([
     read("supabase/migrations/20260809070413_phase_4_monitor_schedule_retention_preferences.sql"),
     read("components/radar/monitor-dialog.tsx"),
@@ -397,8 +397,49 @@ test("Phase 4 monitor lifecycle preferences are additive and retention remains d
   assert.doesNotMatch(migration, /security definer/i);
   assert.doesNotMatch(migration, /delete from|pg_cron|pg_net/i);
   assert.match(dialog, /Automatic runs/);
-  assert.match(dialog, /Preview only\. Sift will not delete conversations automatically/);
+  assert.match(dialog, /Nothing is eligible for retention cleanup while/);
+  assert.match(dialog, /Save this monitor first, then return here to opt in/);
   assert.match(dialog, /schedulerAvailable && !paused && scheduleFrequency !== "manual"/);
+});
+
+test("Phase 4 audited Radar retention is explicit, bounded, protected, and service-role only", async () => {
+  const [migration, dialog, scheduler, repository] = await Promise.all([
+    read("supabase/migrations/20260809112942_phase_4_audited_radar_retention.sql"),
+    read("components/radar/monitor-dialog.tsx"),
+    read("supabase/functions/radar-scheduler/index.ts"),
+    read("lib/radar/repository.ts"),
+  ]);
+
+  assert.match(migration, /retention_enabled boolean not null default false/);
+  assert.match(migration, /not retention_enabled[\s\S]*retention_days is not null[\s\S]*schedule_enabled/);
+  assert.match(migration, /create table public\.radar_retention_runs/);
+  assert.match(migration, /alter table public\.radar_retention_runs enable row level security/);
+  assert.match(migration, /revoke all on table public\.radar_retention_runs[\s\S]*from public, anon, authenticated/);
+  assert.match(migration, /grant select on table public\.radar_retention_runs[\s\S]*to authenticated/);
+  assert.match(migration, /project_id = any\(\(\(select private\.accessible_project_ids\(\)\)\)::uuid\[\]\)/);
+  assert.match(migration, /mention\.review_status <> 'unreviewed'/);
+  assert.match(migration, /public\.mention_notes/);
+  assert.match(migration, /public\.saved_items/);
+  assert.match(migration, /public\.item_tags/);
+  assert.match(migration, /public\.evidence_topic_assignments/);
+  assert.match(migration, /public\.insight_sources/);
+  assert.match(migration, /public\.brief_sources/);
+  assert.match(migration, /public\.trend_mentions/);
+  assert.match(migration, /for update of mention skip locked/);
+  assert.match(migration, /pg_advisory_xact_lock\(/);
+  assert.match(migration, /pg_advisory_xact_lock_shared\(/);
+  assert.match(migration, /p_batch_limit < 1 or p_batch_limit > 500/);
+  assert.match(migration, /delete from public\.mentions mention/);
+  assert.match(migration, /revoke all on function public\.enforce_radar_retention\(uuid, integer\)[\s\S]*from public, anon, authenticated, service_role/);
+  assert.match(migration, /grant execute on function public\.enforce_radar_retention\(uuid, integer\)[\s\S]*to service_role/);
+  assert.doesNotMatch(migration, /security definer/i);
+  assert.match(dialog, /Enable automatic retention/);
+  assert.match(dialog, /remove at most 250 eligible conversations and record an audit/);
+  assert.match(dialog, /Saved, cited, noted, tagged, important, trend-linked, and reviewed conversations are always protected/);
+  assert.match(repository, /retention_enabled: monitor\.status !== "paused"[\s\S]*monitor\.retentionEnabled/);
+  assert.match(scheduler, /succeeded[\s\S]*runScheduledRetention/);
+  assert.match(scheduler, /enforce_radar_retention/);
+  assert.match(scheduler, /p_batch_limit: 250/);
 });
 
 test("Phase 4 scheduled Radar uses Vault, atomic claims, and the shared collection path", async () => {

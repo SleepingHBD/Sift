@@ -12,7 +12,7 @@ It combines social-listening workflows, cultural research, inspiration, competit
 - Cloud-backed project creation, editing, switching, archiving, restoring, and deletion
 - Radar monitor creation with a simple guided query form and an advanced Boolean editor
 - Functional Radar collection through RSS/Atom feeds, manually supplied public URLs, and the official YouTube Data API
-- Cloud-backed Radar monitors, source-level collection health and run diagnostics, database-calculated coverage, headline metrics, timelines, sentiment, topics, keywords, and evidence-linked spikes, plus normalized conversations, notes, saved and important markers, evidence relationships, cloud-backed schedules, and non-destructive retention preferences
+- Cloud-backed Radar monitors, source-level collection health and run diagnostics, database-calculated coverage, headline metrics, timelines, sentiment, topics, keywords, and evidence-linked spikes, plus normalized conversations, notes, saved and important markers, evidence relationships, cloud-backed schedules, and explicit audited retention controls
 - Cloud-backed Research and Inspiration libraries with project assignment, search, filtering, source links, relationship-aware protected deletion, CSV evidence import, and reviewed browser-data migration
 - Persistent evidence capture for project-scoped links, notes, social posts, screenshots, images, and PDFs, including secure URL metadata inspection, canonical duplicate warnings, private file previews, and manual-save fallback
 - Unified project evidence inbox across Radar mentions, Research, social captures, files, CSV imports, and Inspiration, with PostgreSQL full-text retrieval, stable cursor pagination, durable private saved views, filters, sorting, grouping, matched-term highlighting, review progress, durable single and bulk review states, shared tags, project-scoped strategist topics, editable notes, non-destructive project links, and a provenance-first detail drawer that shows downstream relationships
@@ -103,7 +103,7 @@ Connector runs execute eligible sources independently, apply an 18-second source
 
 Each monitor can store a manual, daily, or weekly schedule and a keep-forever, 90-day, 180-day, or 365-day raw-conversation retention preference. Source settings sync to each monitor project through `connector_configs`, while connector credentials remain server-only. Scheduled and manual collection share the same quota, lease, retry, checkpoint, normalization, and persistence path. The scheduler uses `pg_cron`, asynchronous `pg_net`, a JWT-protected Edge Function, a separate high-entropy Vault credential, atomic short-lived claims, and bounded retries. It reports itself unavailable until its Vault secrets and cron job have been explicitly activated.
 
-Retention remains preview-only. The authenticated, RLS-invoker preview counts aged conversations and separates protected evidence, including saved or cited conversations, notes, important markers, and reviewed evidence. No automatic deletion or cleanup job is installed.
+Retention is **off by default** and requires a separate per-monitor checkbox after a daily or weekly schedule and retention window are configured. The authenticated RLS-invoker preview counts aged conversations before opt-in. After a successful scheduled collection, an opted-in monitor can remove at most 250 eligible raw conversations. Saved, cited, noted, tagged, important, trend-linked, and reviewed conversations are always protected. Every batch writes a content-free record to `radar_retention_runs`; failures are audited without changing the successful collection result. Pausing the monitor, switching to manual collection, or choosing **Forever** automatically disables retention.
 
 ### Radar scheduler activation
 
@@ -115,7 +115,7 @@ Deploy `radar-connectors` and `radar-scheduler` with JWT verification enabled, a
 
 After the function and secrets are ready, activate the minute-level dispatcher from the Supabase SQL editor with `select private.install_radar_scheduler();`. This is an explicit production operation because it enables unattended connector requests. The job can be deactivated with `select cron.alter_job(job_id := (select jobid from cron.job where jobname = 'sift-radar-scheduler'), active := false);`. Never store the service-role key in the browser, repository, cron command, or `connector_configs`.
 
-Production status: the scheduler was explicitly activated and verified on 9 August 2026. Its automatic dispatch returns successfully with no work when no eligible monitor is due. A monitor still runs automatically only after its own daily or weekly schedule is enabled.
+Production status: the scheduler was explicitly activated and verified on 9 August 2026. Its automatic dispatch returns successfully with no work when no eligible monitor is due. The user-configured `RDC` monitor also completed its first automatic scheduled YouTube run, persisted 21 genuine records with no duplicates, advanced its incremental checkpoint, and calculated the next occurrence. A monitor still runs automatically only after its own daily or weekly schedule is enabled. Retention enforcement is deployed but remains inactive unless that monitor's separate retention checkbox is enabled.
 
 ## Strategy AI on GitHub Pages
 

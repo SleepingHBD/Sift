@@ -29,6 +29,10 @@ export interface MonitoringQueryRow {
   schedule_failure_count: number;
   last_schedule_error: string | null;
   retention_days: number | null;
+  retention_enabled: boolean;
+  last_retention_run_at: string | null;
+  last_retention_deleted_count: number;
+  last_retention_error: string | null;
   platform_filters: string[];
   language: string | null;
   market: string | null;
@@ -162,6 +166,10 @@ export function monitoringQueryFromRow(
     scheduleFailureCount: Math.max(0, Number(row.schedule_failure_count) || 0),
     lastScheduleError: row.last_schedule_error ?? undefined,
     retentionDays: retentionDaysFrom(row.retention_days),
+    retentionEnabled: row.retention_enabled === true,
+    lastRetentionRunAt: row.last_retention_run_at ?? undefined,
+    lastRetentionDeletedCount: Math.max(0, Number(row.last_retention_deleted_count) || 0),
+    lastRetentionError: row.last_retention_error ?? undefined,
     dataMode: mentionCount > 0 ? "live" : "empty",
     totalMentionCount: mentionCount,
     createdAt: row.created_at,

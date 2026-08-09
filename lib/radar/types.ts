@@ -53,6 +53,10 @@ export interface MonitoringQuery {
   scheduleFailureCount: number;
   lastScheduleError?: string;
   retentionDays: RadarRetentionDays;
+  retentionEnabled: boolean;
+  lastRetentionRunAt?: string;
+  lastRetentionDeletedCount: number;
+  lastRetentionError?: string;
   dataMode: "live" | "empty";
   totalMentionCount?: number;
   createdAt: string;

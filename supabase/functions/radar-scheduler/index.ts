@@ -79,7 +79,31 @@ async function processClaim(
     console.error("Radar schedule claim could not be finalized", finalizeError.message || finalizeError);
     return { monitorId: claim.monitor_id, succeeded: false, runId, error: "The schedule claim could not be finalized." };
   }
-  return { monitorId: claim.monitor_id, succeeded, runId, error: succeeded ? undefined : failure };
+  const retention = succeeded
+    ? await runScheduledRetention(supabase, requiredString(claim.monitor_id, "The scheduled monitor ID is unavailable."))
+    : undefined;
+  return { monitorId: claim.monitor_id, succeeded, runId, retention, error: succeeded ? undefined : failure };
+}
+
+interface ScheduledRetentionResult {
+  retention_run_id?: string | null;
+  retention_status: "completed" | "failed" | "disabled";
+  deleted_mentions?: number;
+  remaining_eligible_mentions?: number;
+  retention_error?: string | null;
+}
+
+async function runScheduledRetention(supabase: any, monitorId: string): Promise<ScheduledRetentionResult> {
+  const { data, error } = await supabase.rpc("enforce_radar_retention", {
+    p_monitor_id: monitorId,
+    p_batch_limit: 250,
+  });
+  if (error) {
+    console.error("Radar retention could not be audited", error.message || error);
+    return { retention_status: "failed", retention_error: "The retention audit could not be completed." };
+  }
+  const result = Array.isArray(data) ? data[0] as ScheduledRetentionResult | undefined : undefined;
+  return result ?? { retention_status: "failed", retention_error: "The retention audit returned no result." };
 }
 
 function scheduledRunRequest(claim: ScheduledMonitorClaim): RunRequest {

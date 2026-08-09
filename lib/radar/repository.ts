@@ -22,7 +22,7 @@ import type { Json } from "@/lib/supabase/database.types";
 type SiftSupabaseClient = NonNullable<ReturnType<typeof createBrowserSupabaseClient>>;
 
 const internalRadarProjectRef = "personal-radar";
-const monitorSelect = "id,client_ref,project_id,brand_id,name,query,description,parsed_query,enabled,schedule_frequency,schedule_hour,schedule_weekday,schedule_timezone,schedule_enabled,next_scheduled_run_at,last_scheduled_run_at,schedule_failure_count,last_schedule_error,retention_days,platform_filters,language,market,keywords,excluded_keywords,created_at,last_run_at,mentions(count)";
+const monitorSelect = "id,client_ref,project_id,brand_id,name,query,description,parsed_query,enabled,schedule_frequency,schedule_hour,schedule_weekday,schedule_timezone,schedule_enabled,next_scheduled_run_at,last_scheduled_run_at,schedule_failure_count,last_schedule_error,retention_days,retention_enabled,last_retention_run_at,last_retention_deleted_count,last_retention_error,platform_filters,language,market,keywords,excluded_keywords,created_at,last_run_at,mentions(count)";
 const mentionSelect = "id,project_id,monitoring_query_id,platform,external_id,author,content,url,published_at,likes,comments,shares,views,engagement,language,sentiment,sentiment_score,keywords,metadata,is_important,review_status,reviewed_at,created_at,sources(name),mention_topics(topics(name))";
 const runSelect = "id,client_ref,monitoring_query_id,status,started_at,completed_at,mentions_fetched,mentions_created,mentions_updated,error_message,run_metadata";
 const pageSize = 500;
@@ -219,6 +219,11 @@ function monitorLifecyclePayload(monitor: MonitoringQuery) {
     schedule_timezone: monitor.scheduleTimezone?.trim() || "UTC",
     schedule_enabled: monitor.status !== "paused" && scheduleFrequency !== "manual" && monitor.scheduleEnabled,
     retention_days: retentionDays,
+    retention_enabled: monitor.status !== "paused"
+      && scheduleFrequency !== "manual"
+      && monitor.scheduleEnabled
+      && retentionDays !== null
+      && monitor.retentionEnabled,
   };
 }
 

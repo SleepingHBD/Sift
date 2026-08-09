@@ -96,6 +96,7 @@ export function MonitorDialog({
   const [scheduleWeekday, setScheduleWeekday] = useState(monitor?.scheduleWeekday ?? 1);
   const [scheduleTimezone] = useState(monitor?.scheduleTimezone ?? browserTimezone);
   const [retentionDays, setRetentionDays] = useState<RadarRetentionDays>(monitor?.retentionDays ?? null);
+  const [retentionEnabled, setRetentionEnabled] = useState(monitor?.retentionEnabled ?? false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -114,6 +115,12 @@ export function MonitorDialog({
   const effectiveName = name.trim() || interpretation.name || (mode === "boolean" && finalQuery ? "Custom monitor" : "");
   const canSubmit = Boolean(effectiveName && finalQuery && validation.valid);
   const sourceOptions = radarConnectors.filter((connector) => ["reddit", "youtube", "rss", "news", "manual"].includes(connector.source));
+  const retentionCanActivate = editing
+    && Boolean(monitor?.cloudId)
+    && schedulerAvailable
+    && !paused
+    && scheduleFrequency !== "manual"
+    && retentionDays !== null;
 
   if (!open) return null;
 
@@ -139,6 +146,7 @@ export function MonitorDialog({
     setScheduleHour(9);
     setScheduleWeekday(1);
     setRetentionDays(null);
+    setRetentionEnabled(false);
     setError("");
   }
 
@@ -175,6 +183,10 @@ export function MonitorDialog({
       scheduleFailureCount: monitor?.scheduleFailureCount ?? 0,
       lastScheduleError: monitor?.lastScheduleError,
       retentionDays,
+      retentionEnabled: retentionCanActivate && retentionEnabled,
+      lastRetentionRunAt: monitor?.lastRetentionRunAt,
+      lastRetentionDeletedCount: monitor?.lastRetentionDeletedCount ?? 0,
+      lastRetentionError: monitor?.lastRetentionError,
     };
     const savedMonitor = monitor
       ? { ...monitor, ...values }
@@ -256,7 +268,7 @@ export function MonitorDialog({
                 <label><span>Competitors</span><input value={competitors} onChange={(event) => setCompetitors(event.target.value)} placeholder="Optional, separated by commas" /></label>
                 <label><span>Language</span><select value={language} onChange={(event) => setLanguage(event.target.value)}><option>Any language</option><option>English</option><option>Chinese</option><option>Malay</option><option>Tamil</option></select></label>
                 <label><span>Market / location</span><input value={market} onChange={(event) => setMarket(event.target.value)} placeholder={interpretation.market || "Optional"} /></label>
-                {editing ? <div className="monitor-pause-field"><span>Monitor state</span><button type="button" className={paused ? "paused" : "active"} onClick={() => setPaused((current) => !current)} aria-pressed={paused}><i>{paused ? "Paused" : "Active"}</i><small>{paused ? "Manual collection is disabled." : "Ready for permitted manual runs."}</small></button></div> : null}
+                {editing ? <div className="monitor-pause-field"><span>Monitor state</span><button type="button" className={paused ? "paused" : "active"} onClick={() => setPaused((current) => { const next = !current; if (next) setRetentionEnabled(false); return next; })} aria-pressed={paused}><i>{paused ? "Paused" : "Active"}</i><small>{paused ? "Manual collection is disabled." : "Ready for permitted manual runs."}</small></button></div> : null}
               </div>
             </section>
 
@@ -286,7 +298,7 @@ export function MonitorDialog({
               <div className="monitor-lifecycle-grid">
                 <div className="monitor-lifecycle-card">
                   <div className="monitor-lifecycle-card__heading"><i><CalendarClock size={15} /></i><div><strong>Automatic runs</strong><span>{schedulerAvailable ? "Collected by Sift's trusted cloud scheduler." : "Cloud scheduling is not available in this environment."}</span></div><Badge>{scheduleFrequency === "manual" ? "Manual" : paused ? "Paused" : schedulerAvailable ? "Active" : "Unavailable"}</Badge></div>
-                  <label><span>Frequency</span><select value={scheduleFrequency} onChange={(event) => setScheduleFrequency(event.target.value as RadarScheduleFrequency)}><option value="manual">Manual only</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select></label>
+                  <label><span>Frequency</span><select value={scheduleFrequency} onChange={(event) => { const next = event.target.value as RadarScheduleFrequency; setScheduleFrequency(next); if (next === "manual") setRetentionEnabled(false); }}><option value="manual">Manual only</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select></label>
                   {scheduleFrequency !== "manual" ? <div className="monitor-schedule-fields">
                     {scheduleFrequency === "weekly" ? <label><span>Day</span><select value={scheduleWeekday} onChange={(event) => setScheduleWeekday(Number(event.target.value))}>{weekdays.map((day, index) => <option value={index} key={day}>{day}</option>)}</select></label> : null}
                     <label><span>Preferred time</span><select value={scheduleHour} onChange={(event) => setScheduleHour(Number(event.target.value))}>{scheduleHours.map((hour) => <option value={hour} key={hour}>{String(hour).padStart(2, "0")}:00</option>)}</select></label>
@@ -296,12 +308,19 @@ export function MonitorDialog({
                 </div>
 
                 <div className="monitor-lifecycle-card">
-                  <div className="monitor-lifecycle-card__heading"><i><Database size={15} /></i><div><strong>Conversation retention</strong><span>Evidence is protected from any future cleanup.</span></div><Badge>No deletion</Badge></div>
-                  <label><span>Keep raw conversations</span><select value={retentionDays ?? "forever"} onChange={(event) => setRetentionDays(retentionValue(event.target.value))}><option value="forever">Forever</option><option value="90">90 days</option><option value="180">180 days</option><option value="365">365 days</option></select></label>
+                  <div className="monitor-lifecycle-card__heading"><i><Database size={15} /></i><div><strong>Conversation retention</strong><span>Only unprotected raw conversations can become eligible.</span></div><Badge>{retentionEnabled && retentionCanActivate ? "Active" : retentionDays ? "Preview" : "Off"}</Badge></div>
+                  <label><span>Keep unprotected raw conversations</span><select value={retentionDays ?? "forever"} onChange={(event) => { const next = retentionValue(event.target.value); setRetentionDays(next); if (next === null) setRetentionEnabled(false); }}><option value="forever">Forever</option><option value="90">90 days</option><option value="180">180 days</option><option value="365">365 days</option></select></label>
                   <div className="retention-preview" aria-live="polite">
                     {retentionDays === null ? <p>Nothing is eligible for retention cleanup while <strong>Forever</strong> is selected.</p> : !monitor?.cloudId ? <p>Save the monitor first. Sift can then preview its existing conversation history.</p> : <RetentionPreviewPanel key={`${monitor.cloudId}:${retentionDays}`} monitorId={monitor.cloudId} retentionDays={retentionDays} />}
                   </div>
-                  <p className="monitor-lifecycle-note"><ShieldCheck size={13} />Preview only. Sift will not delete conversations automatically in this phase.</p>
+                  <label htmlFor="monitor-retention-enabled" aria-label="Enable automatic retention" className={`retention-opt-in ${!retentionCanActivate ? "disabled" : ""}`}>
+                    <input id="monitor-retention-enabled" type="checkbox" checked={retentionEnabled && retentionCanActivate} disabled={!retentionCanActivate} onChange={(event) => setRetentionEnabled(event.target.checked)} />
+                    <span><strong>Enable automatic retention</strong><small>After a successful scheduled run, remove at most 250 eligible conversations and record an audit.</small></span>
+                  </label>
+                  <p className="monitor-lifecycle-note"><ShieldCheck size={13} />Saved, cited, noted, tagged, important, trend-linked, and reviewed conversations are always protected.</p>
+                  {!editing ? <p className="monitor-lifecycle-note">Save this monitor first, then return here to opt in.</p> : scheduleFrequency === "manual" ? <p className="monitor-lifecycle-note">Choose a daily or weekly schedule before enabling retention.</p> : null}
+                  {monitor?.lastRetentionRunAt ? <p className="monitor-lifecycle-note">Last audit: {new Date(monitor.lastRetentionRunAt).toLocaleString()} · {monitor.lastRetentionDeletedCount} removed.</p> : null}
+                  {monitor?.lastRetentionError ? <p className="monitor-lifecycle-warning">Last retention attempt: {monitor.lastRetentionError}</p> : null}
                 </div>
               </div>
             </section>
@@ -310,7 +329,7 @@ export function MonitorDialog({
           {error ? <p className="form-error">{error}</p> : null}
         </div>
 
-        <footer><span>{editing ? "Changes affect future collection only; existing evidence is preserved." : "New monitors are saved to your private cloud workspace and start empty."}</span><div><Button type="button" disabled={saving} onClick={close}>Cancel</Button><Button type="submit" variant="dark" disabled={!canSubmit || saving}>{saving ? <LoaderCircle className="spin" size={14} /> : null}{saving ? "Saving..." : editing ? "Save changes" : "Create monitor"}</Button></div></footer>
+        <footer><span>{editing ? "Future retention affects only eligible raw conversations; strategic evidence stays protected." : "New monitors are saved to your private cloud workspace and start empty."}</span><div><Button type="button" disabled={saving} onClick={close}>Cancel</Button><Button type="submit" variant="dark" disabled={!canSubmit || saving}>{saving ? <LoaderCircle className="spin" size={14} /> : null}{saving ? "Saving..." : editing ? "Save changes" : "Create monitor"}</Button></div></footer>
       </form>
     </div>
   );
