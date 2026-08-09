@@ -53,7 +53,14 @@ async function currentUserId(client: SiftSupabaseClient) {
 }
 
 export async function listCloudRadarAnnotations(mentionsByMonitor: Record<string, RadarMention[]>): Promise<RadarAnnotationSnapshot> {
-  const mentions = allMentions(mentionsByMonitor);
+  return listAnnotationsForMentions(allMentions(mentionsByMonitor), false);
+}
+
+export async function listCloudRadarAnnotationsForMentions(mentions: RadarMention[]): Promise<RadarAnnotationSnapshot> {
+  return listAnnotationsForMentions(mentions, true);
+}
+
+async function listAnnotationsForMentions(mentions: RadarMention[], limitToMentions: boolean): Promise<RadarAnnotationSnapshot> {
   const cloudMentionIds = mentions.flatMap((mention) => mention.cloudId ? [mention.cloudId] : []);
   const projectIds = [...new Set(mentions.flatMap((mention) => mention.cloudProjectId ? [mention.cloudProjectId] : []))];
   const importantIds = mentions.filter((mention) => mention.isImportant).map((mention) => mention.id);
@@ -61,11 +68,15 @@ export async function listCloudRadarAnnotations(mentionsByMonitor: Record<string
 
   const client = requireClient();
   const userId = await currentUserId(client);
+  let noteQuery = client.from("mention_notes").select(noteSelect).in("project_id", projectIds).eq("user_id", userId);
+  let savedQuery = client.from("saved_items").select(savedSelect).in("project_id", projectIds).eq("user_id", userId).eq("item_type", "mention");
+  if (limitToMentions) {
+    noteQuery = noteQuery.in("mention_id", cloudMentionIds);
+    savedQuery = savedQuery.in("item_id", cloudMentionIds);
+  }
   const [noteResult, savedResult] = await Promise.all([
-    client.from("mention_notes").select(noteSelect).in("project_id", projectIds).eq("user_id", userId)
-      .order("updated_at", { ascending: false }).order("id", { ascending: false }),
-    client.from("saved_items").select(savedSelect).in("project_id", projectIds).eq("user_id", userId).eq("item_type", "mention")
-      .order("created_at", { ascending: false }).order("id", { ascending: false }),
+    noteQuery.order("updated_at", { ascending: false }).order("id", { ascending: false }),
+    savedQuery.order("created_at", { ascending: false }).order("id", { ascending: false }),
   ]);
   if (noteResult.error) throw new Error(`Radar notes could not be loaded: ${noteResult.error.message}`);
   if (savedResult.error) throw new Error(`Saved Radar evidence could not be loaded: ${savedResult.error.message}`);

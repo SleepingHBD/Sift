@@ -848,6 +848,9 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .conversation-empty { min-height: 300px; }
 .load-more-row { display: flex; justify-content: center; margin-top: 15px; }
 .load-more-row .ui-button span { color: var(--muted); font-size: 10px; }
+.conversation-history-status { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; margin: 8px 0 12px; color: var(--muted); }
+.conversation-history-status span { color: var(--text-soft); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.conversation-history-status small { font-size: 12px; }
 
 /* Radar dialogs and drawers */
 .radar-overlay { position: fixed; inset: 0; z-index: 110; display: grid; place-items: center; padding: 25px; }

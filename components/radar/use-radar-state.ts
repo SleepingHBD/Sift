@@ -7,6 +7,7 @@ import {
   deleteCloudEvidenceLink,
   importLocalRadarAnnotations,
   listCloudRadarAnnotations,
+  listCloudRadarAnnotationsForMentions,
   saveCloudMentionNote,
   setCloudMentionImportant,
   setCloudMentionSaved,
@@ -126,6 +127,30 @@ export function useRadarState(
     applySnapshot(snapshot);
     applyAnnotationSnapshot(annotations);
   }, [applyAnnotationSnapshot, applySnapshot, projects, workspaceUserId]);
+
+  const registerCloudMentions = useCallback(async (incoming: RadarMention[]) => {
+    if (!incoming.length) return;
+    setMentionsByMonitor((current) => {
+      const next = { ...current };
+      for (const mention of incoming) {
+        next[mention.monitorId] = mergeRadarMentions(next[mention.monitorId] ?? [], [mention]);
+      }
+      return next;
+    });
+    try {
+      const annotations = await listCloudRadarAnnotationsForMentions(incoming);
+      setSavedIds((current) => [...new Set([...current, ...annotations.savedIds])]);
+      setImportantIds((current) => [...new Set([...current, ...annotations.importantIds])]);
+      setNotes((current) => ({ ...current, ...annotations.notes }));
+      setEvidenceLinks((current) => {
+        const next = new Map(current.map((link) => [link.id, link]));
+        annotations.evidenceLinks.forEach((link) => next.set(link.id, link));
+        return [...next.values()];
+      });
+    } catch (error) {
+      setAnnotationError(error instanceof Error ? error.message : "Conversation annotations could not be loaded.");
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -337,6 +362,7 @@ export function useRadarState(
     editMonitor,
     removeMonitor,
     mentionsByMonitor,
+    registerCloudMentions,
     runs,
     connectorSettings,
     saveConnectorSettings,

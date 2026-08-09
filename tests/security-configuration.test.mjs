@@ -352,3 +352,22 @@ test("Phase 4 Radar analysis is RLS-invoker and returns evidence-linked aggregat
   assert.match(migration, /grant execute[\s\S]*to authenticated/);
   assert.doesNotMatch(migration, /security definer/i);
 });
+
+test("Phase 4 Radar conversation pages use permanent-account RLS and keyset cursors", async () => {
+  const migration = await read("supabase/migrations/20260809065000_phase_4_radar_conversation_pagination.sql");
+
+  assert.match(migration, /create or replace function public\.radar_conversation_page/);
+  assert.match(migration, /create or replace function public\.radar_mentions_by_ids/);
+  assert.match(migration, /security invoker/g);
+  assert.match(migration, /private\.accessible_project_ids\(\)/);
+  assert.match(migration, /is_anonymous/);
+  assert.match(migration, /websearch_to_tsquery\('english'::regconfig/);
+  assert.match(migration, /\(item\.observed_at, item\.id\) < \(cursor_primary_time, cursor_key\)/);
+  assert.match(migration, /mentions_query_engagement_cursor_idx/);
+  assert.match(migration, /limit page_size \+ 1/);
+  assert.match(migration, /cardinality\(p_mention_ids\) > 50/);
+  assert.match(migration, /revoke all[\s\S]*from public, anon/);
+  assert.match(migration, /grant execute[\s\S]*to authenticated/);
+  assert.doesNotMatch(migration, /security definer/i);
+  assert.doesNotMatch(migration, /\boffset\b/i);
+});

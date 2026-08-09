@@ -13,6 +13,7 @@ export type RadarSource =
   | "x";
 
 export type DateRangeKey = "24h" | "7d" | "30d" | "90d" | "custom";
+export type RadarConversationSort = "newest" | "oldest" | "engagement" | "relevance";
 export type ConnectorState = "not-connected" | "coming-later" | "available";
 export type ClaimType = "fact" | "interpretation" | "hypothesis";
 
@@ -154,6 +155,7 @@ export interface TopicIntelligence {
   uniqueAuthors: number;
   topSource: string;
   exampleMentionIds: string[];
+  exampleMentionCloudIds?: string[];
 }
 
 export interface SpikeInsight {
@@ -167,7 +169,15 @@ export interface SpikeInsight {
   topSources: { name: string; mentions: number }[];
   unusualKeywords: string[];
   topMentionIds: string[];
-  likelyDrivers: { explanation: string; mentionIds: string[] }[];
+  topMentionCloudIds?: string[];
+  likelyDrivers: { explanation: string; mentionIds: string[]; mentionCloudIds?: string[] }[];
+}
+
+export interface RadarConversationPage {
+  mentions: RadarMention[];
+  total: number;
+  hasMore: boolean;
+  nextCursor: string | null;
 }
 
 export interface RadarMetrics {

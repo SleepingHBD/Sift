@@ -1,12 +1,11 @@
 "use client";
 
 import { Beaker, Bookmark, ChevronDown, ExternalLink, FileText, Flag, FolderKanban, Images, Link2, Search, SlidersHorizontal, X } from "lucide-react";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useDeferredValue, useMemo, useState } from "react";
+import { useRadarConversations } from "@/components/radar/use-radar-conversations";
 import { Badge, Button, Card, SectionHeader } from "@/components/ui/primitives";
-import type { EvidenceDestination, RadarMention, TopicIntelligence } from "@/lib/radar/types";
+import type { DateBounds, EvidenceDestination, MonitoringQuery, RadarConversationSort, RadarMention, TopicIntelligence } from "@/lib/radar/types";
 import { formatNumber } from "@/lib/utils";
-
-type SortOption = "newest" | "oldest" | "engagement" | "relevance";
 
 function highlight(content: string, query: string) {
   const cleaned = query.trim();
@@ -18,6 +17,9 @@ function highlight(content: string, query: string) {
 
 interface MentionFeedProps {
   mentions: RadarMention[];
+  monitor: MonitoringQuery;
+  bounds: DateBounds;
+  refreshKey: string;
   topics: TopicIntelligence[];
   sourceFilter: string;
   topicFilter: string;
@@ -33,18 +35,34 @@ interface MentionFeedProps {
   onToggleImportant: (mentionId: string) => void;
   onUseEvidence: (mention: RadarMention) => void;
   onQuickLink: (mention: RadarMention, destination: EvidenceDestination, label: string) => Promise<void>;
+  onMentionsLoaded: (mentions: RadarMention[]) => void | Promise<void>;
 }
 
-export function MentionFeed({ mentions, topics, sourceFilter, topicFilter, keywordFilter, projectLabel, savedIds, importantIds, onSourceFilter, onTopicFilter, onKeywordFilter, onOpenMention, onToggleSaved, onToggleImportant, onUseEvidence, onQuickLink }: MentionFeedProps) {
+export function MentionFeed({ mentions, monitor, bounds, refreshKey, topics, sourceFilter, topicFilter, keywordFilter, projectLabel, savedIds, importantIds, onSourceFilter, onTopicFilter, onKeywordFilter, onOpenMention, onToggleSaved, onToggleImportant, onUseEvidence, onQuickLink, onMentionsLoaded }: MentionFeedProps) {
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [sentiment, setSentiment] = useState("all");
   const [minimumEngagement, setMinimumEngagement] = useState(0);
-  const [sort, setSort] = useState<SortOption>("newest");
+  const [sort, setSort] = useState<RadarConversationSort>("newest");
   const [visibleCount, setVisibleCount] = useState(12);
   const [showFilters, setShowFilters] = useState(false);
   const [notice, setNotice] = useState("");
+  const boundsStart = bounds.start.getTime();
+  const boundsEnd = bounds.end.getTime();
+  const conversationRequest = useMemo(() => monitor.cloudId ? {
+    monitor,
+    bounds: { start: new Date(boundsStart), end: new Date(boundsEnd) },
+    search: deferredSearch,
+    source: sourceFilter,
+    sentiment,
+    topic: topicFilter,
+    keyword: keywordFilter,
+    minimumEngagement,
+    sort,
+  } : null, [boundsEnd, boundsStart, deferredSearch, keywordFilter, minimumEngagement, monitor, sentiment, sort, sourceFilter, topicFilter]);
+  const server = useRadarConversations(conversationRequest, refreshKey, onMentionsLoaded);
 
-  const sources = useMemo(() => [...new Set(mentions.map((mention) => mention.platform))], [mentions]);
+  const sources = useMemo(() => [...new Set([...mentions, ...server.mentions].map((mention) => mention.platform))], [mentions, server.mentions]);
   const filtered = useMemo(() => {
     const searchValue = search.trim().toLowerCase();
     const keywordValue = keywordFilter.trim().toLowerCase();
@@ -64,6 +82,9 @@ export function MentionFeed({ mentions, topics, sourceFilter, topicFilter, keywo
       return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
     });
   }, [keywordFilter, mentions, minimumEngagement, search, sentiment, sort, sourceFilter, topicFilter]);
+  const usesCompleteHistory = server.status === "ready";
+  const displayed = usesCompleteHistory ? server.mentions : filtered.slice(0, visibleCount);
+  const matchingCount = usesCompleteHistory ? server.total : filtered.length;
 
   async function quickLink(mention: RadarMention, destination: EvidenceDestination, label: string) {
     try {
@@ -88,11 +109,11 @@ export function MentionFeed({ mentions, topics, sourceFilter, topicFilter, keywo
 
   return (
     <section className="radar-section mentions-section" id="mention-feed">
-      <SectionHeader eyebrow="Evidence stream" title="Conversation feed" description={`${filtered.length} conversations match the current date range and filters.`} />
+      <SectionHeader eyebrow="Evidence stream" title="Conversation feed" description={`${matchingCount} conversations match the current date range and filters.`} />
       <div className="conversation-search-row">
         <label className="conversation-search"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search within this monitor, e.g. “running clubs”" />{search ? <button onClick={() => setSearch("")} aria-label="Clear search"><X size={14} /></button> : null}</label>
         <Button onClick={() => setShowFilters(!showFilters)} variant={showFilters ? "dark" : "secondary"}><SlidersHorizontal size={15} />Filters{activeFilterCount ? <Badge>{activeFilterCount}</Badge> : null}</Button>
-        <label className="feed-sort"><span>Sort</span><select value={sort} onChange={(event) => setSort(event.target.value as SortOption)}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="engagement">Highest engagement</option><option value="relevance">Most relevant</option></select><ChevronDown size={13} /></label>
+        <label className="feed-sort"><span>Sort</span><select value={sort} onChange={(event) => setSort(event.target.value as RadarConversationSort)}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="engagement">Highest engagement</option><option value="relevance">Most relevant</option></select><ChevronDown size={13} /></label>
       </div>
 
       {showFilters ? (
@@ -108,9 +129,12 @@ export function MentionFeed({ mentions, topics, sourceFilter, topicFilter, keywo
 
       {sourceFilter !== "all" || topicFilter || keywordFilter ? <div className="active-filter-row">{sourceFilter !== "all" ? <button onClick={() => onSourceFilter("all")}>Source: {sourceFilter}<X size={12} /></button> : null}{topicFilter ? <button onClick={() => onTopicFilter("")}>Topic: {topicFilter}<X size={12} /></button> : null}{keywordFilter ? <button onClick={() => onKeywordFilter("")}>Keyword: {keywordFilter}<X size={12} /></button> : null}</div> : null}
       {notice ? <div className="radar-toast"><Link2 size={14} />{notice}</div> : null}
+      {server.status === "loading" ? <div className="radar-run-notice" role="status"><span>Loading complete conversation history from Supabase...</span></div> : null}
+      {server.error ? <div className="radar-run-notice radar-run-notice--error" role="alert"><span>{server.error} Showing the conversations already loaded in this browser.</span></div> : null}
+      {usesCompleteHistory ? <div className="conversation-history-status"><span>Complete database results</span><small>Stable pages keep this view accurate while new records arrive.</small></div> : null}
 
       <div className="mention-feed">
-        {filtered.slice(0, visibleCount).map((mention) => {
+        {displayed.map((mention) => {
           const date = new Date(mention.publishedAt).toLocaleString("en-SG", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Singapore" });
           return (
             <Card className="mention-card mention-card--interactive" key={mention.id} role="button" tabIndex={0} onClick={() => onOpenMention(mention)} onKeyDown={(event) => { if (event.key === "Enter") onOpenMention(mention); }}>
@@ -135,9 +159,10 @@ export function MentionFeed({ mentions, topics, sourceFilter, topicFilter, keywo
             </Card>
           );
         })}
-        {!filtered.length ? <Card className="empty-state conversation-empty"><Search size={29} /><strong>No conversations matched these filters.</strong><span>Clear one or more filters, lower the engagement threshold, or try a broader search.</span><Button onClick={clearFilters}>Clear all filters</Button></Card> : null}
+        {server.status !== "loading" && !displayed.length ? <Card className="empty-state conversation-empty"><Search size={29} /><strong>No conversations matched these filters.</strong><span>Clear one or more filters, lower the engagement threshold, or try a broader search.</span><Button onClick={clearFilters}>Clear all filters</Button></Card> : null}
       </div>
-      {visibleCount < filtered.length ? <div className="load-more-row"><Button onClick={() => setVisibleCount((count) => count + 12)}>Load 12 more <span>{filtered.length - visibleCount} remaining</span></Button></div> : null}
+      {usesCompleteHistory && server.hasMore ? <div className="load-more-row"><Button disabled={server.loadingMore} onClick={() => void server.loadMore()}>{server.loadingMore ? "Loading..." : "Load 24 more"} <span>{Math.max(0, server.total - server.mentions.length)} remaining</span></Button></div> : null}
+      {!usesCompleteHistory && visibleCount < filtered.length ? <div className="load-more-row"><Button onClick={() => setVisibleCount((count) => count + 12)}>Load 12 more <span>{filtered.length - visibleCount} remaining</span></Button></div> : null}
     </section>
   );
 }

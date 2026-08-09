@@ -49,8 +49,11 @@ test("maps database Radar aggregates into the existing evidence-linked UI model"
   });
   assert.equal(analysis.topics[0].topSource, "YouTube");
   assert.deepEqual(analysis.topics[0].exampleMentionIds, ["monitor-client:youtube:video-1"]);
+  assert.deepEqual(analysis.topics[0].exampleMentionCloudIds, ["cloud-1"]);
   assert.equal(analysis.spikes[0].topSources[0].name, "YouTube");
+  assert.deepEqual(analysis.spikes[0].topMentionCloudIds, ["cloud-1"]);
   assert.deepEqual(analysis.spikes[0].likelyDrivers[0].mentionIds, ["monitor-client:youtube:video-1"]);
+  assert.deepEqual(analysis.spikes[0].likelyDrivers[0].mentionCloudIds, ["cloud-1"]);
 });
 
 test("uses safe empty arrays for malformed aggregate payloads", () => {

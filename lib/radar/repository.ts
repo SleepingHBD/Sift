@@ -13,8 +13,10 @@ import {
 import { radarMonitorAnalysisFromRow, type RadarMonitorAnalysisRow } from "@/lib/radar/analysis";
 import { radarBucketMilliseconds } from "@/lib/radar/processing";
 import { radarMonitorSummaryFromRow, type RadarMonitorSummaryRow } from "@/lib/radar/summary";
-import type { DateBounds, DateRangeKey, MonitorRun, MonitoringQuery, RadarMention, RadarMonitorAnalysis, RadarMonitorSummary, RadarSource } from "@/lib/radar/types";
+import { decodeRadarConversationCursor, encodeRadarConversationCursor, radarMentionFromConversation, type RadarConversationRpcRow } from "@/lib/radar/conversations";
+import type { DateBounds, DateRangeKey, MonitorRun, MonitoringQuery, RadarConversationPage, RadarConversationSort, RadarMention, RadarMonitorAnalysis, RadarMonitorSummary, RadarSource } from "@/lib/radar/types";
 import type { Project } from "@/lib/types";
+import type { Json } from "@/lib/supabase/database.types";
 
 type SiftSupabaseClient = NonNullable<ReturnType<typeof createBrowserSupabaseClient>>;
 
@@ -24,6 +26,21 @@ const mentionSelect = "id,project_id,monitoring_query_id,platform,external_id,au
 const runSelect = "id,client_ref,monitoring_query_id,status,started_at,completed_at,mentions_fetched,mentions_created,mentions_updated,error_message,run_metadata";
 const pageSize = 500;
 const maximumMentionRows = 5000;
+const conversationPageSize = 24;
+
+export interface RadarConversationPageRequest {
+  monitor: MonitoringQuery;
+  bounds: Pick<DateBounds, "start" | "end">;
+  search?: string;
+  source?: string;
+  sentiment?: string;
+  topic?: string;
+  keyword?: string;
+  minimumEngagement?: number;
+  sort?: RadarConversationSort;
+  cursor?: string | null;
+  pageSize?: number;
+}
 
 export interface RadarCloudSnapshot {
   monitors: MonitoringQuery[];
@@ -42,6 +59,57 @@ function requireClient() {
   const client = createBrowserSupabaseClient();
   if (!client) throw new Error("Supabase is not configured for this build.");
   return client;
+}
+
+export async function getCloudRadarConversationPage(request: RadarConversationPageRequest): Promise<RadarConversationPage> {
+  if (!request.monitor.cloudId) throw new Error("This monitor has not been verified in Supabase yet.");
+  const client = requireClient();
+  const pageSize = Math.min(Math.max(Math.trunc(request.pageSize ?? conversationPageSize), 1), 100);
+  const sort = request.sort ?? "newest";
+  const cursor = request.cursor ? decodeRadarConversationCursor(request.cursor) : null;
+  if (cursor && cursor.sort !== sort) throw new Error("The conversation page cursor no longer matches this sort.");
+  const { data, error } = await client.rpc("radar_conversation_page", {
+    p_monitor_id: request.monitor.cloudId,
+    p_start: request.bounds.start.toISOString(),
+    p_end: request.bounds.end.toISOString(),
+    p_search: request.search?.trim() || undefined,
+    p_source: request.source && request.source !== "all" ? request.source : undefined,
+    p_sentiment: request.sentiment && request.sentiment !== "all" ? request.sentiment : undefined,
+    p_topic: request.topic?.trim() || undefined,
+    p_keyword: request.keyword?.trim() || undefined,
+    p_min_engagement: Math.max(0, request.minimumEngagement ?? 0),
+    p_sort: sort,
+    p_cursor: cursor ? cursor as Json : undefined,
+    p_page_size: pageSize,
+  });
+  if (error) throw new Error(`Complete conversation history could not be loaded: ${error.message}`);
+  const rows = (data ?? []) as unknown as RadarConversationRpcRow[];
+  const hasMore = rows.length > pageSize;
+  const visible = rows.slice(0, pageSize);
+  return {
+    mentions: visible.map((row) => radarMentionFromConversation(row.conversation, request.monitor)),
+    total: numberValue(visible[0]?.total_count),
+    hasMore,
+    nextCursor: hasMore && visible.length ? encodeRadarConversationCursor(visible[visible.length - 1].cursor_value) : null,
+  };
+}
+
+export async function getCloudRadarMentionsByIds(monitor: MonitoringQuery, mentionIds: string[]) {
+  if (!monitor.cloudId) throw new Error("This monitor has not been verified in Supabase yet.");
+  const uniqueIds = [...new Set(mentionIds.filter(Boolean))].slice(0, 50);
+  if (!uniqueIds.length) return [];
+  const client = requireClient();
+  const { data, error } = await client.rpc("radar_mentions_by_ids", {
+    p_monitor_id: monitor.cloudId,
+    p_mention_ids: uniqueIds,
+  });
+  if (error) throw new Error(`Supporting conversations could not be loaded: ${error.message}`);
+  return ((data ?? []) as unknown as RadarConversationRpcRow[]).map((row) => radarMentionFromConversation(row.conversation, monitor));
+}
+
+function numberValue(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function projectByClientRef(projects: Project[]) {

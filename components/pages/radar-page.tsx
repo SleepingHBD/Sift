@@ -41,6 +41,7 @@ import { Badge, Button, Card, Metric, PageIntro, SectionHeader } from "@/compone
 import { EmptyState } from "@/components/workspace/empty-state";
 import { deleteRadarMonitor, enrichConnectorMentions, getRunnableSources, isRadarConnectorBackendConfigured, RadarRunConflictError, runRadarConnectors } from "@/lib/radar/connector-service";
 import { buildRadarAnalytics } from "@/lib/radar/processing";
+import { getCloudRadarMentionsByIds } from "@/lib/radar/repository";
 import type { DateRangeKey, EvidenceDestination, MonitorRun, MonitoringQuery, RadarMention, RadarMonitorSummary, SourceBreakdown } from "@/lib/radar/types";
 import { formatNumber } from "@/lib/utils";
 
@@ -56,7 +57,7 @@ const rangeLabels: { id: DateRangeKey; label: string }[] = [
 
 export function RadarPage() {
   const { removeSavedIds, projects, researchItems, inspirationItems } = useApp();
-  const { monitors, addMonitor, editMonitor, removeMonitor, mentionsByMonitor, runs, connectorSettings, saveConnectorSettings, completeMonitorRun, recordMonitorRun, savedIds, toggleSaved, evidenceLinks, addEvidenceLink, removeEvidenceLink, notes, saveNote, importantIds, toggleImportant, annotationError, clearAnnotationError, cloudStatus, cloudError, retryCloud, historyTruncated, pendingLocalRadar, pendingLocalAnnotations, importPendingRadar } = useRadarState(projects, researchItems, inspirationItems, removeSavedIds);
+  const { monitors, addMonitor, editMonitor, removeMonitor, mentionsByMonitor, registerCloudMentions, runs, connectorSettings, saveConnectorSettings, completeMonitorRun, recordMonitorRun, savedIds, toggleSaved, evidenceLinks, addEvidenceLink, removeEvidenceLink, notes, saveNote, importantIds, toggleImportant, annotationError, clearAnnotationError, cloudStatus, cloudError, retryCloud, historyTruncated, pendingLocalRadar, pendingLocalAnnotations, importPendingRadar } = useRadarState(projects, researchItems, inspirationItems, removeSavedIds);
   const [activeMonitorId, setActiveMonitorId] = useState("");
   const [activeView, setActiveView] = useState<RadarView>("overview");
   const [dateRange, setDateRange] = useState<DateRangeKey>("30d");
@@ -76,6 +77,8 @@ export function RadarPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteState, setDeleteState] = useState<"idle" | "deleting">("idle");
   const [deleteError, setDeleteError] = useState("");
+  const [supportingStatus, setSupportingStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [supportingError, setSupportingError] = useState("");
 
   useEffect(() => {
     if (window.location.hash !== "#new-monitor") return;
@@ -94,7 +97,7 @@ export function RadarPage() {
   const clientAnalytics = useMemo(() => activeTopic
     ? buildRadarAnalytics(allMentions, dateRange, analyticsNow, customDates, activeTopic)
     : baseAnalytics, [activeTopic, allMentions, analyticsNow, baseAnalytics, customDates, dateRange]);
-  const analyticsRefreshKey = `${activeMonitor?.lastRunAt ?? ""}:${allMentions.length}`;
+  const analyticsRefreshKey = activeMonitor?.lastRunAt ?? "never-run";
   const { summary: monitorSummary, status: monitorSummaryStatus, error: monitorSummaryError } = useMonitorSummary({
     monitorId: activeMonitor?.cloudId,
     bounds: clientAnalytics.bounds,
@@ -127,6 +130,15 @@ export function RadarPage() {
   const monitorTopics = baseMonitorAnalysis?.topics ?? baseAnalytics.topics;
   const reportedMetrics = monitorSummary?.metrics ?? analytics.metrics;
   const selectedSpike = analytics.spikes.find((spike) => spike.id === selectedSpikeId) ?? null;
+  const selectedTopic = monitorTopics.find((topic) => topic.name === activeTopic);
+  const supportingCloudIds = useMemo(() => {
+    const topicIds = selectedTopic?.exampleMentionCloudIds ?? [];
+    const spikeIds = selectedSpike ? [
+      ...(selectedSpike.topMentionCloudIds ?? []),
+      ...selectedSpike.likelyDrivers.flatMap((driver) => driver.mentionCloudIds ?? []),
+    ] : [];
+    return [...new Set([...topicIds, ...spikeIds])];
+  }, [selectedSpike, selectedTopic]);
   const relatedMentions = selectedMention
     ? allMentions.filter((mention) => mention.id !== selectedMention.id && mention.topics.some((topic) => selectedMention.topics.includes(topic))).sort((a, b) => b.engagement - a.engagement).slice(0, 4)
     : [];
@@ -146,6 +158,32 @@ export function RadarPage() {
         : activeCloudRun
           ? "This monitor already has a collection in progress."
         : undefined;
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadedCloudIds = new Set(allMentions.flatMap((mention) => mention.cloudId ? [mention.cloudId] : []));
+    const missingIds = supportingCloudIds.filter((id) => !loadedCloudIds.has(id));
+    if (!activeMonitor?.cloudId || !missingIds.length) {
+      return () => { cancelled = true; };
+    }
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setSupportingStatus("loading");
+      setSupportingError("");
+      try {
+        const mentions = await getCloudRadarMentionsByIds(activeMonitor, missingIds);
+        if (cancelled) return;
+        await registerCloudMentions(mentions);
+        if (!cancelled) setSupportingStatus("idle");
+      } catch (error) {
+        if (cancelled) return;
+        setSupportingStatus("error");
+        setSupportingError(error instanceof Error ? error.message : "Supporting conversations could not be loaded.");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeMonitor, allMentions, registerCloudMentions, supportingCloudIds]);
 
   const views: { id: RadarView; label: string; icon: typeof LayoutDashboard; count?: number }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -388,7 +426,7 @@ export function RadarPage() {
       </PageIntro>
 
       {pendingLocalRadar || pendingLocalAnnotations ? <RadarImportNotice payload={pendingLocalRadar} annotations={pendingLocalAnnotations} onImport={importPendingRadar} /> : null}
-      {historyTruncated ? <div className="radar-run-notice" role="status"><span>Radar loaded the newest 5,000 conversations. Older records remain safely stored in Supabase.</span></div> : null}
+      {historyTruncated ? <div className="radar-run-notice" role="status"><span>Radar initially loaded the newest 5,000 conversations. Complete history remains available through the paged conversation feed.</span></div> : null}
       {annotationError ? <div className="radar-run-notice radar-run-notice--error" role="alert"><span>{annotationError}</span><button onClick={clearAnnotationError} aria-label="Dismiss Radar save error">×</button></div> : null}
 
       <Card className="monitor-command-bar monitor-command-bar--calm">
@@ -486,7 +524,7 @@ export function RadarPage() {
 
           {activeView === "topics" ? (
             <div className="radar-view radar-view--topics">
-              <TopicIntelligence topics={monitorTopics} mentions={baseAnalytics.currentMentions} activeTopic={activeTopic} onSelect={(topic) => { setActiveTopic(topic); setSelectedSpikeId(""); }} onOpenMention={setSelectedMention} onInspectMentions={() => setActiveView("mentions")} />
+              <TopicIntelligence topics={monitorTopics} mentions={allMentions} activeTopic={activeTopic} supportingStatus={supportingStatus} supportingError={supportingError} onSelect={(topic) => { setActiveTopic(topic); setSelectedSpikeId(""); }} onOpenMention={setSelectedMention} onInspectMentions={() => setActiveView("mentions")} />
               <div className="radar-topic-context-grid">
                 <section><SectionHeader eyebrow="Sentiment" title="How tone is moving" /><RadarSentimentChart data={analytics.sentiment} /></section>
                 <section><SectionHeader eyebrow="Sources" title="Where signals appear" description="Select a bar to inspect mentions." /><RadarSourceChart data={analytics.sources} onSelect={inspectSource} /></section>
@@ -497,7 +535,7 @@ export function RadarPage() {
 
           {activeView === "mentions" ? (
             <div className="radar-view radar-view--mentions">
-              <MentionFeed mentions={baseAnalytics.currentMentions} topics={monitorTopics} sourceFilter={sourceFilter} topicFilter={activeTopic} keywordFilter={keywordFilter} projectLabel={projectLabel} savedIds={savedIds} importantIds={importantIds} onSourceFilter={setSourceFilter} onTopicFilter={setActiveTopic} onKeywordFilter={setKeywordFilter} onOpenMention={setSelectedMention} onToggleSaved={toggleSaved} onToggleImportant={toggleImportant} onUseEvidence={setEvidenceMention} onQuickLink={quickEvidenceLink} />
+              <MentionFeed mentions={baseAnalytics.currentMentions} monitor={activeMonitor} bounds={baseAnalytics.bounds} refreshKey={analyticsRefreshKey} topics={monitorTopics} sourceFilter={sourceFilter} topicFilter={activeTopic} keywordFilter={keywordFilter} projectLabel={projectLabel} savedIds={savedIds} importantIds={importantIds} onSourceFilter={setSourceFilter} onTopicFilter={setActiveTopic} onKeywordFilter={setKeywordFilter} onOpenMention={setSelectedMention} onToggleSaved={toggleSaved} onToggleImportant={toggleImportant} onUseEvidence={setEvidenceMention} onQuickLink={quickEvidenceLink} onMentionsLoaded={registerCloudMentions} />
             </div>
           ) : null}
 
@@ -512,7 +550,7 @@ export function RadarPage() {
       <MonitorDialog key={editingMonitor?.id ?? "new-monitor"} open={monitorDialogOpen} monitor={editingMonitor} connectorSettings={connectorSettings} backendConfigured={backendConfigured} onClose={closeMonitorDialog} onSave={saveMonitor} onManageSources={manageSourcesFromMonitor} />
       <DeleteMonitorDialog open={deleteDialogOpen} monitor={activeMonitor} mentionCount={allMentions.length} deleting={deleteState === "deleting"} error={deleteError} onClose={() => { if (deleteState !== "deleting") { setDeleteDialogOpen(false); setDeleteError(""); } }} onConfirm={confirmDeleteMonitor} />
       <SourceDrawer open={sourceDrawerOpen} onClose={closeSourceDrawer} settings={connectorSettings} onSave={saveConnectorSettings} backendConfigured={backendConfigured} />
-      <SpikeDrawer spike={selectedSpike} mentions={analytics.currentMentions} onClose={() => setSelectedSpikeId("")} onOpenMention={(mention) => { setSelectedSpikeId(""); setSelectedMention(mention); }} />
+      <SpikeDrawer spike={selectedSpike} mentions={allMentions} supportingStatus={supportingStatus} supportingError={supportingError} onClose={() => setSelectedSpikeId("")} onOpenMention={(mention) => { setSelectedSpikeId(""); setSelectedMention(mention); }} />
       <MentionDetailDrawer mention={selectedMention} related={relatedMentions} note={selectedMention ? notes[selectedMention.id] ?? "" : ""} links={selectedMention ? evidenceLinks.filter((link) => link.mentionId === selectedMention.id) : []} saved={Boolean(selectedMention && savedIds.includes(selectedMention.id))} important={Boolean(selectedMention && importantIds.includes(selectedMention.id))} onClose={() => setSelectedMention(null)} onSaveNote={(note) => selectedMention ? saveNote(selectedMention.id, note) : Promise.resolve()} onRemoveEvidence={removeEvidenceLink} onToggleSaved={() => { if (selectedMention) void toggleSaved(selectedMention.id); }} onToggleImportant={() => { if (selectedMention) void toggleImportant(selectedMention.id); }} onUseEvidence={() => selectedMention && setEvidenceMention(selectedMention)} onOpenRelated={setSelectedMention} onFilterKeyword={inspectKeyword} />
       <EvidenceDialog mention={evidenceMention} onClose={() => setEvidenceMention(null)} onSave={addEvidenceLink} />
     </div>

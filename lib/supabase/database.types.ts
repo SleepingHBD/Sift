@@ -2117,6 +2117,36 @@ export type Database = {
           volume: Json
         }[]
       }
+      radar_conversation_page: {
+        Args: {
+          p_cursor?: Json
+          p_end: string
+          p_keyword?: string
+          p_min_engagement?: number
+          p_monitor_id: string
+          p_page_size?: number
+          p_search?: string
+          p_sentiment?: string
+          p_sort?: string
+          p_source?: string
+          p_start: string
+          p_topic?: string
+        }
+        Returns: {
+          conversation: Json
+          cursor_value: Json
+          total_count: number
+        }[]
+      }
+      radar_mentions_by_ids: {
+        Args: {
+          p_mention_ids: string[]
+          p_monitor_id: string
+        }
+        Returns: {
+          conversation: Json
+        }[]
+      }
       search_evidence_page: {
         Args: {
           p_cursor?: Json

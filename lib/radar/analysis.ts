@@ -73,6 +73,10 @@ function mentionIds(value: unknown, monitorClientId: string) {
   return array(value).map((item) => mentionId(item, monitorClientId)).filter(Boolean);
 }
 
+function mentionCloudIds(value: unknown) {
+  return array(value).map((item) => text(record(item).cloudId)).filter(Boolean);
+}
+
 function volumePoints(value: unknown, range: DateRangeKey): VolumePoint[] {
   return array(value).map((item) => {
     const point = record(item);
@@ -117,6 +121,7 @@ function topics(value: unknown, monitorClientId: string): TopicIntelligence[] {
       uniqueAuthors: number(topic.uniqueAuthors),
       topSource: sourceLabel(topic.topSource),
       exampleMentionIds: mentionIds(topic.exampleMentions, monitorClientId),
+      exampleMentionCloudIds: mentionCloudIds(topic.exampleMentions),
     }];
   });
 }
@@ -155,10 +160,11 @@ function spikes(value: unknown, monitorClientId: string): SpikeInsight[] {
       topSources: namedCounts(spike.topSources, true),
       unusualKeywords: array(spike.unusualKeywords).map(text).filter(Boolean),
       topMentionIds: mentionIds(spike.topMentions, monitorClientId),
+      topMentionCloudIds: mentionCloudIds(spike.topMentions),
       likelyDrivers: array(spike.likelyDrivers).flatMap((item) => {
         const driver = record(item);
         const explanation = text(driver.explanation);
-        return explanation ? [{ explanation, mentionIds: mentionIds(driver.mentionIds, monitorClientId) }] : [];
+        return explanation ? [{ explanation, mentionIds: mentionIds(driver.mentionIds, monitorClientId), mentionCloudIds: mentionCloudIds(driver.mentionIds) }] : [];
       }),
     }];
   });
