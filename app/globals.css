@@ -2690,3 +2690,46 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
   .strategy-session-handoff > aside { width: 100%; }.strategy-session-handoff > aside > header,.strategy-session-handoff__body { padding-inline: 18px; }.strategy-session-handoff > aside > nav { padding-inline: 18px; }.strategy-session-handoff__focus { grid-template-columns: 1fr; }.strategy-session-handoff__copy { grid-template-columns: 36px minmax(0,1fr); }.strategy-session-handoff__copy > span { width: 36px; height: 36px; }.strategy-session-handoff__copy > div:last-child { grid-column: 1 / -1; }.strategy-session-handoff__save { align-items: stretch; flex-direction: column; }.strategy-session-handoff__save .ui-button { width: 100%; }
 }
 /* End Strategy Sessions. */
+
+/* Notebook-first shell: quiet primary navigation and a single daily starting point. */
+.sidebar__primary { display: grid; gap: 3px; }
+.sidebar__footer { display: grid; gap: 5px; padding-top: 10px; border-top: 1px solid #292c22; }
+
+.today-page { width: min(100%, 1120px); margin: 0 auto; padding-top: clamp(48px, 8vw, 104px); }
+.today-intro { max-width: 850px; }
+.today-intro h1 { max-width: 790px; margin: 12px 0 18px; font-size: clamp(44px, 6.2vw, 76px); line-height: .98; letter-spacing: -.055em; }
+.today-intro > p:last-child { max-width: 680px; margin: 0; color: var(--muted); font-size: 17px; line-height: 1.7; }
+.today-notebook { display: grid; grid-template-columns: 48px minmax(0,1fr) auto; align-items: center; gap: 19px; margin-top: clamp(48px, 7vw, 78px); padding: 27px 29px; border: 1px solid var(--border); border-radius: 18px; background: var(--card); box-shadow: var(--shadow-sm); }
+.today-notebook__icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 13px; background: var(--acid); color: #171812; }
+.today-notebook__copy h2 { margin: 5px 0 6px; font-size: clamp(23px, 3vw, 32px); letter-spacing: -.04em; }
+.today-notebook__copy > p:last-child { max-width: 660px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.today-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); margin-top: 22px; border-block: 1px solid var(--border); }
+.today-actions > a,.today-actions > button { min-width: 0; display: grid; grid-template-columns: 22px minmax(0,1fr) 15px; align-items: start; gap: 11px; padding: 21px 17px; border-right: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; }
+.today-actions > :last-child { border-right: 0; }
+.today-actions > a:hover,.today-actions > button:hover { background: var(--subtle); }
+.today-actions > a > svg:first-child,.today-actions > button > svg:first-child { color: var(--acid-dark); }
+.today-actions > a > svg:last-child,.today-actions > button > svg:last-child { margin-top: 2px; color: var(--faint); }
+.today-actions strong,.today-actions small { display: block; }
+.today-actions strong { margin-bottom: 5px; font-size: 13px; }
+.today-actions small { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.today-boundary { margin: 23px 0 0; color: var(--faint); font-size: 11px; text-align: center; }
+
+.workspace-dialog__optional { border: 1px solid var(--border); border-radius: 11px; background: var(--card); overflow: hidden; }
+.workspace-dialog__optional > summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 15px; cursor: pointer; list-style-position: inside; }
+.workspace-dialog__optional > summary span { font-size: 12px; font-weight: 800; }
+.workspace-dialog__optional > summary small { color: var(--muted); font-size: 10px; font-weight: 600; }
+.workspace-dialog__optional-fields { display: grid; gap: 16px; padding: 17px 15px 16px; border-top: 1px solid var(--border); }
+.workspace-dialog__optional-fields > div { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+@media (max-width: 720px) {
+  .today-page { padding-top: 34px; }
+  .today-intro h1 { font-size: 46px; }
+  .today-notebook { grid-template-columns: 44px minmax(0,1fr); padding: 23px 20px; }
+  .today-notebook__icon { width: 44px; height: 44px; }
+  .today-notebook > .ui-button { grid-column: 1 / -1; width: 100%; }
+  .today-actions { grid-template-columns: 1fr; }
+  .today-actions > a,.today-actions > button { border-right: 0; border-bottom: 1px solid var(--border); }
+  .today-actions > :last-child { border-bottom: 0; }
+  .workspace-dialog__optional-fields > div { grid-template-columns: 1fr; }
+}
+/* End notebook-first shell. */

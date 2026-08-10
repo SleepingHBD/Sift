@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, ChevronDown, Menu, Moon, Plus, Search, Sun } from "lucide-react";
+import { ChevronDown, Menu, Moon, Plus, Search, Sun } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useApp } from "@/components/app-provider";
 
@@ -41,21 +41,17 @@ export function Topbar() {
       <div className="topbar__actions">
         <button className="topbar-capture-button" onClick={() => openCaptureDialog()} aria-label="Capture evidence" title="Capture evidence">
           <Plus size={16} />
-          <span>Capture evidence</span>
+          <span>Capture</span>
         </button>
         <button className="global-search-button" onClick={() => setSearchOpen(true)} aria-label="Search everything" title="Search everything">
           <Search size={16} />
-          <span>Search everything</span>
+          <span>Search</span>
           <kbd>⌘ K</kbd>
         </button>
         <button className="topbar__icon" aria-label="Toggle theme" onClick={toggleTheme}>
           {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
         </button>
-        <button className="topbar__icon topbar__notification" aria-label="Notifications unavailable" disabled title="Notifications are not configured yet">
-          <Bell size={18} />
-          <span />
-        </button>
-        <Link className="user-avatar" href="/account" aria-label={status === "authenticated" ? "Open account" : "Sign in to Sift"}>{accountInitials}</Link>
+        <Link className="user-avatar" href="/account" aria-label={status === "authenticated" ? "Open account and settings" : "Sign in to Sift"} title="Account and settings">{accountInitials}</Link>
       </div>
     </header>
   );

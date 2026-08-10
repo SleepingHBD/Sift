@@ -218,8 +218,8 @@ export function StrategySessionsPage() {
   if (!cloudProjects.length) {
     return (
       <div className="page strategy-conversation-page">
-        <PageIntro eyebrow="Think / Strategy Sessions" title="Think it through, one step at a time." description="Start with an unfinished question. Sift will gradually keep the evidence, conversation, and eventual argument together." />
-        <EmptyState icon={MessageCircle} eyebrow="Project required" title="Your first strategy conversation needs a project." description="A project keeps the conversation and every future citation inside the correct private workspace." actions={<Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={15} />Create project</Button>} />
+        <PageIntro eyebrow="Notebook" title="Write it down. Connect it later." description="Begin with an unfinished thought. Sources, questions, and eventual strategy can gather around it gradually." />
+        <EmptyState icon={MessageCircle} eyebrow="Start a notebook" title="Give this work a name first." description="A name creates its private home. Brand, market, objectives, and other context can wait until they become useful." actions={<Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={15} />Create notebook</Button>} />
       </div>
     );
   }
@@ -243,30 +243,30 @@ export function StrategySessionsPage() {
 
   return (
     <div className="page strategy-conversation-page">
-      <PageIntro eyebrow="Think / Strategy Sessions" title="Think it through, one step at a time." description="Talk through what you are noticing without completing the whole strategy at once. Your formal argument remains available when you are ready to shape it.">
+      <PageIntro eyebrow="Notebook" title="Write it down. Connect it later." description="Keep thoughts, questions, and sources together without completing the whole strategy at once.">
         <Button onClick={() => setReviewMode(true)}><BookOpen size={15} />Review argument</Button>
-        <Button variant="dark" onClick={beginAnotherConversation}><Plus size={15} />New conversation</Button>
+        <Button variant="dark" onClick={beginAnotherConversation}><Plus size={15} />New page</Button>
       </PageIntro>
 
       <section className="strategy-conversation-toolbar" aria-label="Strategy conversation selection">
-        <label><span>Project</span><select value={resolvedProjectClientId} onChange={(event) => changeProject(event.target.value)}>{cloudProjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label><span>Notebook</span><select value={resolvedProjectClientId} onChange={(event) => changeProject(event.target.value)}>{cloudProjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <ArrowRight size={15} />
-        <label><span>Conversation</span><select value={startingNew ? "" : sessionId} disabled={!sessions.length || startingNew} onChange={(event) => { setStartingNew(false); setSessionId(event.target.value); }}>{startingNew ? <option value="">Starting a new conversation</option> : sessions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+        <label><span>Page</span><select value={startingNew ? "" : sessionId} disabled={!sessions.length || startingNew} onChange={(event) => { setStartingNew(false); setSessionId(event.target.value); }}>{startingNew ? <option value="">Starting a new page</option> : sessions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
       </section>
 
-      {error ? <div className="strategy-conversation-error" role="alert"><strong>Strategy Sessions needs attention.</strong><span>{error}</span></div> : null}
+      {error ? <div className="strategy-conversation-error" role="alert"><strong>This notebook needs attention.</strong><span>{error}</span></div> : null}
 
       {startingNew ? (
         <section className="strategy-conversation-start">
           <span className="strategy-conversation-start__icon"><MessageCircle size={23} /></span>
-          <p className="eyebrow">New strategy conversation</p>
+          <p className="eyebrow">New notebook page</p>
           <h2>What are you trying to understand?</h2>
           <p>It can be incomplete. Describe the behaviour, question, tension, or situation currently on your mind.</p>
           <form onSubmit={startConversation}>
             <textarea rows={6} maxLength={10000} value={openingMessage} onChange={(event) => setOpeningMessage(event.target.value)} placeholder="I keep noticing…\nI am trying to understand…\nSomething feels different about…" aria-label="Opening strategy thought" />
-            <div><span>Sift will use this as the conversation title. You can keep developing it later.</span><Button variant="dark" disabled={sending || !openingMessage.trim()}>{sending ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />}Start conversation</Button></div>
+            <div><span>Sift will use this as the page title. You can keep developing it later.</span><Button variant="dark" disabled={sending || !openingMessage.trim()}>{sending ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />}Start page</Button></div>
           </form>
-          {sessions.length ? <Button size="sm" onClick={() => setStartingNew(false)}>Return to current conversation</Button> : null}
+          {sessions.length ? <Button size="sm" onClick={() => setStartingNew(false)}>Return to current page</Button> : null}
         </section>
       ) : loading && !session ? (
         <div className="strategy-conversation-loading"><LoaderCircle className="spin" size={21} /><span>Loading your conversation…</span></div>
@@ -274,7 +274,7 @@ export function StrategySessionsPage() {
         <div className="strategy-conversation-layout">
           <main className="strategy-conversation-thread">
             <header>
-              <div><p className="eyebrow">Current conversation</p><h2>{session.title}</h2></div>
+              <div><p className="eyebrow">Current page</p><h2>{session.title}</h2></div>
               <Badge>{session.turns.length} {session.turns.length === 1 ? "thought" : "thoughts"}</Badge>
             </header>
 
@@ -304,7 +304,7 @@ export function StrategySessionsPage() {
           <aside className="strategy-conversation-memory">
             <header><p className="eyebrow">Strategy so far</p><h2>Nothing is due.</h2><p>Keep collecting pieces. Structure appears only when it becomes useful.</p></header>
             <dl>
-              <div><dt>Conversation</dt><dd>{session.turns.length} saved</dd></div>
+              <div><dt>Notebook entries</dt><dd>{session.turns.length} saved</dd></div>
               <div><dt>Original evidence</dt><dd>{sourceCount} linked</dd></div>
               <div><dt>Working pieces</dt><dd>{session.pieces.filter((piece) => piece.status === "active").length} active</dd></div>
               <div><dt>Formal claims</dt><dd>{session.stages.length} of 6</dd></div>

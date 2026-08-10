@@ -11,6 +11,61 @@ question -> collect and capture -> review evidence -> find patterns
 
 Sift is not required to observe the whole internet. It is required to be explicit about what it observed, preserve the original evidence, and help turn that evidence into better strategic decisions.
 
+## Canonical product direction - notebook-first Sift
+
+Approved on 10 August 2026. This direction supersedes the feature-first navigation and the previous Phase 7 implementation sequence. Phases 0 through 6 remain complete and their trusted backend, evidence, Radar, retrieval, citation, and manual ChatGPT-handoff work must be preserved.
+
+Sift should feel like opening a notebook with an evidence-aware thinking partner inside it:
+
+```text
+write or paste anything
+  -> preserve the original material
+  -> notice possible connections
+  -> discuss and refine gradually
+  -> shape into strategy only when ready
+  -> create territories or a brief
+```
+
+The primary product concepts are now:
+
+- **Notebook** - the project or assignment where thinking develops.
+- **Entry** - a thought, question, source, Radar signal, screenshot, file, or attributed AI response.
+- **Connection** - an accepted or suggested relationship between entries.
+- **Thread** - a subject that emerges across several entries.
+- **Output** - an argument, territory, or brief created from selected thinking.
+
+The everyday interface should expose no more than four primary destinations:
+
+1. **Today** - continue recent work or begin with one thought.
+2. **Notebooks** - think, collect, and connect inside a project.
+3. **Radar** - notice changes in permitted observed conversations.
+4. **Library** - find every saved source without choosing between Research, Evidence, and Inspiration applications.
+
+Brands and competitors become notebook context. Trends become a Radar view. Strategy AI and the formal Insight Builder become contextual notebook actions. Briefs and territories become notebook outputs. Existing routes remain available during migration so no user-created data or bookmarked path is lost.
+
+### Notebook-first interaction rules
+
+1. Capture freely; classification is optional and can happen later.
+2. Ask for one useful action at a time.
+3. Preserve the difference between original source, strategist thought, and AI suggestion without making the user manage the database model.
+4. Keep AI suggestions optional, editable, attributable, and cited.
+5. Use progressive disclosure for advanced metadata, analytics, review controls, and formal strategy stages.
+6. Do not add a separate page when the capability can appear naturally in the notebook, Radar, or Library.
+7. Do not introduce a visual node canvas, more connectors, vector infrastructure, or background AI until the notebook workflow passes real-use acceptance.
+
+### Revised Phase 7 sequence
+
+1. **Product pruning:** replace the guided sidebar with Today, Notebooks, Radar, and Library; simplify Today; move settings to utility access; preserve compatibility routes.
+2. **Notebook foundation:** reframe Strategy Sessions as the notebook, require only a name to begin, and make the chronological conversation the main workspace.
+3. **Universal capture:** let the notebook composer accept thoughts, questions, URLs, files, screenshots, and Radar signals with advanced details kept optional.
+4. **Connections and threads:** support manual connections, transparent deterministic suggestions, optional cited ChatGPT suggestions, contradictions, and emerging threads.
+5. **Contextual intelligence:** let Radar and Library feed the notebook directly; fold Trends into Radar and Inspiration into Library filters.
+6. **Shape when ready:** organize selected entries and accepted connections into the existing formal argument without overwriting either source evidence or notebook history.
+7. **Creative outputs:** develop cited territories and editable briefs inside the notebook only after the argument workflow is accepted.
+8. **Acceptance and cleanup:** verify persistence, RLS isolation, provenance, citations, responsive use, compatibility routes, and removal of obsolete presentation code.
+
+Notebook-first success means a thought can be saved in seconds, a notebook can begin with only a name, most strategy work happens without leaving the notebook, unfinished thinking never requires classification, and any eventual output remains traceable to its original sources.
+
 ## Product principles
 
 1. Evidence precedes interpretation.
@@ -453,13 +508,13 @@ Answer strategic questions using the user's authorized workspace while keeping g
 - Evaluation cases meet an agreed citation-validity threshold before Strategy AI is treated as production-ready.
 - No API credential or additional model payment is required for the accepted manual workflow.
 
-## Phase 7 - Insight, strategy, and creative outputs
+## Phase 7 - Notebook-first thinking and creative outputs
 
-Status: **In progress. The trusted argument foundation, conversational workspace, and integrated manual ChatGPT handoff are implemented.** The audit is documented in [phase-7-audit.md](phase-7-audit.md). Strategy Sessions is now the default Think experience: a strategist can begin with one unfinished question, append thoughts gradually, and prepare the accepted free ChatGPT handoff without leaving the session. Validated responses return as attributed conversation turns plus optional cited working pieces. The existing evidence-to-proposition builder remains available as **Review argument**, and no generated piece becomes approved strategy automatically.
+Status: **In progress under the approved notebook-first direction.** The trusted argument foundation, conversational workspace, and integrated manual ChatGPT handoff are implemented. The audit is documented in [phase-7-audit.md](phase-7-audit.md). The current work is simplifying the surrounding product so the notebook becomes the default place to capture, connect, think, and eventually shape an argument. The existing evidence-to-proposition builder remains available as **Review argument**, and no generated piece becomes approved strategy automatically.
 
 ### Goal
 
-Complete the path from evidence to a usable strategic and creative decision.
+Make the complete path from unfinished thought to evidence-backed creative decision feel like one gradual notebook process rather than a sequence of separate applications.
 
 ### Work
 
@@ -609,16 +664,16 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0 through 6 are complete and accepted. Phase 7 is in progress. Its trusted database foundation and complete evidence-to-proposition review layer are preserved. Strategy Sessions now stores gradual strategist turns, keeps the formal builder as a secondary Review argument view, and integrates the accepted free ChatGPT handoff as an explicit copy-and-paste step. No automatic or background AI analysis is introduced.
+Phases 0 through 6 are complete and accepted. Phase 7 now follows the canonical notebook-first direction above. Its trusted database foundation, append-only conversation, working pieces, citations, and complete evidence-to-proposition review layer are preserved. No automatic or background AI analysis is introduced.
 
-1. **Complete:** Audit the existing insight, strategy-session, strategy-stage, citation, and evidence-link schema before adding Phase 7 records. See [phase-7-audit.md](phase-7-audit.md).
-2. **Complete:** Establish the trusted Supabase foundation for stage evidence, Signal/AI provenance, dependencies, alternatives, approval, revision history, deletion protection, RLS, grants, and foreign-key indexes.
-3. **Complete:** Build and verify the formal evidence-to-proposition argument layer, including confidence, gaps, contradictions, alternatives, dependencies, approval, revisions, and an Opportunity-gated proposition.
-4. **Complete:** Add project-scoped, append-only Strategy Session turns and make the calm conversation view the default Think experience while preserving the formal builder as Review argument.
-5. **Complete:** Introduce optional observations, questions, interpretations, tensions, hypotheses, and opportunities without forcing stage assignment.
-6. **Complete:** Bring validated manual ChatGPT responses into the active session with visible provenance, cited working pieces, dismiss/restore controls, and one-click source inspection. The handoff reuses existing project Evidence retrieval; direct Signal entry remains a later refinement if real use requires it.
-7. Add an explicit **Shape into argument** action that helps organize selected working pieces into the existing formal stages without overwriting either the conversation or source evidence.
-8. Run the conversation-first Phase 7 acceptance checkpoint: gradual use across sessions, refresh persistence, RLS isolation, provenance, citation integrity, review usability, and responsive layout.
+1. Simplify the shell to Today, Notebooks, Radar, and Library while keeping old routes compatible.
+2. Replace the Home dashboard with a calm Today view focused on continuing one notebook.
+3. Reframe Strategy Sessions as the notebook and make project creation progressive rather than form-heavy.
+4. Add the universal notebook composer over existing conversation and capture repositories.
+5. Add explicit connections and emerging threads without forcing formal stage assignment.
+6. Feed Library sources and Radar signals into notebooks contextually.
+7. Add **Shape this into strategy** over selected entries and accepted connections.
+8. Run notebook-first acceptance across persistence, RLS, provenance, citations, responsive layout, and real everyday use.
 9. Only after acceptance, develop distinct creative territories from an approved strategic proposition.
 10. Build editable briefs and exports after territory provenance is reliable.
 

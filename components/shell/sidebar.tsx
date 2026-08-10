@@ -2,19 +2,13 @@
 
 import Link from "next/link";
 import {
-  Building2,
-  FileText,
-  FolderKanban,
+  BookOpen,
   Home,
-  Images,
   Inbox,
-  MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
   Radio,
   Settings,
-  Swords,
-  TrendingUp,
   X,
 } from "lucide-react";
 import { useApp } from "@/components/app-provider";
@@ -27,38 +21,13 @@ type NavigationItem = {
   icon: typeof Home;
 };
 
-const homeItem: NavigationItem = { label: "Home", href: "/", section: "home", icon: Home };
+const primaryNavigation: NavigationItem[] = [
+  { label: "Today", href: "/", section: "home", icon: Home },
+  { label: "Notebooks", href: "/insight-builder", section: "insight-builder", icon: BookOpen },
+  { label: "Radar", href: "/radar", section: "radar", icon: Radio },
+  { label: "Library", href: "/evidence", section: "evidence", icon: Inbox },
+];
 const settingsItem: NavigationItem = { label: "Settings", href: "/settings", section: "settings", icon: Settings };
-
-const workflow = [
-  {
-    step: "01",
-    label: "Set up",
-    items: [
-      { label: "Projects", href: "/projects", section: "projects", icon: FolderKanban },
-      { label: "Brands", href: "/brands", section: "brands", icon: Building2 },
-      { label: "Competitors", href: "/competitors", section: "competitors", icon: Swords },
-    ],
-  },
-  { step: "02", label: "Discover", items: [{ label: "Radar", href: "/radar", section: "radar", icon: Radio }] },
-  {
-    step: "03",
-    label: "Build evidence",
-    items: [
-      { label: "Evidence", href: "/evidence", section: "evidence", icon: Inbox },
-      { label: "Inspiration", href: "/inspiration", section: "inspiration", icon: Images },
-    ],
-  },
-  { step: "04", label: "Understand", items: [{ label: "Trends", href: "/trends", section: "trends", icon: TrendingUp }] },
-  {
-    step: "05",
-    label: "Think",
-    items: [
-      { label: "Strategy Sessions", href: "/insight-builder", section: "insight-builder", icon: MessageCircle },
-    ],
-  },
-  { step: "06", label: "Create", items: [{ label: "Briefs", href: "/briefs", section: "briefs", icon: FileText }] },
-] satisfies Array<{ step: string; label: string; items: NavigationItem[] }>;
 
 export function Sidebar({ activeSection }: { activeSection: string }) {
   const { collapsed, setCollapsed, mobileNavOpen, setMobileNavOpen, projects, activeProjectId } = useApp();
@@ -108,27 +77,14 @@ export function Sidebar({ activeSection }: { activeSection: string }) {
         </div>
 
         <nav className="sidebar__nav" aria-label="Main navigation">
-          <div className="sidebar__home-link">{renderItem(homeItem)}</div>
-          <div className="sidebar__divider" />
-          <p className="sidebar__label">Guided workflow</p>
-          <div className="sidebar__workflow">
-            {workflow.map((stage) => (
-              <section className="sidebar-stage" key={stage.step} aria-labelledby={`sidebar-stage-${stage.step}`}>
-                <p className="sidebar-stage__label" id={`sidebar-stage-${stage.step}`}>
-                  <span>{stage.step}</span>
-                  <strong>{stage.label}</strong>
-                </p>
-                <div className="sidebar-stage__items">
-                  {stage.items.map((item) => renderItem(item, !projects.length && item.section === "projects" ? "Start here" : undefined))}
-                </div>
-              </section>
-            ))}
+          <p className="sidebar__label">Your workspace</p>
+          <div className="sidebar__primary">
+            {primaryNavigation.map((item) => renderItem(item, !projects.length && item.section === "insight-builder" ? "Start here" : undefined))}
           </div>
-          <div className="sidebar__divider sidebar__divider--utility" />
-          {renderItem(settingsItem)}
         </nav>
 
         <div className="sidebar__footer">
+          {renderItem(settingsItem)}
           <button className="sidebar__collapse" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
             {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
             <span>Collapse</span>

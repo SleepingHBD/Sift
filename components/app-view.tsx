@@ -31,6 +31,16 @@ export function AppView({ section }: { section: string }) {
   if (section === "research") {
     return <AppShell activeSection="evidence"><EvidencePage initialKind="research" /></AppShell>;
   }
+  if (section === "inspiration") {
+    return <AppShell activeSection="evidence"><InspirationPage /></AppShell>;
+  }
+  if (section === "trends") {
+    return <AppShell activeSection="radar"><TrendsPage /></AppShell>;
+  }
+  if (["brands", "competitors", "projects", "strategy-ai", "briefs"].includes(section)) {
+    const Page = pages[section] ?? HomePage;
+    return <AppShell activeSection="insight-builder"><Page /></AppShell>;
+  }
   const Page = pages[section] ?? HomePage;
   return <AppShell activeSection={section}><Page /></AppShell>;
 }
