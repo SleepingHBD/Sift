@@ -3389,6 +3389,14 @@ export type Database = {
         }
         Returns: string
       }
+      delete_strategy_conversation_turn: {
+        Args: {
+          p_project_id: string
+          p_session_id: string
+          p_turn_id: string
+        }
+        Returns: string
+      }
       start_strategy_conversation: {
         Args: { p_opening_message: string; p_project_id: string }
         Returns: string

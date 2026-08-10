@@ -12,19 +12,23 @@ import {
   Plus,
   Send,
   Sparkles,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
+import { useAuth } from "@/components/auth/auth-provider";
 import { InsightBuilderPage } from "@/components/pages/insight-builder-page";
 import { StrategySourceDrawer } from "@/components/strategy-pipeline/source-drawer";
 import { NotebookSourcePicker } from "@/components/strategy/notebook-source-picker";
+import { NotebookEntryDeleteDialog } from "@/components/strategy/notebook-entry-delete-dialog";
 import { StrategySessionHandoff } from "@/components/strategy/strategy-session-handoff";
 import { Badge, Button, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
 import {
   addStrategyConversationTurn,
+  deleteStrategyConversationTurn,
   listStrategySessions,
   loadStrategySession,
   startStrategyConversation,
@@ -40,6 +44,7 @@ import type {
   StrategyPieceSourceRecord,
   StrategySessionPieceRecord,
   StrategySessionSummary,
+  StrategySessionTurnRecord,
   StrategyTurnSourceRecord,
 } from "@/lib/strategy-pipeline/types";
 
@@ -67,7 +72,12 @@ function evidenceKey(source: EvidenceReference) {
   return `${source.kind}:${source.cloudId ?? source.id}`;
 }
 
+function canDeleteNotebookTurn(turn: StrategySessionTurnRecord, userId: string | undefined) {
+  return Boolean(userId && turn.createdBy === userId && turn.role === "user" && turn.origin === "strategist" && !turn.aiMessageId);
+}
+
 export function StrategySessionsPage() {
+  const { user } = useAuth();
   const {
     projects,
     activeProjectId,
@@ -90,6 +100,7 @@ export function StrategySessionsPage() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState<StrategyPieceSourceRecord | StrategyTurnSourceRecord | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<StrategySessionTurnRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -132,6 +143,7 @@ export function StrategySessionsPage() {
       setHandoffOpen(false);
       setPendingSources([]);
       setSourcePickerOpen(false);
+      setDeleteCandidate(null);
       setError("");
       void loadProjectSessions(cloudProjectId);
     });
@@ -202,6 +214,7 @@ export function StrategySessionsPage() {
     setDraft("");
     setPendingSources([]);
     setSourcePickerOpen(false);
+    setDeleteCandidate(null);
     setError("");
     setReviewMode(false);
     setMemoryOpen(false);
@@ -216,6 +229,18 @@ export function StrategySessionsPage() {
       .map((item) => item.id === detail.id ? { ...item, updatedAt: detail.updatedAt } : item)
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
     setHandoffOpen(false);
+  }
+
+  async function deleteNotebookEntry(turn: StrategySessionTurnRecord) {
+    if (!session || turn.sessionId !== session.id || turn.projectId !== session.projectId) {
+      throw new Error("This entry no longer belongs to the open notebook page.");
+    }
+    await deleteStrategyConversationTurn(turn.id, session.id, session.projectId);
+    const detail = await loadStrategySession(session.id, session.projectId);
+    setSession(detail);
+    setSessions((current) => current
+      .map((item) => item.id === detail.id ? { ...item, updatedAt: detail.updatedAt } : item)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
   }
 
   function togglePendingSource(source: EvidenceReference) {
@@ -335,7 +360,7 @@ export function StrategySessionsPage() {
               {session.turns.map((turn) => (
                 <article className={`strategy-turn strategy-turn--${turn.role}`} key={turn.id}>
                   <span className="strategy-turn__avatar">{turn.role === "user" ? "You" : "S"}</span>
-                  <div><strong>{turn.role === "user" ? "You" : turn.origin === "chatgpt_manual" ? "ChatGPT handoff" : "Sift"}</strong>{turn.metadata.capture_only !== true ? <p>{turn.content}</p> : <p className="strategy-turn__capture-label">Added to this page</p>}{turn.sources.length ? <div className="strategy-turn__sources">{turn.sources.map((source) => <button type="button" key={source.id} onClick={() => setSelectedSource(source)}><FileSearch size={14} /><span><strong>{source.source.title}</strong><small>{source.source.sourceLabel}</small></span></button>)}</div> : null}<time>{formatTurnTime(turn.createdAt)}</time></div>
+                  <div><div className="strategy-turn__head"><strong>{turn.role === "user" ? "You" : turn.origin === "chatgpt_manual" ? "ChatGPT handoff" : "Sift"}</strong>{canDeleteNotebookTurn(turn, user?.id) ? <button type="button" className="strategy-turn__delete" onClick={() => setDeleteCandidate(turn)} aria-label="Delete notebook entry" title="Delete entry"><Trash2 size={13} /></button> : null}</div>{turn.metadata.capture_only !== true ? <p>{turn.content}</p> : <p className="strategy-turn__capture-label">Added to this page</p>}{turn.sources.length ? <div className="strategy-turn__sources">{turn.sources.map((source) => <button type="button" key={source.id} onClick={() => setSelectedSource(source)}><FileSearch size={14} /><span><strong>{source.source.title}</strong><small>{source.source.sourceLabel}</small></span></button>)}</div> : null}<time>{formatTurnTime(turn.createdAt)}</time></div>
                 </article>
               ))}
               <article className="strategy-turn strategy-turn--sift strategy-turn--next">
@@ -373,6 +398,7 @@ export function StrategySessionsPage() {
       ) : null}
       {handoffOpen && session && project ? <StrategySessionHandoff project={project} session={session} onClose={() => setHandoffOpen(false)} onSaved={reloadCurrentSession} /> : null}
       {sourcePickerOpen && session ? <NotebookSourcePicker projectId={session.projectId} selected={pendingSources} onToggle={togglePendingSource} onClose={() => setSourcePickerOpen(false)} /> : null}
+      {deleteCandidate && session ? <NotebookEntryDeleteDialog turn={deleteCandidate} protectedByWorkingPiece={session.pieces.some((piece) => piece.sourceTurnId === deleteCandidate.id)} onClose={() => setDeleteCandidate(null)} onConfirm={() => deleteNotebookEntry(deleteCandidate)} /> : null}
       <StrategySourceDrawer source={selectedSource} onClose={() => setSelectedSource(null)} />
     </div>
   );

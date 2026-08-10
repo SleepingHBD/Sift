@@ -9,6 +9,8 @@ const indexMigration = readFileSync(new URL("../supabase/migrations/202608101244
 const indexCleanup = readFileSync(new URL("../supabase/migrations/20260810124613_remove_redundant_strategy_turn_index.sql", import.meta.url), "utf8");
 const handoffMigration = readFileSync(new URL("../supabase/migrations/20260810130647_phase_7_strategy_session_handoff.sql", import.meta.url), "utf8");
 const universalCaptureMigration = readFileSync(new URL("../supabase/migrations/20260810153551_phase_7_notebook_turn_sources.sql", import.meta.url), "utf8");
+const deletionMigration = readFileSync(new URL("../supabase/migrations/20260810160514_guard_notebook_entry_deletion.sql", import.meta.url), "utf8");
+const deletionDialog = readFileSync(new URL("../components/strategy/notebook-entry-delete-dialog.tsx", import.meta.url), "utf8");
 const handoffPanel = readFileSync(new URL("../components/strategy/strategy-session-handoff.tsx", import.meta.url), "utf8");
 const strategyFunction = readFileSync(new URL("../supabase/functions/strategy-ai/index.ts", import.meta.url), "utf8");
 
@@ -49,6 +51,23 @@ test("universal capture keeps notebook evidence project-scoped and citation-read
   assert.match(page, /findNotebookUrl/);
   assert.match(page, /NotebookSourcePicker/);
   assert.match(page, /pendingSources/);
+});
+
+test("a strategist can delete only their own unused handwritten notebook entry", () => {
+  assert.match(deletionMigration, /grant delete on table public\.strategy_session_turns\s+to authenticated/);
+  assert.match(deletionMigration, /created_by = \(select auth\.uid\(\)\)/);
+  assert.match(deletionMigration, /role = 'user'/);
+  assert.match(deletionMigration, /origin = 'strategist'/);
+  assert.match(deletionMigration, /not exists[\s\S]*public\.strategy_session_pieces/);
+  assert.match(deletionMigration, /create or replace function public\.delete_strategy_conversation_turn/);
+  assert.match(deletionMigration, /security invoker/);
+  assert.match(deletionMigration, /revoke all on function public\.delete_strategy_conversation_turn/);
+  assert.match(repository, /rpc\("delete_strategy_conversation_turn"/);
+  assert.match(page, /canDeleteNotebookTurn/);
+  assert.match(page, /Delete notebook entry/);
+  assert.match(page, /NotebookEntryDeleteDialog/);
+  assert.match(deletionDialog, /The original Research, Inspiration, or Radar evidence remains safely in your Library/);
+  assert.match(deletionDialog, /protectedByWorkingPiece/);
 });
 
 test("conversation persistence is project-scoped and append-only for browser users", () => {

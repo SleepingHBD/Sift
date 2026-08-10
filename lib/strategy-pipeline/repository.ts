@@ -226,6 +226,21 @@ export async function addStrategyConversationTurn(
   return turnFromRow(turnResult.data as SessionTurnRow, sourceRows.map((row) => turnSourceFromRow(row, sourceMap)));
 }
 
+export async function deleteStrategyConversationTurn(
+  turnId: string,
+  sessionId: string,
+  projectId: string,
+): Promise<string> {
+  const client = requireClient();
+  const { data, error } = await client.rpc("delete_strategy_conversation_turn", {
+    p_turn_id: turnId,
+    p_session_id: sessionId,
+    p_project_id: projectId,
+  });
+  if (error || !data) throw new Error(`This notebook entry could not be deleted: ${error?.message ?? "No deleted entry was returned."}`);
+  return data;
+}
+
 type EvidenceLinkRow = Pick<StageSourceRow, "project_id" | "evidence_type" | "evidence_id" | "excerpt" | "created_at">;
 
 async function evidenceSources(projectId: string, rows: EvidenceLinkRow[]) {
