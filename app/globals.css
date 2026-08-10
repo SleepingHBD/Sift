@@ -2595,9 +2595,13 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .strategy-conversation-start h2 { margin: 5px 0 8px; font-size: clamp(28px,3vw,39px); letter-spacing: -.045em; }
 .strategy-conversation-start > p:not(.eyebrow) { max-width: 620px; margin: 0; color: var(--muted); font-size: 15px; line-height: 1.65; }
 .strategy-conversation-start form { display: grid; gap: 11px; margin-top: 25px; }
+.strategy-conversation-start form > label { display: grid; gap: 7px; }
+.strategy-conversation-start form > label > span,.strategy-conversation-title-edit label > span { display: block; color: var(--faint); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.strategy-conversation-start input,.strategy-conversation-title-edit input { width: 100%; min-height: 48px; border: 1px solid var(--border); border-radius: 11px; outline: 0; background: var(--bg-elevated); color: var(--text); font-size: 15px; }
+.strategy-conversation-start input { padding: 0 15px; }
 .strategy-conversation-start textarea,.strategy-conversation-composer textarea { width: 100%; resize: vertical; border: 1px solid var(--border); outline: 0; background: var(--bg-elevated); color: var(--text); line-height: 1.65; }
 .strategy-conversation-start textarea { min-height: 150px; padding: 16px 17px; border-radius: 13px; font-size: 16px; }
-.strategy-conversation-start textarea:focus,.strategy-conversation-composer textarea:focus { border-color: var(--text-soft); box-shadow: 0 0 0 3px color-mix(in srgb,var(--acid) 25%,transparent); }
+.strategy-conversation-start input:focus,.strategy-conversation-start textarea:focus,.strategy-conversation-title-edit input:focus,.strategy-conversation-composer textarea:focus { border-color: var(--text-soft); box-shadow: 0 0 0 3px color-mix(in srgb,var(--acid) 25%,transparent); }
 .strategy-conversation-start form > div,.strategy-conversation-composer > div { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .strategy-conversation-start form > div > span,.strategy-conversation-composer > div > span { color: var(--muted); font-size: 11px; line-height: 1.45; }
 .strategy-conversation-start > .ui-button { margin-top: 16px; }
@@ -2607,6 +2611,13 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .strategy-conversation-thread { overflow: hidden; border: 1px solid var(--border); border-radius: 18px; background: var(--card); box-shadow: var(--shadow-sm); }
 .strategy-conversation-thread > header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 23px 26px; border-bottom: 1px solid var(--border); }
 .strategy-conversation-thread > header h2 { margin: 4px 0 0; font-size: 25px; letter-spacing: -.035em; }
+.strategy-conversation-title-line { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.strategy-conversation-title-line h2 { overflow-wrap: anywhere; }
+.strategy-conversation-title-line .ui-button { flex: 0 0 auto; margin-top: 4px; }
+.strategy-conversation-title-edit { flex: 1; display: flex; align-items: flex-end; gap: 9px; padding: 11px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-elevated); }
+.strategy-conversation-title-edit label { flex: 1; display: grid; gap: 6px; }
+.strategy-conversation-title-edit input { padding: 0 12px; border-color: var(--border-strong); background: var(--card); }
+.strategy-conversation-title-edit > div { display: flex; gap: 7px; padding-bottom: 2px; }
 .strategy-conversation-timeline { max-width: var(--conversation-width); display: grid; gap: 7px; margin: 0 auto; padding: 28px 26px 14px; }
 .strategy-turn { display: grid; grid-template-columns: 34px minmax(0,1fr); align-items: start; gap: 11px; padding: 13px 0; }
 .strategy-turn__avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: var(--subtle); color: var(--text); font-size: 10px; font-weight: 850; }
@@ -2739,6 +2750,9 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
   .strategy-conversation-start form > div { align-items: stretch; flex-direction: column; }
   .strategy-conversation-start form > div .ui-button { width: 100%; }
   .strategy-conversation-thread > header { align-items: flex-start; flex-direction: column; padding: 20px; }
+  .strategy-conversation-title-line { align-items: flex-start; flex-direction: column; }
+  .strategy-conversation-title-edit { width: 100%; align-items: stretch; flex-direction: column; }
+  .strategy-conversation-title-edit > div { justify-content: flex-end; }
   .strategy-conversation-timeline { padding: 22px 18px 12px; }
   .strategy-turn--user { margin-left: 0; }
   .strategy-turn__delete { opacity: 1; }

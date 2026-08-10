@@ -9,6 +9,7 @@ import {
   Link2,
   LoaderCircle,
   MessageCircle,
+  Pencil,
   Plus,
   Send,
   Sparkles,
@@ -28,10 +29,11 @@ import { Badge, Button, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
 import {
   addStrategyConversationTurn,
+  createStrategySession,
   deleteStrategyConversationTurn,
   listStrategySessions,
   loadStrategySession,
-  startStrategyConversation,
+  renameStrategySession,
   updateStrategyPieceStatus,
 } from "@/lib/strategy-pipeline/repository";
 import { strategyPieceLabels } from "@/lib/strategy-pipeline/conversation";
@@ -93,7 +95,7 @@ export function StrategySessionsPage() {
   const [sessions, setSessions] = useState<StrategySessionSummary[]>([]);
   const [sessionId, setSessionId] = useState("");
   const [session, setSession] = useState<StrategySessionDetail | null>(null);
-  const [openingMessage, setOpeningMessage] = useState("");
+  const [newPageTitle, setNewPageTitle] = useState("");
   const [draft, setDraft] = useState("");
   const [pendingSources, setPendingSources] = useState<EvidenceReference[]>([]);
   const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
@@ -103,8 +105,11 @@ export function StrategySessionsPage() {
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState<StrategyPieceSourceRecord | StrategyTurnSourceRecord | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<StrategySessionTurnRecord | null>(null);
+  const [renamingPage, setRenamingPage] = useState(false);
+  const [renameTitle, setRenameTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const [error, setError] = useState("");
 
   const project = cloudProjects.find((item) => item.id === resolvedProjectClientId);
@@ -146,6 +151,8 @@ export function StrategySessionsPage() {
       setPendingSources([]);
       setSourcePickerOpen(false);
       setDeleteCandidate(null);
+      setRenamingPage(false);
+      setRenameTitle("");
       setError("");
       void loadProjectSessions(cloudProjectId);
     });
@@ -171,20 +178,20 @@ export function StrategySessionsPage() {
     return () => { active = false; };
   }, [cloudProjectId, sessionId, startingNew]);
 
-  async function startConversation(event: FormEvent) {
+  async function createNotebookPage(event: FormEvent) {
     event.preventDefault();
-    if (!cloudProjectId || !openingMessage.trim()) return;
+    if (!cloudProjectId || !newPageTitle.trim()) return;
     setSending(true);
     setError("");
     try {
-      const created = await startStrategyConversation(cloudProjectId, openingMessage);
+      const created = await createStrategySession(cloudProjectId, newPageTitle);
       setSessions((current) => [created, ...current.filter((item) => item.id !== created.id)]);
       setSessionId(created.id);
       setStartingNew(false);
-      setOpeningMessage("");
+      setNewPageTitle("");
       setSession(await loadStrategySession(created.id, cloudProjectId));
     } catch (startError) {
-      setError(startError instanceof Error ? startError.message : "The conversation could not be started.");
+      setError(startError instanceof Error ? startError.message : "The notebook page could not be created.");
     } finally {
       setSending(false);
     }
@@ -212,7 +219,7 @@ export function StrategySessionsPage() {
 
   function beginAnotherConversation() {
     setStartingNew(true);
-    setOpeningMessage("");
+    setNewPageTitle("");
     setDraft("");
     setPendingSources([]);
     setSourcePickerOpen(false);
@@ -221,12 +228,14 @@ export function StrategySessionsPage() {
     setReviewMode(false);
     setMemoryOpen(false);
     setHandoffOpen(false);
+    setRenamingPage(false);
+    setRenameTitle("");
   }
 
   function openSavedConversation(nextSessionId: string) {
     if (!nextSessionId) return;
     setStartingNew(false);
-    setOpeningMessage("");
+    setNewPageTitle("");
     setDraft("");
     setPendingSources([]);
     setSourcePickerOpen(false);
@@ -235,6 +244,8 @@ export function StrategySessionsPage() {
     setReviewMode(false);
     setMemoryOpen(false);
     setHandoffOpen(false);
+    setRenamingPage(false);
+    setRenameTitle("");
     if (nextSessionId !== sessionId) {
       setSession(null);
       setSessionId(nextSessionId);
@@ -276,6 +287,38 @@ export function StrategySessionsPage() {
     setSessions((current) => current
       .map((item) => item.id === detail.id ? { ...item, updatedAt: detail.updatedAt } : item)
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
+  }
+
+  function beginRenamePage() {
+    if (!session) return;
+    setRenameTitle(session.title);
+    setRenamingPage(true);
+    setError("");
+  }
+
+  function cancelRenamePage() {
+    setRenamingPage(false);
+    setRenameTitle("");
+  }
+
+  async function savePageName(event: FormEvent) {
+    event.preventDefault();
+    if (!session || !renameTitle.trim()) return;
+    setRenaming(true);
+    setError("");
+    try {
+      const updated = await renameStrategySession(session.id, session.projectId, renameTitle);
+      setSession((current) => current ? { ...current, title: updated.title, updatedAt: updated.updatedAt } : current);
+      setSessions((current) => current
+        .map((item) => item.id === updated.id ? updated : item)
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
+      setRenamingPage(false);
+      setRenameTitle("");
+    } catch (renameError) {
+      setError(renameError instanceof Error ? renameError.message : "The notebook page could not be renamed.");
+    } finally {
+      setRenaming(false);
+    }
   }
 
   function togglePendingSource(source: EvidenceReference) {
@@ -374,11 +417,11 @@ export function StrategySessionsPage() {
         <section className="strategy-conversation-start">
           <span className="strategy-conversation-start__icon"><MessageCircle size={23} /></span>
           <p className="eyebrow">New notebook page</p>
-          <h2>What are you trying to understand?</h2>
-          <p>It can be incomplete. Describe the behaviour, question, tension, or situation currently on your mind.</p>
-          <form onSubmit={startConversation}>
-            <textarea rows={6} maxLength={10000} value={openingMessage} onChange={(event) => setOpeningMessage(event.target.value)} placeholder="I keep noticing…\nI am trying to understand…\nSomething feels different about…" aria-label="Opening strategy thought" />
-            <div><span>Sift will use this as the page title. You can keep developing it later.</span><Button variant="dark" disabled={sending || !openingMessage.trim()}>{sending ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />}Start page</Button></div>
+          <h2>Name this page.</h2>
+          <p>Use a simple working title for the subject or question. Your thoughts stay separate and can develop gradually after the page opens.</p>
+          <form onSubmit={createNotebookPage}>
+            <label><span>Page name</span><input maxLength={200} value={newPageTitle} onChange={(event) => setNewPageTitle(event.target.value)} placeholder="e.g. Why this behaviour is changing" aria-label="New notebook page name" /></label>
+            <div><span>You can rename this page whenever your thinking changes.</span><Button variant="dark" disabled={sending || !newPageTitle.trim()}>{sending ? <LoaderCircle className="spin" size={15} /> : <Plus size={15} />}Create page</Button></div>
           </form>
         </section>
       ) : loading && !session ? (
@@ -387,7 +430,7 @@ export function StrategySessionsPage() {
         <div className={`strategy-conversation-layout${memoryOpen ? " strategy-conversation-layout--memory-open" : ""}`}>
           <main className="strategy-conversation-thread">
             <header>
-              <div><p className="eyebrow">Current page</p><h2>{session.title}</h2></div>
+              {renamingPage ? <form className="strategy-conversation-title-edit" onSubmit={savePageName}><label><span>Page name</span><input maxLength={200} value={renameTitle} onChange={(event) => setRenameTitle(event.target.value)} aria-label="Rename notebook page" /></label><div><Button type="button" size="sm" disabled={renaming} onClick={cancelRenamePage}>Cancel</Button><Button variant="dark" size="sm" disabled={renaming || !renameTitle.trim()}>{renaming ? <LoaderCircle className="spin" size={14} /> : null}Save name</Button></div></form> : <div><p className="eyebrow">Current page</p><div className="strategy-conversation-title-line"><h2>{session.title}</h2><Button size="sm" onClick={beginRenamePage}><Pencil size={13} />Rename</Button></div></div>}
               <Badge>{session.turns.length} {session.turns.length === 1 ? "thought" : "thoughts"}</Badge>
             </header>
 

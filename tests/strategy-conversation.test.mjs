@@ -15,11 +15,22 @@ const handoffPanel = readFileSync(new URL("../components/strategy/strategy-sessi
 const strategyFunction = readFileSync(new URL("../supabase/functions/strategy-ai/index.ts", import.meta.url), "utf8");
 
 test("Strategy Sessions starts with one unfinished thought and remains gradual", () => {
-  assert.match(page, /What are you trying to understand\?/);
-  assert.match(page, /It can be incomplete/);
-  assert.match(page, /startStrategyConversation/);
+  assert.match(page, /Name this page\./);
+  assert.match(page, /Your thoughts stay separate and can develop gradually/);
+  assert.match(page, /createStrategySession/);
   assert.match(page, /addStrategyConversationTurn/);
   assert.match(page, /Write naturally\. Sources stay attached to this exact entry; formal strategy can wait/);
+});
+
+test("notebook page names are explicit and remain editable", () => {
+  assert.match(page, /aria-label="New notebook page name"/);
+  assert.match(page, /You can rename this page whenever your thinking changes/);
+  assert.match(page, /aria-label="Rename notebook page"/);
+  assert.match(page, /renameStrategySession/);
+  assert.match(repository, /export async function renameStrategySession/);
+  assert.match(repository, /\.update\(\{ title: cleanTitle \}\)/);
+  assert.match(repository, /\.eq\("id", sessionId\)/);
+  assert.match(repository, /\.eq\("project_id", projectId\)/);
 });
 
 test("the formal pipeline is preserved as a secondary review layer", () => {

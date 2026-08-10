@@ -170,6 +170,25 @@ export async function createStrategySession(projectId: string, title: string): P
   return sessionFromRow(data as SessionRow);
 }
 
+export async function renameStrategySession(
+  sessionId: string,
+  projectId: string,
+  title: string,
+): Promise<StrategySessionSummary> {
+  const cleanTitle = title.trim();
+  if (!cleanTitle) throw new Error("Give this notebook page a name.");
+  if (cleanTitle.length > 200) throw new Error("Keep the page name to 200 characters or fewer.");
+  const client = requireClient();
+  const { data, error } = await client.from("strategy_sessions")
+    .update({ title: cleanTitle })
+    .eq("id", sessionId)
+    .eq("project_id", projectId)
+    .select(sessionSelect)
+    .single();
+  if (error || !data) throw new Error(`This notebook page could not be renamed: ${error?.message ?? "No page was returned."}`);
+  return sessionFromRow(data as SessionRow);
+}
+
 export async function startStrategyConversation(projectId: string, openingMessage: string): Promise<StrategySessionSummary> {
   const cleanMessage = openingMessage.trim();
   if (!cleanMessage) throw new Error("Tell Sift what you are trying to understand.");
