@@ -39,6 +39,15 @@ test("the notebook keeps writing primary and reveals structure only on request",
   assert.doesNotMatch(page, /<span>Notebook<\/span><select/);
 });
 
+test("new-page mode remains reversible and the page selector stays available", () => {
+  assert.match(page, /const newNotebookPageValue = "__new_notebook_page__"/);
+  assert.match(page, /startingNew \? returnToCurrentConversation : beginAnotherConversation/);
+  assert.match(page, /startingNew \? "Back to current page" : "New page"/);
+  assert.match(page, /value=\{startingNew \? newNotebookPageValue : sessionId\}/);
+  assert.match(page, /onChange=\{\(event\) => selectNotebookPage\(event\.target\.value\)\}/);
+  assert.doesNotMatch(page, /disabled=\{!sessions\.length \|\| startingNew\}/);
+});
+
 test("universal capture keeps notebook evidence project-scoped and citation-ready", () => {
   assert.match(universalCaptureMigration, /create table public\.strategy_session_turn_sources/);
   assert.match(universalCaptureMigration, /alter table public\.strategy_session_turn_sources enable row level security/);

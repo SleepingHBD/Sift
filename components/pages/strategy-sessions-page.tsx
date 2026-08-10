@@ -72,6 +72,8 @@ function evidenceKey(source: EvidenceReference) {
   return `${source.kind}:${source.cloudId ?? source.id}`;
 }
 
+const newNotebookPageValue = "__new_notebook_page__";
+
 function canDeleteNotebookTurn(turn: StrategySessionTurnRecord, userId: string | undefined) {
   return Boolean(userId && turn.createdBy === userId && turn.role === "user" && turn.origin === "strategist" && !turn.aiMessageId);
 }
@@ -221,6 +223,39 @@ export function StrategySessionsPage() {
     setHandoffOpen(false);
   }
 
+  function openSavedConversation(nextSessionId: string) {
+    if (!nextSessionId) return;
+    setStartingNew(false);
+    setOpeningMessage("");
+    setDraft("");
+    setPendingSources([]);
+    setSourcePickerOpen(false);
+    setDeleteCandidate(null);
+    setError("");
+    setReviewMode(false);
+    setMemoryOpen(false);
+    setHandoffOpen(false);
+    if (nextSessionId !== sessionId) {
+      setSession(null);
+      setSessionId(nextSessionId);
+    }
+  }
+
+  function returnToCurrentConversation() {
+    const currentSessionId = sessions.some((item) => item.id === sessionId)
+      ? sessionId
+      : sessions[0]?.id ?? "";
+    openSavedConversation(currentSessionId);
+  }
+
+  function selectNotebookPage(value: string) {
+    if (value === newNotebookPageValue) {
+      beginAnotherConversation();
+      return;
+    }
+    openSavedConversation(value);
+  }
+
   async function reloadCurrentSession() {
     if (!session || !cloudProjectId) return;
     const detail = await loadStrategySession(session.id, cloudProjectId);
@@ -318,15 +353,16 @@ export function StrategySessionsPage() {
         </div>
         <div className="notebook-workspace-header__actions">
           <Button aria-expanded={memoryOpen} onClick={() => setMemoryOpen((current) => !current)}><BookOpen size={15} />{memoryOpen ? "Hide memory" : "Notebook memory"}</Button>
-          <Button variant="dark" onClick={beginAnotherConversation}><Plus size={15} />New page</Button>
+          {sessions.length ? <Button variant={startingNew ? undefined : "dark"} onClick={startingNew ? returnToCurrentConversation : beginAnotherConversation}>{startingNew ? <ArrowLeft size={15} /> : <Plus size={15} />}{startingNew ? "Back to current page" : "New page"}</Button> : null}
         </div>
       </header>
 
       <section className="notebook-page-switcher" aria-label="Notebook page selection">
         <label>
           <span>Page</span>
-          <select value={startingNew ? "" : sessionId} disabled={!sessions.length || startingNew} onChange={(event) => { setStartingNew(false); setSessionId(event.target.value); setPendingSources([]); setSourcePickerOpen(false); }}>
-            {startingNew ? <option value="">Starting a new page</option> : sessions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+          <select value={startingNew ? newNotebookPageValue : sessionId} disabled={!sessions.length} onChange={(event) => selectNotebookPage(event.target.value)}>
+            <option value={newNotebookPageValue}>Create a new page</option>
+            {sessions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
           </select>
         </label>
         <span>{sessions.length ? `${sessions.length} saved ${sessions.length === 1 ? "page" : "pages"}` : "Your first page"}</span>
@@ -344,7 +380,6 @@ export function StrategySessionsPage() {
             <textarea rows={6} maxLength={10000} value={openingMessage} onChange={(event) => setOpeningMessage(event.target.value)} placeholder="I keep noticing…\nI am trying to understand…\nSomething feels different about…" aria-label="Opening strategy thought" />
             <div><span>Sift will use this as the page title. You can keep developing it later.</span><Button variant="dark" disabled={sending || !openingMessage.trim()}>{sending ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />}Start page</Button></div>
           </form>
-          {sessions.length ? <Button size="sm" onClick={() => setStartingNew(false)}>Return to current page</Button> : null}
         </section>
       ) : loading && !session ? (
         <div className="strategy-conversation-loading"><LoaderCircle className="spin" size={21} /><span>Loading your conversation…</span></div>
