@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, LoaderCircle, Plus, Search, ShieldCheck, Sparkles } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo } from "react";
 import { useApp } from "@/components/app-provider";
 import { StrategyAnalysisPanel } from "@/components/strategy/strategy-analysis-result";
 import { StrategyChatGptHandoff } from "@/components/strategy/strategy-chatgpt-handoff";
@@ -17,30 +17,38 @@ import {
 } from "@/lib/strategy-ai/handoff";
 import { STRATEGY_QUESTION_TEMPLATES } from "@/lib/strategy-ai/question-templates";
 import { importChatGptStrategyAnalysis, previewStrategyEvidence } from "@/lib/strategy-ai/repository";
-import type { StrategyAnalysisResult, StrategyEvidencePreview } from "@/lib/strategy-ai/types";
-
-type HandoffStatus = "idle" | "saving" | "saved" | "error";
+import { createStrategyWorkingSession, type StrategyWorkingSession } from "@/lib/strategy-ai/session";
 
 export function StrategyPage() {
-  const { projects, activeProjectId, setActiveProjectId, setProjectDialogOpen, openCaptureDialog } = useApp();
+  const {
+    projects,
+    activeProjectId,
+    setActiveProjectId,
+    setProjectDialogOpen,
+    openCaptureDialog,
+    strategySession,
+    setStrategySession,
+  } = useApp();
   const cloudProjects = useMemo(() => projects.filter((project) => project.cloudId), [projects]);
   const initialProjectId = cloudProjects.some((project) => project.id === activeProjectId)
     ? activeProjectId
     : cloudProjects[0]?.id || "";
-  const [projectId, setProjectId] = useState(initialProjectId);
-  const [question, setQuestion] = useState("");
-  const [task, setTask] = useState<StrategyHandoffTask>("analyse");
-  const [preview, setPreview] = useState<StrategyEvidencePreview | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [analysis, setAnalysis] = useState<StrategyAnalysisResult | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [error, setError] = useState("");
-  const [handoffPrompt, setHandoffPrompt] = useState("");
-  const [handoffResponse, setHandoffResponse] = useState("");
-  const [handoffRequestId, setHandoffRequestId] = useState("");
-  const [handoffStatus, setHandoffStatus] = useState<HandoffStatus>("idle");
-  const [handoffError, setHandoffError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const {
+    projectId,
+    question,
+    task,
+    preview,
+    selected,
+    analysis,
+    status,
+    error,
+    handoffPrompt,
+    handoffResponse,
+    handoffRequestId,
+    handoffStatus,
+    handoffError,
+    copied,
+  } = strategySession;
   const resolvedProjectId = cloudProjects.some((project) => project.id === projectId) ? projectId : initialProjectId;
   const matchedPreviewCount = preview?.coverage.matchedEvidence
     ?? preview?.evidence.filter((item) => item.retrievalTier !== "project_context").length
@@ -49,85 +57,133 @@ export function StrategyPage() {
     ?? preview?.evidence.filter((item) => item.retrievalTier === "project_context").length
     ?? 0;
 
+  function updateSession(update: Partial<StrategyWorkingSession> | ((current: StrategyWorkingSession) => Partial<StrategyWorkingSession>)) {
+    const expectedUserId = strategySession.workspaceUserId;
+    setStrategySession((current) => {
+      if (current.workspaceUserId !== expectedUserId) return current;
+      const patch = typeof update === "function" ? update(current) : update;
+      return { ...current, ...patch };
+    });
+  }
+
   function clearHandoff() {
-    setHandoffPrompt("");
-    setHandoffResponse("");
-    setHandoffRequestId("");
-    setHandoffStatus("idle");
-    setHandoffError("");
-    setCopied(false);
+    updateSession({
+      handoffPrompt: "",
+      handoffResponse: "",
+      handoffRequestId: "",
+      handoffStatus: "idle",
+      handoffError: "",
+      copied: false,
+    });
   }
 
   async function prepareEvidence(event: FormEvent) {
     event.preventDefault();
     const project = cloudProjects.find((item) => item.id === resolvedProjectId);
     if (!project || !question.trim()) return;
-    setStatus("loading");
-    setError("");
-    setAnalysis(null);
-    clearHandoff();
+    updateSession({
+      projectId: project.id,
+      status: "loading",
+      error: "",
+      analysis: null,
+      handoffPrompt: "",
+      handoffResponse: "",
+      handoffRequestId: "",
+      handoffStatus: "idle",
+      handoffError: "",
+      copied: false,
+    });
     try {
       const result = await previewStrategyEvidence(project, question.trim());
-      setPreview(result);
-      setSelected(new Set(result.evidence
-        .filter((item) => item.retrievalTier !== "project_context")
-        .map((item) => item.identity)));
+      updateSession({
+        preview: result,
+        selected: new Set(result.evidence
+          .filter((item) => item.retrievalTier !== "project_context")
+          .map((item) => item.identity)),
+        status: "idle",
+      });
       setActiveProjectId(project.id);
-      setStatus("idle");
     } catch (requestError) {
-      setPreview(null);
-      setSelected(new Set());
-      setError(requestError instanceof Error ? requestError.message : "Evidence could not be prepared.");
-      setStatus("error");
+      updateSession({
+        preview: null,
+        selected: new Set(),
+        error: requestError instanceof Error ? requestError.message : "Evidence could not be prepared.",
+        status: "error",
+      });
     }
   }
 
   function reset() {
-    setQuestion("");
-    setTask("analyse");
-    setPreview(null);
-    setSelected(new Set());
-    setAnalysis(null);
-    setStatus("idle");
-    setError("");
-    clearHandoff();
+    setStrategySession(createStrategyWorkingSession(strategySession.workspaceUserId, resolvedProjectId));
   }
 
   function changeQuestion(value: string) {
-    setQuestion(value);
-    if (preview) {
-      setPreview(null);
-      setSelected(new Set());
-      setAnalysis(null);
-      clearHandoff();
-    }
+    updateSession((current) => current.preview ? {
+      question: value,
+      preview: null,
+      selected: new Set(),
+      analysis: null,
+      handoffPrompt: "",
+      handoffResponse: "",
+      handoffRequestId: "",
+      handoffStatus: "idle",
+      handoffError: "",
+      copied: false,
+    } : { question: value });
   }
 
   function changeProject(value: string) {
-    setProjectId(value);
-    setPreview(null);
-    setSelected(new Set());
-    setAnalysis(null);
-    clearHandoff();
+    updateSession({
+      projectId: value,
+      preview: null,
+      selected: new Set(),
+      analysis: null,
+      status: "idle",
+      error: "",
+      handoffPrompt: "",
+      handoffResponse: "",
+      handoffRequestId: "",
+      handoffStatus: "idle",
+      handoffError: "",
+      copied: false,
+    });
   }
 
   function applyQuestionTemplate(templateId: string) {
     const template = STRATEGY_QUESTION_TEMPLATES.find((item) => item.id === templateId);
     if (!template) return;
-    changeQuestion(template.question);
-    setTask(template.task);
-    setAnalysis(null);
-    clearHandoff();
+    updateSession({
+      question: template.question,
+      task: template.task,
+      preview: null,
+      selected: new Set(),
+      analysis: null,
+      status: "idle",
+      error: "",
+      handoffPrompt: "",
+      handoffResponse: "",
+      handoffRequestId: "",
+      handoffStatus: "idle",
+      handoffError: "",
+      copied: false,
+    });
   }
 
   function toggleEvidence(identity: string) {
-    setAnalysis(null);
-    clearHandoff();
-    setSelected((current) => {
-      const next = new Set(current);
+    updateSession((current) => {
+      const next = new Set(current.selected);
       if (next.has(identity)) next.delete(identity);
       else next.add(identity);
-      return next;
+      return {
+        selected: next,
+        analysis: null,
+        handoffPrompt: "",
+        handoffResponse: "",
+        handoffRequestId: "",
+        handoffStatus: "idle",
+        handoffError: "",
+        copied: false,
+      };
     });
   }
 
@@ -135,30 +191,34 @@ export function StrategyPage() {
     const project = cloudProjects.find((item) => item.id === resolvedProjectId);
     if (!project || !preview || !selected.size) return;
     const selectedEvidence = preview.evidence.filter((item) => selected.has(item.identity));
-    setAnalysis(null);
-    setHandoffPrompt(buildStrategyChatGptPrompt({
-      projectName: project.name,
-      question: question.trim(),
-      task,
-      evidence: selectedEvidence,
-    }));
-    setHandoffResponse("");
-    setHandoffRequestId(crypto.randomUUID());
-    setHandoffStatus("idle");
-    setHandoffError("");
-    setCopied(false);
+    updateSession({
+      analysis: null,
+      handoffPrompt: buildStrategyChatGptPrompt({
+        projectName: project.name,
+        question: question.trim(),
+        task,
+        evidence: selectedEvidence,
+      }),
+      handoffResponse: "",
+      handoffRequestId: crypto.randomUUID(),
+      handoffStatus: "idle",
+      handoffError: "",
+      copied: false,
+    });
     requestAnimationFrame(() => document.getElementById("strategy-handoff-heading")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   async function copyHandoffPrompt() {
     if (!handoffPrompt) return;
-    setHandoffError("");
+    updateSession({ handoffError: "" });
     try {
       await copyText(handoffPrompt);
-      setCopied(true);
+      updateSession({ copied: true });
     } catch {
-      setCopied(false);
-      setHandoffError("Sift could not access the clipboard. Open the prompt preview and copy the text manually.");
+      updateSession({
+        copied: false,
+        handoffError: "Sift could not access the clipboard. Open the prompt preview and copy the text manually.",
+      });
     }
   }
 
@@ -168,9 +228,7 @@ export function StrategyPage() {
     const orderedEvidenceIdentities = preview.evidence
       .filter((item) => selected.has(item.identity))
       .map((item) => item.identity);
-    setHandoffStatus("saving");
-    setHandoffError("");
-    setAnalysis(null);
+    updateSession({ handoffStatus: "saving", handoffError: "", analysis: null });
     try {
       const parsed = parseStrategyChatGptResponse(handoffResponse, orderedEvidenceIdentities);
       const result = await importChatGptStrategyAnalysis(
@@ -180,12 +238,13 @@ export function StrategyPage() {
         handoffRequestId,
         parsed,
       );
-      setAnalysis(result);
-      setHandoffStatus("saved");
+      updateSession({ analysis: result, handoffStatus: "saved" });
       requestAnimationFrame(() => document.getElementById("strategy-analysis-heading")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch (requestError) {
-      setHandoffError(requestError instanceof Error ? requestError.message : "The ChatGPT response could not be validated and saved.");
-      setHandoffStatus("error");
+      updateSession({
+        handoffError: requestError instanceof Error ? requestError.message : "The ChatGPT response could not be validated and saved.",
+        handoffStatus: "error",
+      });
     }
   }
 
@@ -207,7 +266,7 @@ export function StrategyPage() {
             <form onSubmit={prepareEvidence}>
               <div className="strategy-question-options">
                 <label><span>Project</span><select value={resolvedProjectId} onChange={(event) => changeProject(event.target.value)}>{cloudProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><small>The project is the authorization and evidence boundary.</small></label>
-                <label><span>Thinking task</span><select value={task} onChange={(event) => { setTask(event.target.value as StrategyHandoffTask); clearHandoff(); setAnalysis(null); }}>{STRATEGY_HANDOFF_TASKS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><small>This tells ChatGPT what kind of strategic thinking to prioritize.</small></label>
+                <label><span>Thinking task</span><select value={task} onChange={(event) => { updateSession({ task: event.target.value as StrategyHandoffTask, analysis: null }); clearHandoff(); }}>{STRATEGY_HANDOFF_TASKS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><small>This tells ChatGPT what kind of strategic thinking to prioritize.</small></label>
               </div>
               <label><span>Strategic question</span><textarea rows={5} maxLength={1000} value={question} onChange={(event) => changeQuestion(event.target.value)} placeholder="What is changing, why might it matter, and what evidence supports or challenges that interpretation?" /><small>Write naturally. Sift finds partial matches across your evidence and also shows other eligible project sources when the textual match is weak.</small></label>
               <div className="strategy-question-template">
@@ -243,7 +302,7 @@ export function StrategyPage() {
           status={handoffStatus}
           error={handoffError}
           onCopy={copyHandoffPrompt}
-          onResponseChange={(value) => { setHandoffResponse(value); setHandoffStatus("idle"); setHandoffError(""); setAnalysis(null); }}
+          onResponseChange={(value) => updateSession({ handoffResponse: value, handoffStatus: "idle", handoffError: "", analysis: null })}
           onSave={saveImportedAnalysis}
         />
       ) : null}

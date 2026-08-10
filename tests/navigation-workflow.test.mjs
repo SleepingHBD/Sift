@@ -6,6 +6,8 @@ const sidebar = readFileSync(new URL("../components/shell/sidebar.tsx", import.m
 const appView = readFileSync(new URL("../components/app-view.tsx", import.meta.url), "utf8");
 const evidencePage = readFileSync(new URL("../components/pages/evidence-page.tsx", import.meta.url), "utf8");
 const captureDialog = readFileSync(new URL("../components/evidence/capture-evidence-dialog.tsx", import.meta.url), "utf8");
+const appProvider = readFileSync(new URL("../components/app-provider.tsx", import.meta.url), "utf8");
+const strategyPage = readFileSync(new URL("../components/pages/strategy-page.tsx", import.meta.url), "utf8");
 
 test("the guided workflow exposes one unified evidence destination", () => {
   assert.doesNotMatch(sidebar, /label: "Research"/);
@@ -29,4 +31,12 @@ test("Evidence retains research capture, import, filtering, and migration entry 
   assert.match(evidencePage, /importPendingResearch/);
   assert.doesNotMatch(captureDialog, /href="\/research"/);
   assert.match(captureDialog, /href="\/evidence\?kind=research"/);
+});
+
+test("Strategy AI keeps its working session above the route boundary", () => {
+  assert.match(appProvider, /strategySession: StrategyWorkingSession/);
+  assert.match(appProvider, /setStrategySession: Dispatch<SetStateAction<StrategyWorkingSession>>/);
+  assert.match(strategyPage, /strategySession,\s*setStrategySession/);
+  assert.doesNotMatch(strategyPage, /const \[question, setQuestion\] = useState/);
+  assert.match(strategyPage, /createStrategyWorkingSession\(strategySession\.workspaceUserId, resolvedProjectId\)/);
 });

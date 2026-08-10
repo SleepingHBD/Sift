@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import {
   createCloudInspiration,
@@ -37,6 +38,7 @@ import type { EvidenceCaptureMethod } from "@/lib/evidence/reference";
 import type { EvidenceCaptureDialogMode } from "@/lib/evidence/capture";
 import type { EvidenceUrlMetadata } from "@/lib/evidence/url-extraction";
 import type { SocialPlatform } from "@/lib/evidence/social-capture";
+import { createStrategyWorkingSession, type StrategyWorkingSession } from "@/lib/strategy-ai/session";
 
 type Theme = "light" | "dark";
 export type WorkspaceStatus = "idle" | "loading" | "ready" | "error";
@@ -138,6 +140,8 @@ interface AppContextValue {
   captureDialogMode: EvidenceCaptureDialogMode;
   openCaptureDialog: (mode?: EvidenceCaptureDialogMode) => void;
   setCaptureDialogOpen: (value: boolean) => void;
+  strategySession: StrategyWorkingSession;
+  setStrategySession: Dispatch<SetStateAction<StrategyWorkingSession>>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -173,6 +177,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [pendingProjectImports, setPendingProjectImports] = useState<Project[]>([]);
   const [pendingInspirationImports, setPendingInspirationImports] = useState<InspirationItem[]>([]);
   const [pendingResearchImports, setPendingResearchImports] = useState<ResearchItem[]>([]);
+  const [strategySession, setStrategySession] = useState<StrategyWorkingSession>(() => createStrategyWorkingSession());
 
   const projects = useMemo(() => allProjects.filter((project) => project.status !== "archived"), [allProjects]);
   const archivedProjects = useMemo(() => allProjects.filter((project) => project.status === "archived"), [allProjects]);
@@ -188,6 +193,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }, 0);
     return () => window.clearTimeout(hydratePreferences);
   }, []);
+
+  useEffect(() => {
+    const resetStrategySession = window.setTimeout(() => {
+      setStrategySession(createStrategyWorkingSession(workspaceUserId));
+    }, 0);
+    return () => window.clearTimeout(resetStrategySession);
+  }, [workspaceUserId]);
 
   useEffect(() => {
     let active = true;
@@ -563,6 +575,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCaptureDialogOpen(true);
     },
     setCaptureDialogOpen,
+    strategySession,
+    setStrategySession,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
