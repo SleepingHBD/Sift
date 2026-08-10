@@ -118,7 +118,7 @@ Signal assessment also stays outside React. `signal-heuristic-v1` combines suppo
 
 ## Search and security
 
-The schema uses generated `tsvector` columns and GIN indexes. A later embedding table can add vector search without replacing full-text search. Retrieval should use hybrid ranking and always return source IDs.
+The schema uses generated `tsvector` columns and GIN indexes. Strategy retrieval converts a natural-language question into an inspectable OR-based concept query, ranks partial text matches deterministically, and fills unused scope with clearly labelled project context. Context-only evidence is not selected automatically. A later embedding table can add vector search without replacing full-text search, and every retrieval path continues to return stable source IDs.
 
 - Supabase Auth owns identity.
 - Project-scoped tables use Row Level Security and `can_access_project`.

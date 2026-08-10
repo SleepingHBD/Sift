@@ -50,6 +50,9 @@ export interface StrategyEvidencePreviewItem {
   strategistNotes: string | null;
   capturedAt: string;
   reviewStatus: string;
+  retrievalTier?: "strong" | "partial" | "project_context";
+  relevanceScore?: number;
+  matchedTerms?: string[];
 }
 
 export type StrategyClaimClassification = "measured_fact" | "interpretation" | "hypothesis" | "recommendation";
@@ -225,17 +228,43 @@ export function strategyBudgetConfiguration(value: {
   };
 }
 
-export function strategyEvidenceSearchText(question: string) {
-  const quoted = [...question.matchAll(/"([^"]{2,80})"/g)].map((match) => match[1].trim());
+export function strategyEvidenceSearchTerms(question: string) {
+  const quoted = [...question.matchAll(/"([^"]{2,80})"/g)]
+    .map((match) => cleanSearchTerm(match[1]))
+    .filter(Boolean);
   const words = question
+    .replace(/"[^"]{2,80}"/g, " ")
     .toLocaleLowerCase()
     .replace(/https?:\/\/\S+/g, " ")
     .replace(/[^\p{L}\p{N}'-]+/gu, " ")
     .split(/\s+/)
     .map((word) => word.replace(/^[-']+|[-']+$/g, ""))
     .filter((word) => word.length > 1 && !stopWords.has(word));
-  const unique = [...new Set([...quoted, ...words])].slice(0, 10);
-  return unique.join(" ") || question.trim();
+  return [...new Set([...quoted, ...words])].slice(0, 10);
+}
+
+export function strategyEvidenceSearchText(question: string) {
+  return strategyEvidenceSearchTerms(question)
+    .map((term) => term.includes(" ") ? `"${term}"` : term)
+    .join(" OR ");
+}
+
+export function rankStrategyEvidenceForPreview(input: {
+  direct: StrategyEvidencePreviewItem[];
+  fallback: StrategyEvidencePreviewItem[];
+  question: string;
+  limit: number;
+}) {
+  const terms = strategyEvidenceSearchTerms(input.question);
+  const directIdentities = new Set(input.direct.map((item) => item.identity));
+  const direct = input.direct.map((item) => withRetrieval(item, terms, true));
+  const fallback = input.fallback
+    .filter((item) => !directIdentities.has(item.identity))
+    .map((item) => withRetrieval(item, terms, false));
+
+  return [...direct, ...fallback]
+    .sort(compareRetrievedEvidence)
+    .slice(0, Math.min(Math.max(input.limit, 1), STRATEGY_EVIDENCE_LIMIT));
 }
 
 export function normalizeStrategyEvidenceRow(value: unknown): StrategyEvidencePreviewItem | null {
@@ -507,4 +536,59 @@ function strictPositiveInteger(value: string | null | undefined) {
   if (!/^\d+$/.test(clean)) return null;
   const amount = Number(clean);
   return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
+}
+
+function cleanSearchTerm(value: string) {
+  return value
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}'-]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function withRetrieval(item: StrategyEvidencePreviewItem, terms: string[], direct: boolean): StrategyEvidencePreviewItem {
+  const match = scoreEvidenceTerms(item, terms);
+  const retrievalTier = direct
+    ? (match.score >= 6 ? "strong" : "partial")
+    : (match.score > 0 ? "partial" : "project_context");
+  return {
+    ...item,
+    retrievalTier,
+    relevanceScore: match.score,
+    matchedTerms: match.terms,
+  };
+}
+
+function scoreEvidenceTerms(item: StrategyEvidencePreviewItem, terms: string[]) {
+  const fields = [
+    { value: item.title, weight: 6 },
+    { value: item.sourceExcerpt, weight: 5 },
+    { value: item.initialInterpretation, weight: 3 },
+    { value: item.strategistNotes, weight: 3 },
+    { value: item.author, weight: 1 },
+    { value: item.sourceLabel, weight: 1 },
+  ].map((field) => ({ value: cleanSearchTerm(field.value || ""), weight: field.weight }));
+  let score = 0;
+  const matchedTerms: string[] = [];
+  for (const term of terms) {
+    const cleanTerm = cleanSearchTerm(term);
+    if (!cleanTerm) continue;
+    const termScore = fields.reduce((highest, field) => field.value.includes(cleanTerm) ? Math.max(highest, field.weight) : highest, 0);
+    if (termScore > 0) {
+      score += termScore;
+      matchedTerms.push(term);
+    }
+  }
+  return { score, terms: matchedTerms };
+}
+
+function compareRetrievedEvidence(left: StrategyEvidencePreviewItem, right: StrategyEvidencePreviewItem) {
+  const tierWeight = { strong: 3, partial: 2, project_context: 1 } as const;
+  const tierDifference = tierWeight[right.retrievalTier || "project_context"] - tierWeight[left.retrievalTier || "project_context"];
+  if (tierDifference) return tierDifference;
+  const scoreDifference = (right.relevanceScore || 0) - (left.relevanceScore || 0);
+  if (scoreDifference) return scoreDifference;
+  const reviewDifference = Number(right.reviewStatus === "relevant") - Number(left.reviewStatus === "relevant");
+  if (reviewDifference) return reviewDifference;
+  return Date.parse(right.capturedAt) - Date.parse(left.capturedAt);
 }

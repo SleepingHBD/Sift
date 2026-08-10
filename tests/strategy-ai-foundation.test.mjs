@@ -4,8 +4,10 @@ import {
   buildStrategyOpenAiRequest,
   normalizeStrategyEvidenceRow,
   parseStrategyOpenAiResponse,
+  rankStrategyEvidenceForPreview,
   strategyBudgetConfiguration,
   strategyEvidenceSearchText,
+  strategyEvidenceSearchTerms,
   STRATEGY_MAX_OUTPUT_TOKENS,
   STRATEGY_TOKEN_RESERVATION,
   validateStrategyAnalysisRequest,
@@ -39,10 +41,79 @@ test("Strategy AI evidence preview validates and bounds the authenticated reques
 });
 
 test("Strategy AI derives inspectable search terms instead of hiding retrieval logic", () => {
+  assert.deepEqual(
+    strategyEvidenceSearchTerms('Why are people talking about "trusted communities" in Singapore?'),
+    ["trusted communities", "people", "talking", "singapore"],
+  );
   assert.equal(
     strategyEvidenceSearchText('Why are people talking about "trusted communities" in Singapore?'),
-    "trusted communities people talking trusted communities singapore",
+    '"trusted communities" OR people OR talking OR singapore',
   );
+});
+
+test("Strategy AI ranks partial matches and retains unmatched project evidence as explicit context", () => {
+  const direct = normalizeStrategyEvidenceRow({ evidence: {
+    kind: "research",
+    item_id: "22222222-2222-4222-8222-222222222222",
+    project_id: projectId,
+    title: "Trusted communities in Singapore",
+    source_label: "Field note",
+    original_content: "People described preferring smaller online groups.",
+    captured_at: "2026-08-10T00:00:00.000Z",
+    review_status: "relevant",
+    metadata: {},
+  } });
+  const context = normalizeStrategyEvidenceRow({ evidence: {
+    kind: "research",
+    item_id: "55555555-5555-4555-8555-555555555555",
+    project_id: projectId,
+    title: "Unrelated packaging reference",
+    source_label: "Saved article",
+    original_content: "A visual design reference about communities.",
+    captured_at: "2026-08-09T00:00:00.000Z",
+    review_status: "relevant",
+    metadata: {},
+  } });
+  assert.ok(direct && context);
+
+  const ranked = rankStrategyEvidenceForPreview({
+    direct: [direct],
+    fallback: [direct, context],
+    question: "Why do trusted communities matter in Singapore?",
+    limit: 8,
+  });
+
+  assert.deepEqual(ranked.map((item) => item.identity), [direct.identity, context.identity]);
+  assert.equal(ranked[0].retrievalTier, "strong");
+  assert.deepEqual(ranked[0].matchedTerms, ["trusted", "communities", "singapore"]);
+  assert.equal(ranked[1].retrievalTier, "partial");
+  assert.deepEqual(ranked[1].matchedTerms, ["communities"]);
+});
+
+test("Strategy AI exposes project context when no source text matches the question", () => {
+  const context = normalizeStrategyEvidenceRow({ evidence: {
+    kind: "research",
+    item_id: "55555555-5555-4555-8555-555555555555",
+    project_id: projectId,
+    title: "Packaging reference",
+    source_label: "Saved article",
+    original_content: "A visual design reference.",
+    captured_at: "2026-08-09T00:00:00.000Z",
+    review_status: "relevant",
+    metadata: {},
+  } });
+  assert.ok(context);
+
+  const ranked = rankStrategyEvidenceForPreview({
+    direct: [],
+    fallback: [context],
+    question: "How are trusted communities changing friendship?",
+    limit: 8,
+  });
+
+  assert.equal(ranked.length, 1);
+  assert.equal(ranked[0].retrievalTier, "project_context");
+  assert.deepEqual(ranked[0].matchedTerms, []);
 });
 
 test("Strategy AI keeps source evidence, initial interpretation, and later notes separate", () => {

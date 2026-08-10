@@ -36,6 +36,9 @@ export interface StrategyEvidencePreviewItem {
   strategistNotes: string | null;
   capturedAt: string;
   reviewStatus: string;
+  retrievalTier?: "strong" | "partial" | "project_context";
+  relevanceScore?: number;
+  matchedTerms?: string[];
 }
 
 export interface StrategyEvidencePreview {
@@ -47,6 +50,8 @@ export interface StrategyEvidencePreview {
   coverage: {
     selectedCandidates: number;
     totalEvidence: number;
+    matchedEvidence?: number;
+    contextualEvidence?: number;
     excludedReviewStatuses: string[];
   };
   analysis: {

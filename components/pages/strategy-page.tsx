@@ -41,6 +41,12 @@ export function StrategyPage() {
   const [handoffError, setHandoffError] = useState("");
   const [copied, setCopied] = useState(false);
   const resolvedProjectId = cloudProjects.some((project) => project.id === projectId) ? projectId : initialProjectId;
+  const matchedPreviewCount = preview?.coverage.matchedEvidence
+    ?? preview?.evidence.filter((item) => item.retrievalTier !== "project_context").length
+    ?? 0;
+  const contextualPreviewCount = preview?.coverage.contextualEvidence
+    ?? preview?.evidence.filter((item) => item.retrievalTier === "project_context").length
+    ?? 0;
 
   function clearHandoff() {
     setHandoffPrompt("");
@@ -62,7 +68,9 @@ export function StrategyPage() {
     try {
       const result = await previewStrategyEvidence(project, question.trim());
       setPreview(result);
-      setSelected(new Set(result.evidence.map((item) => item.identity)));
+      setSelected(new Set(result.evidence
+        .filter((item) => item.retrievalTier !== "project_context")
+        .map((item) => item.identity)));
       setActiveProjectId(project.id);
       setStatus("idle");
     } catch (requestError) {
@@ -191,11 +199,19 @@ export function StrategyPage() {
                 <label><span>Project</span><select value={resolvedProjectId} onChange={(event) => changeProject(event.target.value)}>{cloudProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><small>The project is the authorization and evidence boundary.</small></label>
                 <label><span>Thinking task</span><select value={task} onChange={(event) => { setTask(event.target.value as StrategyHandoffTask); clearHandoff(); setAnalysis(null); }}>{STRATEGY_HANDOFF_TASKS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><small>This tells ChatGPT what kind of strategic thinking to prioritize.</small></label>
               </div>
-              <label><span>Strategic question</span><textarea rows={5} maxLength={1000} value={question} onChange={(event) => changeQuestion(event.target.value)} placeholder="What is changing, why might it matter, and what evidence supports or challenges that interpretation?" /><small>Write the real question you want to investigate. Sift derives a transparent full-text evidence search from it.</small></label>
+              <label><span>Strategic question</span><textarea rows={5} maxLength={1000} value={question} onChange={(event) => changeQuestion(event.target.value)} placeholder="What is changing, why might it matter, and what evidence supports or challenges that interpretation?" /><small>Write naturally. Sift finds partial matches across your evidence and also shows other eligible project sources when the textual match is weak.</small></label>
               {error ? <div className="strategy-question-card__error" role="alert">{error}</div> : null}
               <div className="strategy-question-card__actions"><Button variant="dark" disabled={status === "loading" || question.trim().length < 3}>{status === "loading" ? <><LoaderCircle className="spin" size={16} />Searching evidence…</> : <><Search size={16} />Find relevant evidence</>}</Button><span>This search stays inside your Sift workspace.</span></div>
             </form>
-            {preview ? <div className="strategy-preview-result"><strong>{preview.evidence.length} candidate source{preview.evidence.length === 1 ? "" : "s"} found</strong><span>{preview.evidence.length > 0 ? "Review the evidence scope and remove anything that should not influence the ChatGPT answer." : "No source will enter a prompt until eligible workspace evidence matches this question."}</span></div> : null}
+            {preview ? <div className="strategy-preview-result"><strong>{matchedPreviewCount
+              ? `${matchedPreviewCount} relevant ${matchedPreviewCount === 1 ? "match" : "matches"} found`
+              : contextualPreviewCount
+                ? `No direct match · ${contextualPreviewCount} project ${contextualPreviewCount === 1 ? "source" : "sources"} available`
+                : "No eligible project evidence available"}</strong><span>{matchedPreviewCount
+              ? `${contextualPreviewCount ? `${contextualPreviewCount} additional project ${contextualPreviewCount === 1 ? "source is" : "sources are"} shown for context. ` : ""}Review the evidence scope before preparing the ChatGPT handoff.`
+              : contextualPreviewCount
+                ? "Sift has not assumed these sources are relevant. Review and select any that genuinely help answer the question."
+                : "Add evidence to this project or change an archived or irrelevant source’s review status."}</span></div> : null}
           </Card>
           <StrategyEvidenceScope preview={preview} selected={selected} onToggle={toggleEvidence} onPrepareHandoff={prepareHandoff} />
         </div>

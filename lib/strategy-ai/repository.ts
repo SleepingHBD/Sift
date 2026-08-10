@@ -112,7 +112,10 @@ function isStrategyEvidencePreviewItem(value: unknown): value is StrategyEvidenc
     && typeof item.projectId === "string"
     && typeof item.title === "string"
     && typeof item.sourceLabel === "string"
-    && typeof item.capturedAt === "string";
+    && typeof item.capturedAt === "string"
+    && (item.retrievalTier === undefined || item.retrievalTier === "strong" || item.retrievalTier === "partial" || item.retrievalTier === "project_context")
+    && (item.relevanceScore === undefined || finiteNumber(item.relevanceScore))
+    && (item.matchedTerms === undefined || isStringArray(item.matchedTerms));
 }
 
 function isStrategyEvidencePreview(value: unknown): value is StrategyEvidencePreview {

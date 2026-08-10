@@ -3,8 +3,10 @@ import {
   buildStrategyOpenAiRequest,
   normalizeStrategyEvidenceRow,
   parseStrategyOpenAiResponse,
+  rankStrategyEvidenceForPreview,
   strategyBudgetConfiguration,
   strategyEvidenceSearchText,
+  strategyEvidenceSearchTerms,
   strategySafetyIdentifier,
   STRATEGY_TOKEN_RESERVATION,
   validateStrategyAnalysisRequest,
@@ -39,21 +41,43 @@ export default {
         const input = validateStrategyEvidencePreviewRequest(body);
         const project = await requireProjectAccess(context.supabase, input.projectId);
         const searchText = strategyEvidenceSearchText(input.question);
-        const retrievalSize = Math.min(Math.max(input.limit * 4, 24), 100);
-        const [searchResult, statsResult] = await Promise.all([
-          context.supabase.rpc("search_evidence_page", {
+        const searchTerms = strategyEvidenceSearchTerms(input.question);
+        const retrievalSize = Math.min(Math.max(input.limit * 8, 48), 100);
+        const statsResult = await context.supabase.rpc("evidence_inbox_stats", { p_project_id: input.projectId }).single();
+        if (statsResult.error) throw new StrategyAiRequestError(`Evidence coverage could not be loaded: ${statsResult.error.message}`, 500, "COVERAGE_FAILED");
+
+        let directEvidence: StrategyEvidencePreviewItem[] = [];
+        if (searchTerms.length) {
+          const searchResult = await context.supabase.rpc("search_evidence_page", {
             p_search: searchText,
             p_project_id: input.projectId,
             p_sort: "newest",
             p_page_size: retrievalSize,
-          }),
-          context.supabase.rpc("evidence_inbox_stats", { p_project_id: input.projectId }).single(),
-        ]);
-        if (searchResult.error) throw new StrategyAiRequestError(`Evidence retrieval failed: ${searchResult.error.message}`, 500, "RETRIEVAL_FAILED");
-        if (statsResult.error) throw new StrategyAiRequestError(`Evidence coverage could not be loaded: ${statsResult.error.message}`, 500, "COVERAGE_FAILED");
+          });
+          if (searchResult.error) throw new StrategyAiRequestError(`Evidence retrieval failed: ${searchResult.error.message}`, 500, "RETRIEVAL_FAILED");
+          directEvidence = normalizeEvidenceRows(searchResult.data);
+        }
 
-        const evidence = normalizeEvidenceRows(searchResult.data).slice(0, input.limit);
         const totalEvidence = Number(statsResult.data?.total_count) || 0;
+        let fallbackEvidence: StrategyEvidencePreviewItem[] = [];
+        if (directEvidence.length < input.limit && totalEvidence > directEvidence.length) {
+          const fallbackResult = await context.supabase.rpc("search_evidence_page", {
+            p_search: null,
+            p_project_id: input.projectId,
+            p_sort: "newest",
+            p_page_size: retrievalSize,
+          });
+          if (fallbackResult.error) throw new StrategyAiRequestError(`Project evidence fallback failed: ${fallbackResult.error.message}`, 500, "FALLBACK_RETRIEVAL_FAILED");
+          fallbackEvidence = normalizeEvidenceRows(fallbackResult.data);
+        }
+        const evidence = rankStrategyEvidenceForPreview({
+          direct: directEvidence,
+          fallback: fallbackEvidence,
+          question: input.question,
+          limit: input.limit,
+        });
+        const matchedEvidence = evidence.filter((item) => item.retrievalTier !== "project_context").length;
+        const contextualEvidence = evidence.length - matchedEvidence;
         const model = modelConfiguration();
         const budget = await loadStrategyBudgetStatus(context.supabaseAdmin, userId, model.budget);
         const analysisAvailable = model.modelConfigured && budget.configured && budget.available;
@@ -71,6 +95,8 @@ export default {
           coverage: {
             selectedCandidates: evidence.length,
             totalEvidence,
+            matchedEvidence,
+            contextualEvidence,
             excludedReviewStatuses: ["irrelevant", "archived"],
           },
           analysis: {
@@ -79,9 +105,13 @@ export default {
             modelConfigured: model.modelConfigured,
             budget,
           },
-          limitations: evidence.length
-            ? ["This is a deterministic full-text retrieval preview. No AI conclusion has been generated."]
-            : ["No eligible source matched these search terms. Broaden the question or add more project evidence."],
+          limitations: matchedEvidence
+            ? [contextualEvidence
+              ? "Direct and partial text matches are selected by default. Additional project context is shown separately for manual review. No AI conclusion has been generated."
+              : "This is a deterministic relevance preview. No AI conclusion has been generated."]
+            : contextualEvidence
+              ? ["No direct textual match was found. Other eligible project evidence is shown for manual selection and is not treated as relevant automatically."]
+              : ["This project has no eligible evidence to retrieve. Add evidence or review its status before preparing a prompt."],
         });
       }
 
