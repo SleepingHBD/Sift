@@ -126,7 +126,7 @@ Before storage, the backend revalidates the exact selected sources under the cal
 
 Phase 6 is complete and accepted for the current manual workflow. The deployed result leads with a plain-language answer while retaining explicit evidence, interpretation, hypothesis, recommendation, confidence, caveat, and citation boundaries. The acceptance scope and remaining limitations are recorded in [docs/phase-6-acceptance.md](docs/phase-6-acceptance.md).
 
-Phase 7 is now in progress. Its schema audit and trusted-pipeline foundation are complete. The existing `strategy_sessions` and `strategy_stages` tables now support project-safe Signal/AI provenance, original-evidence citations, dependencies, retained alternatives, confidence, research gaps, approval gates, and append-only revision history. Stage citations also block guarded source deletion and scheduled Radar retention. The live migration was verified with a rolled-back authenticated transaction, and no Phase 7 content records were seeded. The next increment is the first project-scoped Insight Builder. See [docs/phase-7-audit.md](docs/phase-7-audit.md).
+Phase 7 is now in progress. Its schema audit, trusted-pipeline foundation, and first project-scoped Insight Builder are implemented. Under **Think → Insight Builder**, a strategist can create durable project sessions, edit Observation → Pattern → Tension → Insight → Opportunity, link supporting/challenging/context evidence, inspect original sources, and retain Signals or saved Strategy AI responses as clearly separated provenance. The Strategic Proposition remains locked until the uncertainty and traceability surfaces pass the Phase 7 acceptance path. See [docs/phase-7-audit.md](docs/phase-7-audit.md).
 
 ## GitHub Pages deployment
 

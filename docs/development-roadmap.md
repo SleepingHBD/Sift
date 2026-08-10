@@ -455,7 +455,7 @@ Answer strategic questions using the user's authorized workspace while keeping g
 
 ## Phase 7 - Insight, strategy, and creative outputs
 
-Status: **In progress. Increments 1 and 2 complete.** The audit is documented in [phase-7-audit.md](phase-7-audit.md). The trusted pipeline foundation now reuses and hardens `strategy_sessions` and `strategy_stages`, separates Signal/AI provenance from original evidence, validates project-safe citations and same-session dependencies, preserves alternatives and append-only revisions, and enforces confidence, research-gap, approval, RLS, and least-privilege rules. The migration and its follow-up foreign-key indexes are live; the authenticated transactional contract passed and rolled back without seeding Phase 7 content. Increment 3 is the first project-scoped Insight Builder.
+Status: **In progress. Increments 1 through 3 implemented.** The audit is documented in [phase-7-audit.md](phase-7-audit.md). The trusted pipeline foundation is live, and the first project-scoped Insight Builder now writes durable sessions and editable Observation → Pattern → Tension → Insight → Opportunity stages, links original evidence, and keeps Signal/AI starting points as separate provenance. Increment 4 will surface the existing uncertainty, dependency, approval, and revision contracts in the interface.
 
 ### Goal
 
@@ -603,12 +603,12 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0 through 6 are complete and accepted. Phase 7 is in progress; its audit and trusted database foundation are complete. The next increment will build the first project-scoped editable Insight Builder across observation, pattern, tension, insight, and opportunity. It will use the new source, provenance, dependency, alternative, confidence, gap, approval, and revision contracts rather than keeping strategy state in the browser. The accepted Phase 6 workflow remains an optional evidence-grounded thinking input; no automatic or background AI analysis is introduced.
+Phases 0 through 6 are complete and accepted. Phase 7 is in progress; its audit, trusted database foundation, and first project-scoped Insight Builder are implemented. The next increment will expose uncertainty and traceability: confidence, research gaps, contradictions, alternatives, dependencies, approval state, and immutable revisions. The accepted Phase 6 workflow remains an optional evidence-grounded thinking input; no automatic or background AI analysis is introduced.
 
 1. **Complete:** Audit the existing insight, strategy-session, strategy-stage, citation, and evidence-link schema before adding Phase 7 records. See [phase-7-audit.md](phase-7-audit.md).
 2. **Complete:** Establish the trusted Supabase foundation for stage evidence, Signal/AI provenance, dependencies, alternatives, approval, revision history, deletion protection, RLS, grants, and foreign-key indexes.
-3. Build one project-scoped insight workspace that can start from selected Evidence, Signals, or a saved Strategy AI analysis.
-4. Add editable observation, pattern, tension, insight, and opportunity stages with explicit evidence relationships.
+3. **Complete:** Build one project-scoped insight workspace that can start from selected Evidence, Signals, or a saved Strategy AI analysis.
+4. **Complete:** Add editable observation, pattern, tension, insight, and opportunity stages with explicit evidence relationships.
 5. Show confidence, unresolved evidence gaps, contradictions, and alternative interpretations without forcing one conclusion.
 6. Surface stage ordering, approval state, and version history without allowing edits to overwrite source evidence.
 7. Extend the pipeline through a strategic proposition only after the opportunity is explicit.

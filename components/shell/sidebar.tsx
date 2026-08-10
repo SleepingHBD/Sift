@@ -8,6 +8,7 @@ import {
   Home,
   Images,
   Inbox,
+  Lightbulb,
   PanelLeftClose,
   PanelLeftOpen,
   Radio,
@@ -50,7 +51,14 @@ const workflow = [
     ],
   },
   { step: "04", label: "Understand", items: [{ label: "Trends", href: "/trends", section: "trends", icon: TrendingUp }] },
-  { step: "05", label: "Think", items: [{ label: "Strategy AI", href: "/strategy-ai", section: "strategy-ai", icon: Sparkles }] },
+  {
+    step: "05",
+    label: "Think",
+    items: [
+      { label: "Strategy AI", href: "/strategy-ai", section: "strategy-ai", icon: Sparkles },
+      { label: "Insight Builder", href: "/insight-builder", section: "insight-builder", icon: Lightbulb },
+    ],
+  },
   { step: "06", label: "Create", items: [{ label: "Briefs", href: "/briefs", section: "briefs", icon: FileText }] },
 ] satisfies Array<{ step: string; label: string; items: NavigationItem[] }>;
 

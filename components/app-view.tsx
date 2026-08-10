@@ -4,6 +4,7 @@ import { BriefsPage } from "@/components/pages/briefs-page";
 import { CompetitorsPage } from "@/components/pages/competitors-page";
 import { EvidencePage } from "@/components/pages/evidence-page";
 import { HomePage } from "@/components/pages/home-page";
+import { InsightBuilderPage } from "@/components/pages/insight-builder-page";
 import { InspirationPage } from "@/components/pages/inspiration-page";
 import { ProjectsPage } from "@/components/pages/projects-page";
 import { RadarPage } from "@/components/pages/radar-page";
@@ -20,6 +21,7 @@ const pages: Record<string, React.ComponentType> = {
   competitors: CompetitorsPage,
   inspiration: InspirationPage,
   "strategy-ai": StrategyPage,
+  "insight-builder": InsightBuilderPage,
   briefs: BriefsPage,
   projects: ProjectsPage,
   settings: SettingsPage,

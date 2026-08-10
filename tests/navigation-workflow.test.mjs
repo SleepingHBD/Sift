@@ -8,6 +8,8 @@ const evidencePage = readFileSync(new URL("../components/pages/evidence-page.tsx
 const captureDialog = readFileSync(new URL("../components/evidence/capture-evidence-dialog.tsx", import.meta.url), "utf8");
 const appProvider = readFileSync(new URL("../components/app-provider.tsx", import.meta.url), "utf8");
 const strategyPage = readFileSync(new URL("../components/pages/strategy-page.tsx", import.meta.url), "utf8");
+const insightBuilderPage = readFileSync(new URL("../components/pages/insight-builder-page.tsx", import.meta.url), "utf8");
+const dynamicRoute = readFileSync(new URL("../app/[section]/page.tsx", import.meta.url), "utf8");
 
 test("the guided workflow exposes one unified evidence destination", () => {
   assert.doesNotMatch(sidebar, /label: "Research"/);
@@ -39,4 +41,12 @@ test("Strategy AI keeps its working session above the route boundary", () => {
   assert.match(strategyPage, /strategySession,\s*setStrategySession/);
   assert.doesNotMatch(strategyPage, /const \[question, setQuestion\] = useState/);
   assert.match(strategyPage, /createStrategyWorkingSession\(strategySession\.workspaceUserId, resolvedProjectId\)/);
+});
+
+test("Think proceeds from Strategy AI to the project-scoped Insight Builder", () => {
+  assert.match(sidebar, /label: "Strategy AI"[\s\S]*label: "Insight Builder"/);
+  assert.match(sidebar, /href: "\/insight-builder"/);
+  assert.match(appView, /"insight-builder": InsightBuilderPage/);
+  assert.match(dynamicRoute, /"insight-builder"/);
+  assert.match(insightBuilderPage, /Turn evidence into an argument/);
 });

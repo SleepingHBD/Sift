@@ -2,7 +2,15 @@
 
 Date: 10 August 2026
 
-Status: **Increments 1 and 2 complete. The trusted pipeline foundation is live; no Phase 7 content was seeded.**
+Status: **Increments 1 through 3 implemented. The trusted pipeline foundation is live and the first Insight Builder is complete locally; no Phase 7 content was seeded during verification.**
+
+## Increment 3 implementation result
+
+The guided workflow now includes **Think → Insight Builder** after Strategy AI. The project-scoped screen can create durable sessions, edit and save Observation, Pattern, Tension, Insight, and Opportunity claims, show stage progress, link original Evidence as support, contradiction, or context, inspect preserved source details, and remove a stage citation without altering the source itself.
+
+Signals and saved Strategy AI assistant messages can be retained as session starting points, but the interface and repository keep them in `strategy_session_inputs`; they never enter `strategy_stage_sources`. This preserves the database distinction between analytical provenance and citable original mentions, Research, or Inspiration. The Strategic Proposition is visibly locked. Confidence, research gaps, alternatives, dependencies, approval state, and revisions remain the next explicit uncertainty-and-traceability increment rather than being implied as complete.
+
+The static production build, lint, TypeScript check, and full automated suite pass. A read-only live database check confirmed the authenticated session-insert grant and project-scoped create policy are present, while all four first-builder content tables remain at zero rows before the strategist creates real work.
 
 ## Increment 2 implementation result
 
@@ -209,9 +217,9 @@ The strategic proposition remains locked until the opportunity contains an expli
 
 ### Increment 3 - First Insight Builder
 
-- Add the project-scoped route, repository, types, loading/error/empty states, and session creation.
-- Start from hand-selected Evidence, Signal, or saved Strategy AI analysis.
-- Implement editable Observation through Opportunity with visible source links.
+- **Complete:** Add the project-scoped route, repository, types, loading/error/empty states, and session creation.
+- **Complete:** Start from hand-selected Evidence, Signal, or saved Strategy AI analysis while separating evidence from provenance.
+- **Complete:** Implement editable Observation through Opportunity with visible source links and an original-source drawer.
 
 ### Increment 4 - Uncertainty and traceability
 
@@ -233,4 +241,4 @@ The strategic proposition remains locked until the opportunity contains an expli
 
 **Reuse the existing foundation; do not replace it and do not create a second Insight system.**
 
-The next implementation action is Increment 3: the first project-scoped Insight Builder repository and interface. It can now write Phase 7 records through the trusted relationships and constraints established by Increment 2.
+The next implementation action is Increment 4: surface and exercise confidence, research gaps, contradictions, alternatives, dependencies, approval state, and append-only revisions in the existing Insight Builder.
