@@ -64,6 +64,7 @@ export async function importChatGptStrategyAnalysis(
   evidenceIdentities: string[],
   clientRequestId: string,
   structuredResponse: StrategyStructuredResponse,
+  strategySessionId?: string,
 ): Promise<StrategyAnalysisResult> {
   if (!project.cloudId) throw new Error("Choose a project that is available in your cloud workspace.");
   const client = createBrowserSupabaseClient();
@@ -83,6 +84,7 @@ export async function importChatGptStrategyAnalysis(
       evidenceIdentities,
       clientRequestId,
       structuredResponse,
+      strategySessionId,
     },
   });
   if (error) throw new Error(await readFunctionError(error));
@@ -153,7 +155,16 @@ function isStrategyAnalysisResult(value: unknown): value is StrategyAnalysisResu
     && Array.isArray(result.sources)
     && result.sources.every(isStrategyEvidencePreviewItem)
     && Boolean(result.usage && typeof result.usage === "object")
-    && (result.budget === undefined || isStrategyBudgetStatus(result.budget));
+    && (result.budget === undefined || isStrategyBudgetStatus(result.budget))
+    && (result.sessionAttachment === undefined || isStrategySessionAttachment(result.sessionAttachment));
+}
+
+function isStrategySessionAttachment(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const attachment = value as Record<string, unknown>;
+  return typeof attachment.turnId === "string"
+    && finiteNumber(attachment.pieceCount)
+    && typeof attachment.duplicate === "boolean";
 }
 
 function isStrategyBudgetStatus(value: unknown): value is StrategyBudgetStatus {

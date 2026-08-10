@@ -11,6 +11,8 @@ export type StrategyInputType = "signal" | "ai_message";
 export type StrategySessionOrigin = "strategist" | "signal_assisted" | "ai_assisted" | "mixed";
 export type StrategyTurnRole = "user" | "assistant";
 export type StrategyTurnOrigin = "strategist" | "chatgpt_manual" | "sift_guidance";
+export type StrategyPieceKind = "observation" | "question" | "interpretation" | "tension" | "hypothesis" | "opportunity";
+export type StrategyPieceStatus = "active" | "dismissed" | "shaped";
 
 export interface StrategySessionSummary {
   id: string;
@@ -126,14 +128,45 @@ export interface StrategySessionTurnRecord {
   origin: StrategyTurnOrigin;
   content: string;
   metadata: Record<string, unknown>;
+  aiMessageId: string | null;
   createdBy: string;
   createdAt: string;
+}
+
+export interface StrategyPieceSourceRecord {
+  id: string;
+  pieceId: string;
+  projectId: string;
+  relationship: StrategySourceRelationship;
+  excerpt: string | null;
+  rationale: string | null;
+  createdAt: string;
+  source: StrategyEvidenceSource;
+}
+
+export interface StrategySessionPieceRecord {
+  id: string;
+  projectId: string;
+  sessionId: string;
+  sourceTurnId: string;
+  kind: StrategyPieceKind;
+  origin: "strategist" | "chatgpt_manual";
+  externalRef: string;
+  content: string;
+  whyItMatters: string | null;
+  confidence: StrategyConfidence | null;
+  caveat: string | null;
+  status: StrategyPieceStatus;
+  sources: StrategyPieceSourceRecord[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface StrategySessionDetail extends StrategySessionSummary {
   stages: StrategyStageRecord[];
   inputs: StrategySessionInputRecord[];
   turns: StrategySessionTurnRecord[];
+  pieces: StrategySessionPieceRecord[];
 }
 
 export interface StrategyAiInputOption {

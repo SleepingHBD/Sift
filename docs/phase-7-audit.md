@@ -2,7 +2,7 @@
 
 Date: 10 August 2026
 
-Status: **The trusted pipeline foundation and complete evidence-to-proposition review layer are live. The first conversation-first transition increment is implemented without replacing existing sessions or strategic records.**
+Status: **The trusted pipeline foundation and complete evidence-to-proposition review layer are live. The conversational workspace and its integrated, cited manual ChatGPT handoff are implemented without replacing existing sessions or strategic records.**
 
 ## Current Insight Builder implementation result
 
@@ -23,11 +23,12 @@ Real use showed that the formal builder asks the strategist to classify and comp
 - `strategy_session_turns` preserves gradual strategist input as an append-only timeline.
 - The existing staged builder remains available as **Review argument** for evidence, dependencies, uncertainty, approval, alternatives, and revisions.
 - Existing `strategy_sessions`, `strategy_stages`, inputs, citations, dependencies, alternatives, and revisions remain authoritative and intact.
-- The accepted manual ChatGPT handoff remains available during the transition; bringing it into the session itself is a later increment.
+- The accepted manual ChatGPT handoff now opens inside the active session. Sift derives a bounded focus from recent strategist turns, retrieves project evidence, and keeps the copy-and-paste boundary explicit.
+- A validated response becomes one attributed `chatgpt_manual` turn and optional cited working pieces. These pieces can be dismissed or restored, but remain separate from formal stages until the strategist deliberately shapes them.
 
 The new table is deliberately narrow. Authenticated permanent users can select and insert only inside projects they can access. Browser clients can insert only their own `user` / `strategist` turns; they cannot forge assistant, Sift-guidance, or ChatGPT provenance. Trusted future server paths may add those origins after validation. An atomic `start_strategy_conversation` function creates a session and its first user turn together.
 
-The transition is reproduced by three synchronized migrations: `20260810123220_phase_7_conversational_strategy_turns.sql` adds the table and policies, `20260810124457_phase_7_strategy_turn_fk_index.sql` covers the composite session/project relationship and hydration order, and `20260810124613_remove_redundant_strategy_turn_index.sql` removes the narrower index superseded by that covering index.
+The transition is reproduced by five synchronized migrations: `20260810123220_phase_7_conversational_strategy_turns.sql` adds the turn table and policies, `20260810124457_phase_7_strategy_turn_fk_index.sql` covers the composite session/project relationship and hydration order, `20260810124613_remove_redundant_strategy_turn_index.sql` removes the superseded index, `20260810130647_phase_7_strategy_session_handoff.sql` adds cited working pieces and the service-only idempotent attachment function, and `20260810131616_phase_7_strategy_session_handoff_fk_indexes.sql` covers its standalone foreign-key paths.
 
 ## Increment 2 implementation result
 
@@ -266,9 +267,10 @@ Creative territories and briefs remain unavailable until the conversation-first 
 
 ### Increment 7 - Working pieces and integrated handoff
 
-- Add flexible observations, questions, evidence, interpretations, contradictions, hypotheses, and opportunities without requiring a formal stage.
-- Bring Evidence, Signals, and validated manual ChatGPT responses into the active session with visible provenance.
-- Let the strategist select useful pieces and explicitly shape them into the existing formal argument.
+- **Complete:** Add optional observations, questions, interpretations, tensions, hypotheses, and opportunities without requiring a formal stage.
+- **Complete:** Bring validated manual ChatGPT responses into the active session with server-verified provenance and original Evidence citations.
+- **Complete:** Add plain-language working-piece labels, source inspection, and reversible dismiss/restore controls.
+- **Next:** Let the strategist select useful pieces and explicitly shape them into the existing formal argument.
 
 ### Increment 8 - Phase 7 conversational acceptance
 
@@ -280,4 +282,4 @@ Creative territories and briefs remain unavailable until the conversation-first 
 
 **Reuse the existing foundation; do not replace it and do not create a second Insight system. Make conversation the working layer and the existing pipeline the formal review layer.**
 
-The next implementation action is Increment 7: introduce flexible working pieces and integrate the accepted manual ChatGPT handoff into the active Strategy Session.
+The next implementation action is the remaining Increment 7 step: add an explicit **Shape into argument** action that proposes formal stages from selected pieces without overwriting the conversation, working pieces, or original evidence.

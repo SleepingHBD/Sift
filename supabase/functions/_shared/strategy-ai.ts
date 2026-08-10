@@ -34,6 +34,7 @@ export interface StrategyImportAnalysisRequest {
   evidenceIdentities: string[];
   clientRequestId: string;
   structuredResponse: StrategyStructuredResponse;
+  strategySessionId: string | null;
 }
 
 export interface StrategyEvidencePreviewItem {
@@ -174,6 +175,7 @@ export function validateStrategyImportAnalysisRequest(value: unknown): StrategyI
   const clientRequestId = text(candidate.clientRequestId);
   const rawIdentities = Array.isArray(candidate.evidenceIdentities) ? candidate.evidenceIdentities : [];
   const evidenceIdentities = [...new Set(rawIdentities.map(text).filter(Boolean))];
+  const strategySessionId = text(candidate.strategySessionId);
 
   if (candidate.action !== "import-analysis") throw new Error("The Strategy AI action is not supported.");
   if (!uuidPattern.test(projectId)) throw new Error("Choose a valid project before importing analysis.");
@@ -184,6 +186,7 @@ export function validateStrategyImportAnalysisRequest(value: unknown): StrategyI
   if (evidenceIdentities.length > STRATEGY_EVIDENCE_LIMIT) throw new Error(`Select no more than ${STRATEGY_EVIDENCE_LIMIT} evidence sources.`);
   if (rawIdentities.length !== evidenceIdentities.length) throw new Error("The evidence scope contains duplicate or empty identities.");
   if (evidenceIdentities.some((identity) => !evidenceIdentityPattern.test(identity))) throw new Error("The evidence scope contains an invalid source identity.");
+  if (strategySessionId && !uuidPattern.test(strategySessionId)) throw new Error("The strategy conversation identifier is invalid.");
 
   return {
     action: "import-analysis",
@@ -192,6 +195,7 @@ export function validateStrategyImportAnalysisRequest(value: unknown): StrategyI
     evidenceIdentities,
     clientRequestId,
     structuredResponse: validateStrategyStructuredResponse(candidate.structuredResponse, evidenceIdentities),
+    strategySessionId: strategySessionId || null,
   };
 }
 

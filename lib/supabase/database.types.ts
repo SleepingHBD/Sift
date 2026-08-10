@@ -2224,8 +2224,136 @@ export type Database = {
           },
         ]
       }
+      strategy_session_piece_sources: {
+        Row: {
+          created_at: string
+          evidence_id: string
+          evidence_type: Database["public"]["Enums"]["item_kind"]
+          excerpt: string | null
+          id: string
+          piece_id: string
+          project_id: string
+          rationale: string | null
+          relationship: string
+        }
+        Insert: {
+          created_at?: string
+          evidence_id: string
+          evidence_type: Database["public"]["Enums"]["item_kind"]
+          excerpt?: string | null
+          id?: string
+          piece_id: string
+          project_id: string
+          rationale?: string | null
+          relationship?: string
+        }
+        Update: {
+          created_at?: string
+          evidence_id?: string
+          evidence_type?: Database["public"]["Enums"]["item_kind"]
+          excerpt?: string | null
+          id?: string
+          piece_id?: string
+          project_id?: string
+          rationale?: string | null
+          relationship?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_session_piece_sources_piece_id_project_id_fkey"
+            columns: ["piece_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_session_pieces"
+            referencedColumns: ["id", "project_id"]
+          },
+          {
+            foreignKeyName: "strategy_session_piece_sources_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategy_session_pieces: {
+        Row: {
+          caveat: string | null
+          confidence: string | null
+          content: string
+          created_at: string
+          created_by: string
+          external_ref: string
+          id: string
+          kind: string
+          origin: string
+          project_id: string
+          session_id: string
+          source_turn_id: string
+          status: string
+          updated_at: string
+          why_it_matters: string | null
+        }
+        Insert: {
+          caveat?: string | null
+          confidence?: string | null
+          content: string
+          created_at?: string
+          created_by: string
+          external_ref: string
+          id?: string
+          kind: string
+          origin: string
+          project_id: string
+          session_id: string
+          source_turn_id: string
+          status?: string
+          updated_at?: string
+          why_it_matters?: string | null
+        }
+        Update: {
+          caveat?: string | null
+          confidence?: string | null
+          content?: string
+          created_at?: string
+          created_by?: string
+          external_ref?: string
+          id?: string
+          kind?: string
+          origin?: string
+          project_id?: string
+          session_id?: string
+          source_turn_id?: string
+          status?: string
+          updated_at?: string
+          why_it_matters?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_session_pieces_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_session_pieces_session_id_project_id_fkey"
+            columns: ["session_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_sessions"
+            referencedColumns: ["id", "project_id"]
+          },
+          {
+            foreignKeyName: "strategy_session_pieces_source_turn_id_project_id_session__fkey"
+            columns: ["source_turn_id", "project_id", "session_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_session_turns"
+            referencedColumns: ["id", "project_id", "session_id"]
+          },
+        ]
+      }
       strategy_session_turns: {
         Row: {
+          ai_message_id: string | null
           content: string
           created_at: string
           created_by: string
@@ -2237,6 +2365,7 @@ export type Database = {
           session_id: string
         }
         Insert: {
+          ai_message_id?: string | null
           content: string
           created_at?: string
           created_by?: string
@@ -2248,6 +2377,7 @@ export type Database = {
           session_id: string
         }
         Update: {
+          ai_message_id?: string | null
           content?: string
           created_at?: string
           created_by?: string
@@ -2259,6 +2389,13 @@ export type Database = {
           session_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "strategy_session_turns_ai_message_id_fkey"
+            columns: ["ai_message_id"]
+            isOneToOne: false
+            referencedRelation: "ai_messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "strategy_session_turns_project_id_fkey"
             columns: ["project_id"]
@@ -2854,6 +2991,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      attach_strategy_analysis_to_session: {
+        Args: {
+          p_ai_message_id: string
+          p_project_id: string
+          p_session_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       can_access_project: {
         Args: { target_project_id: string }
         Returns: boolean

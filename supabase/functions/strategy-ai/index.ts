@@ -158,6 +158,17 @@ export default {
         });
         if (persistence.error) throw new StrategyAiRequestError(`The cited analysis could not be saved: ${persistence.error.message}`, 500, "PERSISTENCE_FAILED");
         const stored = record(persistence.data);
+        let sessionAttachment: Record<string, unknown> | undefined;
+        if (input.strategySessionId) {
+          const attachment = await context.supabaseAdmin.rpc("attach_strategy_analysis_to_session", {
+            p_user_id: userId,
+            p_project_id: input.projectId,
+            p_session_id: input.strategySessionId,
+            p_ai_message_id: text(stored.assistantMessageId),
+          });
+          if (attachment.error) throw new StrategyAiRequestError(`The analysis was saved, but it could not be added to this strategy conversation: ${attachment.error.message}`, 500, "SESSION_ATTACHMENT_FAILED");
+          sessionAttachment = record(attachment.data);
+        }
 
         return Response.json({
           mode: "workspace_backed",
@@ -172,6 +183,7 @@ export default {
           model: MANUAL_CHATGPT_MODEL,
           requestId,
           usage: {},
+          ...(sessionAttachment ? { sessionAttachment } : {}),
         });
       }
 

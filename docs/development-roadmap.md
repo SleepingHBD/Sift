@@ -455,7 +455,7 @@ Answer strategic questions using the user's authorized workspace while keeping g
 
 ## Phase 7 - Insight, strategy, and creative outputs
 
-Status: **In progress. The trusted argument foundation and first conversational transition increment are implemented.** The audit is documented in [phase-7-audit.md](phase-7-audit.md). Strategy Sessions is now the default Think experience: a strategist can begin with one unfinished question and append thoughts gradually, while the existing evidence-to-proposition builder remains available as **Review argument**. Existing sessions, citations, stages, approvals, alternatives, and revisions are preserved rather than replaced. The next transition increments will introduce flexible working pieces and bring the accepted manual ChatGPT handoff into the session itself.
+Status: **In progress. The trusted argument foundation, conversational workspace, and integrated manual ChatGPT handoff are implemented.** The audit is documented in [phase-7-audit.md](phase-7-audit.md). Strategy Sessions is now the default Think experience: a strategist can begin with one unfinished question, append thoughts gradually, and prepare the accepted free ChatGPT handoff without leaving the session. Validated responses return as attributed conversation turns plus optional cited working pieces. The existing evidence-to-proposition builder remains available as **Review argument**, and no generated piece becomes approved strategy automatically.
 
 ### Goal
 
@@ -609,14 +609,14 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0 through 6 are complete and accepted. Phase 7 is in progress. Its trusted database foundation and complete evidence-to-proposition review layer are preserved, and the first conversation-first transition increment is implemented. Strategy Sessions now stores gradual strategist turns and makes the formal builder a secondary Review argument view. No automatic or background AI analysis is introduced; the accepted free ChatGPT handoff remains the model path until it is integrated directly into the session workflow.
+Phases 0 through 6 are complete and accepted. Phase 7 is in progress. Its trusted database foundation and complete evidence-to-proposition review layer are preserved. Strategy Sessions now stores gradual strategist turns, keeps the formal builder as a secondary Review argument view, and integrates the accepted free ChatGPT handoff as an explicit copy-and-paste step. No automatic or background AI analysis is introduced.
 
 1. **Complete:** Audit the existing insight, strategy-session, strategy-stage, citation, and evidence-link schema before adding Phase 7 records. See [phase-7-audit.md](phase-7-audit.md).
 2. **Complete:** Establish the trusted Supabase foundation for stage evidence, Signal/AI provenance, dependencies, alternatives, approval, revision history, deletion protection, RLS, grants, and foreign-key indexes.
 3. **Complete:** Build and verify the formal evidence-to-proposition argument layer, including confidence, gaps, contradictions, alternatives, dependencies, approval, revisions, and an Opportunity-gated proposition.
 4. **Complete:** Add project-scoped, append-only Strategy Session turns and make the calm conversation view the default Think experience while preserving the formal builder as Review argument.
-5. Introduce flexible working pieces for observations, questions, evidence, interpretations, contradictions, hypotheses, and possible opportunities without forcing stage assignment.
-6. Let Evidence, Signals, and manual ChatGPT handoff responses enter the active session with visible provenance and one-click source inspection.
+5. **Complete:** Introduce optional observations, questions, interpretations, tensions, hypotheses, and opportunities without forcing stage assignment.
+6. **Complete:** Bring validated manual ChatGPT responses into the active session with visible provenance, cited working pieces, dismiss/restore controls, and one-click source inspection. The handoff reuses existing project Evidence retrieval; direct Signal entry remains a later refinement if real use requires it.
 7. Add an explicit **Shape into argument** action that helps organize selected working pieces into the existing formal stages without overwriting either the conversation or source evidence.
 8. Run the conversation-first Phase 7 acceptance checkpoint: gradual use across sessions, refresh persistence, RLS isolation, provenance, citation integrity, review usability, and responsive layout.
 9. Only after acceptance, develop distinct creative territories from an approved strategic proposition.

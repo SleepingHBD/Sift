@@ -2636,6 +2636,40 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .strategy-conversation-memory__empty span { color: var(--muted); font-size: 10px; line-height: 1.45; }
 .strategy-conversation-memory > .ui-button { width: 100%; }
 .strategy-conversation-memory__boundary { margin: 0; color: var(--faint); font-size: 9px; line-height: 1.5; }
+.strategy-conversation-memory__pieces { display: grid; gap: 8px; }
+.strategy-conversation-memory__pieces-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.strategy-conversation-memory__pieces-head p { margin: 0; }.strategy-conversation-memory__pieces-head > span { color: var(--faint); font-size: 8px; }
+.strategy-conversation-memory__pieces article { display: grid; gap: 7px; padding: 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-elevated); transition: opacity .18s ease,border-color .18s ease; }
+.strategy-conversation-memory__pieces article.is-dismissed { opacity: .5; border-style: dashed; }
+.strategy-conversation-memory__pieces article > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.strategy-conversation-memory__pieces article > div small { color: var(--faint); font-size: 8px; text-transform: capitalize; }
+.strategy-conversation-memory__pieces article > p { margin: 0; font-size: 11px; font-weight: 750; line-height: 1.45; }
+.strategy-conversation-memory__pieces article > span { color: var(--muted); font-size: 9px; line-height: 1.45; }
+.strategy-conversation-memory__pieces footer { display: flex; flex-wrap: wrap; gap: 5px; }
+.strategy-conversation-memory__pieces footer button { display: inline-flex; align-items: center; gap: 3px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text-soft); font-size: 8px; font-weight: 750; }
+.strategy-conversation-memory__pieces footer button:last-child { margin-left: auto; }
+.strategy-conversation-memory__pieces footer button:hover { border-color: var(--border-strong); color: var(--text); }
+
+.strategy-session-handoff { position: fixed; inset: 0; z-index: 150; display: flex; justify-content: flex-end; }
+.strategy-session-handoff__scrim { position: absolute; inset: 0; border: 0; background: color-mix(in srgb,#000 46%,transparent); cursor: default; }
+.strategy-session-handoff > aside { position: relative; width: min(820px,calc(100vw - 44px)); height: 100%; display: grid; grid-template-rows: auto auto minmax(0,1fr); background: var(--bg); box-shadow: -24px 0 60px rgba(0,0,0,.2); }
+.strategy-session-handoff > aside > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 24px 27px 20px; border-bottom: 1px solid var(--border); background: var(--card); }
+.strategy-session-handoff > aside > header h2 { margin: 8px 0 5px; font-size: 29px; letter-spacing: -.04em; }.strategy-session-handoff > aside > header p { max-width: 590px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.strategy-session-handoff > aside > header > button { width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid var(--border); border-radius: 9px; background: var(--bg-elevated); }
+.strategy-session-handoff > aside > nav { display: flex; gap: 7px; padding: 11px 27px; border-bottom: 1px solid var(--border); background: var(--card); }
+.strategy-session-handoff > aside > nav span { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border-radius: 7px; color: var(--faint); font-size: 10px; font-weight: 800; }.strategy-session-handoff > aside > nav span.is-active { background: var(--text); color: var(--bg); }.strategy-session-handoff > aside > nav span.is-complete { color: var(--text-soft); }
+.strategy-session-handoff__body { overflow-y: auto; padding: 23px 27px 34px; }
+.strategy-session-handoff__focus { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; margin-bottom: 18px; padding: 18px; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }
+.strategy-session-handoff__focus > div { grid-column: 1 / -1; }.strategy-session-handoff__focus h3 { margin: 5px 0 4px; font-size: 18px; }.strategy-session-handoff__focus p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.strategy-session-handoff__focus textarea { min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg-elevated); color: var(--text); font-size: 13px; line-height: 1.55; resize: vertical; }
+.strategy-session-handoff__focus > .ui-button { align-self: end; }
+.strategy-session-handoff__loading { min-height: 220px; display: flex; align-items: center; justify-content: center; gap: 9px; color: var(--muted); font-size: 12px; }
+.strategy-session-handoff__error { margin: 12px 0; padding: 11px 12px; border: 1px solid color-mix(in srgb,var(--negative) 35%,var(--border)); border-radius: 9px; background: color-mix(in srgb,var(--negative) 7%,var(--card)); color: var(--negative); font-size: 12px; line-height: 1.5; }
+.strategy-session-handoff__exchange { display: grid; justify-items: start; gap: 16px; }
+.strategy-session-handoff__copy { width: 100%; display: grid; grid-template-columns: 42px minmax(0,1fr) auto; gap: 13px; align-items: start; padding: 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }.strategy-session-handoff__copy > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 11px; background: var(--acid); color: #171812; }.strategy-session-handoff__copy h3 { margin: 5px 0 5px; font-size: 20px; }.strategy-session-handoff__copy p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }.strategy-session-handoff__copy > div:last-child { display: flex; flex-direction: column; gap: 7px; }.strategy-session-handoff__copy a { text-decoration: none; }
+.strategy-session-handoff__prompt { width: 100%; border: 1px solid var(--border); border-radius: 10px; background: var(--card); overflow: hidden; }.strategy-session-handoff__prompt summary { padding: 11px 13px; color: var(--text-soft); cursor: pointer; font-size: 11px; font-weight: 750; }.strategy-session-handoff__prompt pre { max-height: 260px; margin: 0; padding: 14px; overflow: auto; border-top: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 9px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.strategy-session-handoff__response { width: 100%; display: grid; gap: 6px; }.strategy-session-handoff__response > span { font-size: 13px; font-weight: 800; }.strategy-session-handoff__response > small { color: var(--muted); font-size: 10px; }.strategy-session-handoff__response textarea { width: 100%; padding: 14px; border: 1px solid var(--border-strong); border-radius: 11px; background: var(--card); color: var(--text); outline: 0; resize: vertical; font-family: var(--font-mono); font-size: 11px; line-height: 1.55; }.strategy-session-handoff__response textarea:focus { border-color: var(--text-soft); box-shadow: 0 0 0 3px color-mix(in srgb,var(--acid) 28%,transparent); }
+.strategy-session-handoff__save { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-top: 4px; }.strategy-session-handoff__save > span { max-width: 500px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.strategy-session-handoff .strategy-scope { min-height: 0; }
 
 @media (max-width: 1000px) {
   .strategy-conversation-layout { grid-template-columns: 1fr; }
@@ -2653,5 +2687,6 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
   .strategy-conversation-timeline { padding: 22px 18px 12px; }
   .strategy-turn--user { margin-left: 0; }
   .strategy-conversation-composer { padding: 17px 18px 20px; }
+  .strategy-session-handoff > aside { width: 100%; }.strategy-session-handoff > aside > header,.strategy-session-handoff__body { padding-inline: 18px; }.strategy-session-handoff > aside > nav { padding-inline: 18px; }.strategy-session-handoff__focus { grid-template-columns: 1fr; }.strategy-session-handoff__copy { grid-template-columns: 36px minmax(0,1fr); }.strategy-session-handoff__copy > span { width: 36px; height: 36px; }.strategy-session-handoff__copy > div:last-child { grid-column: 1 / -1; }.strategy-session-handoff__save { align-items: stretch; flex-direction: column; }.strategy-session-handoff__save .ui-button { width: 100%; }
 }
 /* End Strategy Sessions. */

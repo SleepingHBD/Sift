@@ -113,4 +113,9 @@ export interface StrategyAnalysisResult {
   requestId: string;
   usage: Record<string, number>;
   budget?: StrategyBudgetStatus;
+  sessionAttachment?: {
+    turnId: string;
+    pieceCount: number;
+    duplicate: boolean;
+  };
 }

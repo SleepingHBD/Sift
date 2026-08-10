@@ -7,6 +7,9 @@ const repository = readFileSync(new URL("../lib/strategy-pipeline/repository.ts"
 const migration = readFileSync(new URL("../supabase/migrations/20260810123220_phase_7_conversational_strategy_turns.sql", import.meta.url), "utf8");
 const indexMigration = readFileSync(new URL("../supabase/migrations/20260810124457_phase_7_strategy_turn_fk_index.sql", import.meta.url), "utf8");
 const indexCleanup = readFileSync(new URL("../supabase/migrations/20260810124613_remove_redundant_strategy_turn_index.sql", import.meta.url), "utf8");
+const handoffMigration = readFileSync(new URL("../supabase/migrations/20260810130647_phase_7_strategy_session_handoff.sql", import.meta.url), "utf8");
+const handoffPanel = readFileSync(new URL("../components/strategy/strategy-session-handoff.tsx", import.meta.url), "utf8");
+const strategyFunction = readFileSync(new URL("../supabase/functions/strategy-ai/index.ts", import.meta.url), "utf8");
 
 test("Strategy Sessions starts with one unfinished thought and remains gradual", () => {
   assert.match(page, /What are you trying to understand\?/);
@@ -19,8 +22,8 @@ test("Strategy Sessions starts with one unfinished thought and remains gradual",
 test("the formal pipeline is preserved as a secondary review layer", () => {
   assert.match(page, /Review argument/);
   assert.match(page, /<InsightBuilderPage \/>/);
-  assert.match(page, /href="\/strategy-ai"/);
-  assert.match(page, /current verified handoff remains available/i);
+  assert.match(page, /Think with ChatGPT/);
+  assert.doesNotMatch(page, /href="\/strategy-ai"/);
 });
 
 test("conversation persistence is project-scoped and append-only for browser users", () => {
@@ -42,4 +45,29 @@ test("the repository loads turns in stable timeline order", () => {
   assert.match(repository, /\.order\("created_at", \{ ascending: true \}\)/);
   assert.match(repository, /\.order\("id", \{ ascending: true \}\)/);
   assert.match(repository, /rpc\("start_strategy_conversation"/);
+});
+
+test("a verified ChatGPT handoff attaches idempotently and creates optional working pieces", () => {
+  assert.match(handoffMigration, /create table public\.strategy_session_pieces/);
+  assert.match(handoffMigration, /create table public\.strategy_session_piece_sources/);
+  assert.match(handoffMigration, /create or replace function public\.attach_strategy_analysis_to_session/);
+  assert.match(handoffMigration, /on conflict \(session_id, ai_message_id\).*do nothing/s);
+  assert.match(handoffMigration, /'measured_fact' then 'observation'/);
+  assert.match(handoffMigration, /'recommendation' then 'opportunity'/);
+  assert.match(handoffMigration, /grant update \(status\).*to authenticated/s);
+  assert.doesNotMatch(handoffMigration, /grant insert.*strategy_session_pieces.*authenticated/is);
+  assert.match(strategyFunction, /attach_strategy_analysis_to_session/);
+  assert.match(strategyFunction, /SESSION_ATTACHMENT_FAILED/);
+});
+
+test("the integrated handoff stays inside one strategy conversation", () => {
+  assert.match(handoffPanel, /strategySessionHandoffQuestion/);
+  assert.match(handoffPanel, /previewStrategyEvidence/);
+  assert.match(handoffPanel, /buildStrategyChatGptPrompt/);
+  assert.match(handoffPanel, /parseStrategyChatGptResponse/);
+  assert.match(handoffPanel, /session\.id/);
+  assert.match(handoffPanel, /optional working pieces—not approved strategy/i);
+  assert.match(page, /strategyPieceLabels/);
+  assert.match(page, /Dismiss/);
+  assert.match(page, /Restore/);
 });

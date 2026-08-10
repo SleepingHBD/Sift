@@ -14,8 +14,11 @@ import type {
   StrategySessionDetail,
   StrategySessionInputRecord,
   StrategySessionOrigin,
+  StrategySessionPieceRecord,
   StrategySessionSummary,
   StrategySessionTurnRecord,
+  StrategyPieceSourceRecord,
+  StrategyPieceStatus,
   StrategyStageAlternativeRecord,
   StrategyStageDependencyRecord,
   StrategyStageRecord,
@@ -30,6 +33,8 @@ type StageRow = Database["public"]["Tables"]["strategy_stages"]["Row"];
 type StageSourceRow = Database["public"]["Tables"]["strategy_stage_sources"]["Row"];
 type SessionInputRow = Database["public"]["Tables"]["strategy_session_inputs"]["Row"];
 type SessionTurnRow = Database["public"]["Tables"]["strategy_session_turns"]["Row"];
+type SessionPieceRow = Database["public"]["Tables"]["strategy_session_pieces"]["Row"];
+type SessionPieceSourceRow = Database["public"]["Tables"]["strategy_session_piece_sources"]["Row"];
 type AlternativeRow = Database["public"]["Tables"]["strategy_stage_alternatives"]["Row"];
 type DependencyRow = Database["public"]["Tables"]["strategy_stage_dependencies"]["Row"];
 type RevisionRow = Database["public"]["Tables"]["strategy_stage_revisions"]["Row"];
@@ -38,7 +43,9 @@ const sessionSelect = "id,project_id,title,status,origin,created_at,updated_at";
 const stageSelect = "id,session_id,project_id,stage,content,claim_type,position,status,confidence,research_gaps,approval_note,approved_at,approved_by,created_at,updated_at";
 const sourceSelect = "id,stage_id,project_id,evidence_type,evidence_id,relationship,excerpt,rationale,created_at";
 const inputSelect = "id,session_id,project_id,input_type,input_id,role,rationale,created_at";
-const turnSelect = "id,project_id,session_id,role,origin,content,metadata,created_by,created_at";
+const turnSelect = "id,project_id,session_id,role,origin,content,metadata,ai_message_id,created_by,created_at";
+const pieceSelect = "id,project_id,session_id,source_turn_id,kind,origin,external_ref,content,why_it_matters,confidence,caveat,status,created_by,created_at,updated_at";
+const pieceSourceSelect = "id,project_id,piece_id,evidence_type,evidence_id,relationship,excerpt,rationale,created_at";
 const alternativeSelect = "id,project_id,stage_id,content,claim_type,confidence,status,rationale,research_gaps,created_at,updated_at";
 const dependencySelect = "id,project_id,stage_id,depends_on_stage_id,relationship,rationale,created_at";
 const revisionSelect = "id,project_id,stage_id,alternative_id,entity_type,change_kind,changed_fields,before_state,after_state,changed_by,created_at";
@@ -72,6 +79,7 @@ function turnFromRow(row: SessionTurnRow): StrategySessionTurnRecord {
     metadata: row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
       ? row.metadata as Record<string, unknown>
       : {},
+    aiMessageId: row.ai_message_id,
     createdBy: row.created_by,
     createdAt: row.created_at,
   };
@@ -198,7 +206,9 @@ export async function addStrategyConversationTurn(
   return turnFromRow(data as SessionTurnRow);
 }
 
-async function evidenceSources(projectId: string, rows: StageSourceRow[]) {
+type EvidenceLinkRow = Pick<StageSourceRow, "project_id" | "evidence_type" | "evidence_id" | "excerpt" | "created_at">;
+
+async function evidenceSources(projectId: string, rows: EvidenceLinkRow[]) {
   const client = requireClient();
   const ids = (kind: StageSourceRow["evidence_type"]) => rows.filter((row) => row.evidence_type === kind).map((row) => row.evidence_id);
   const mentionIds = ids("mention");
@@ -262,7 +272,7 @@ async function evidenceSources(projectId: string, rows: StageSourceRow[]) {
   return sources;
 }
 
-function unavailableSource(row: StageSourceRow): StrategyEvidenceSource {
+function unavailableSource(row: EvidenceLinkRow): StrategyEvidenceSource {
   return {
     id: row.evidence_id,
     projectId: row.project_id,
@@ -313,16 +323,18 @@ async function inputRecords(projectId: string, rows: SessionInputRow[]): Promise
 
 export async function loadStrategySession(sessionId: string, projectId: string): Promise<StrategySessionDetail> {
   const client = requireClient();
-  const [sessionResult, stageResult, inputResult, turnResult] = await Promise.all([
+  const [sessionResult, stageResult, inputResult, turnResult, pieceResult] = await Promise.all([
     client.from("strategy_sessions").select(sessionSelect).eq("id", sessionId).eq("project_id", projectId).single(),
     client.from("strategy_stages").select(stageSelect).eq("session_id", sessionId).eq("project_id", projectId).order("position"),
     client.from("strategy_session_inputs").select(inputSelect).eq("session_id", sessionId).eq("project_id", projectId).order("created_at"),
     client.from("strategy_session_turns").select(turnSelect).eq("session_id", sessionId).eq("project_id", projectId).order("created_at", { ascending: true }).order("id", { ascending: true }),
+    client.from("strategy_session_pieces").select(pieceSelect).eq("session_id", sessionId).eq("project_id", projectId).order("created_at", { ascending: true }).order("id", { ascending: true }),
   ]);
   if (sessionResult.error || !sessionResult.data) throw new Error(`Insight session could not be loaded: ${sessionResult.error?.message ?? "No record was returned."}`);
   if (stageResult.error) throw new Error(`Insight stages could not be loaded: ${stageResult.error.message}`);
   if (inputResult.error) throw new Error(`Starting points could not be loaded: ${inputResult.error.message}`);
   if (turnResult.error) throw new Error(`Strategy conversation could not be loaded: ${turnResult.error.message}`);
+  if (pieceResult.error) throw new Error(`Strategy working pieces could not be loaded: ${pieceResult.error.message}`);
   const stageRows = (stageResult.data ?? []) as StageRow[];
   const stageIds = stageRows.map((row) => row.id);
   const [stageSourcesResult, alternativesResult, dependenciesResult, revisionsResult] = stageIds.length
@@ -392,12 +404,66 @@ export async function loadStrategySession(sessionId: string, projectId: string):
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
+  const pieceRows = (pieceResult.data ?? []) as SessionPieceRow[];
+  const pieceIds = pieceRows.map((row) => row.id);
+  const pieceSourcesResult = pieceIds.length
+    ? await client.from("strategy_session_piece_sources").select(pieceSourceSelect).eq("project_id", projectId).in("piece_id", pieceIds).order("created_at")
+    : { data: [], error: null };
+  if (pieceSourcesResult.error) throw new Error(`Working-piece evidence could not be loaded: ${pieceSourcesResult.error.message}`);
+  const pieceSourceRows = (pieceSourcesResult.data ?? []) as SessionPieceSourceRow[];
+  const pieceEvidenceMap = await evidenceSources(projectId, pieceSourceRows);
+  const sourcesByPiece = new Map<string, StrategyPieceSourceRecord[]>();
+  for (const row of pieceSourceRows) {
+    const source = pieceEvidenceMap.get(`${row.evidence_type}:${row.evidence_id}`) ?? unavailableSource(row);
+    const mapped: StrategyPieceSourceRecord = {
+      id: row.id,
+      pieceId: row.piece_id,
+      projectId: row.project_id,
+      relationship: row.relationship as StrategyPieceSourceRecord["relationship"],
+      excerpt: row.excerpt,
+      rationale: row.rationale,
+      createdAt: row.created_at,
+      source,
+    };
+    sourcesByPiece.set(row.piece_id, [...(sourcesByPiece.get(row.piece_id) ?? []), mapped]);
+  }
+  const pieces: StrategySessionPieceRecord[] = pieceRows.map((row) => ({
+    id: row.id,
+    projectId: row.project_id,
+    sessionId: row.session_id,
+    sourceTurnId: row.source_turn_id,
+    kind: row.kind as StrategySessionPieceRecord["kind"],
+    origin: row.origin as StrategySessionPieceRecord["origin"],
+    externalRef: row.external_ref,
+    content: row.content,
+    whyItMatters: row.why_it_matters,
+    confidence: row.confidence as StrategySessionPieceRecord["confidence"],
+    caveat: row.caveat,
+    status: row.status as StrategySessionPieceRecord["status"],
+    sources: sourcesByPiece.get(row.id) ?? [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
   return {
     ...sessionFromRow(sessionResult.data as SessionRow),
     stages,
     inputs: await inputRecords(projectId, (inputResult.data ?? []) as SessionInputRow[]),
     turns: (turnResult.data ?? []).map((row) => turnFromRow(row as SessionTurnRow)),
+    pieces,
   };
+}
+
+export async function updateStrategyPieceStatus(
+  pieceId: string,
+  projectId: string,
+  status: StrategyPieceStatus,
+): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.from("strategy_session_pieces")
+    .update({ status })
+    .eq("id", pieceId)
+    .eq("project_id", projectId);
+  if (error) throw new Error(`This working piece could not be updated: ${error.message}`);
 }
 
 export async function saveStrategyStage(input: SaveStrategyStageInput): Promise<StrategyStageRecord> {

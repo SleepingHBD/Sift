@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,10 +11,13 @@ import {
   Plus,
   Send,
   Sparkles,
+  X,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { InsightBuilderPage } from "@/components/pages/insight-builder-page";
+import { StrategySourceDrawer } from "@/components/strategy-pipeline/source-drawer";
+import { StrategySessionHandoff } from "@/components/strategy/strategy-session-handoff";
 import { Badge, Button, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
 import {
@@ -23,10 +25,14 @@ import {
   listStrategySessions,
   loadStrategySession,
   startStrategyConversation,
+  updateStrategyPieceStatus,
 } from "@/lib/strategy-pipeline/repository";
+import { strategyPieceLabels } from "@/lib/strategy-pipeline/conversation";
 import { stageDefinition } from "@/lib/strategy-pipeline/model";
 import type {
   StrategySessionDetail,
+  StrategyPieceSourceRecord,
+  StrategySessionPieceRecord,
   StrategySessionSummary,
 } from "@/lib/strategy-pipeline/types";
 
@@ -70,6 +76,8 @@ export function StrategySessionsPage() {
   const [draft, setDraft] = useState("");
   const [startingNew, setStartingNew] = useState(false);
   const [reviewMode, setReviewMode] = useState(false);
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const [selectedPieceSource, setSelectedPieceSource] = useState<StrategyPieceSourceRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -132,6 +140,7 @@ export function StrategySessionsPage() {
     setSession(null);
     setStartingNew(false);
     setReviewMode(false);
+    setHandoffOpen(false);
     setError("");
     setActiveProjectId(value);
   }
@@ -180,6 +189,30 @@ export function StrategySessionsPage() {
     setDraft("");
     setError("");
     setReviewMode(false);
+    setHandoffOpen(false);
+  }
+
+  async function reloadCurrentSession() {
+    if (!session || !cloudProjectId) return;
+    const detail = await loadStrategySession(session.id, cloudProjectId);
+    setSession(detail);
+    setSessions((current) => current
+      .map((item) => item.id === detail.id ? { ...item, updatedAt: detail.updatedAt } : item)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
+    setHandoffOpen(false);
+  }
+
+  async function changePieceStatus(piece: StrategySessionPieceRecord, status: "active" | "dismissed") {
+    setError("");
+    try {
+      await updateStrategyPieceStatus(piece.id, piece.projectId, status);
+      setSession((current) => current ? {
+        ...current,
+        pieces: current.pieces.map((item) => item.id === piece.id ? { ...item, status } : item),
+      } : current);
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "This working piece could not be updated.");
+    }
   }
 
   if (!cloudProjects.length) {
@@ -203,7 +236,10 @@ export function StrategySessionsPage() {
     );
   }
 
-  const sourceCount = new Set(session?.stages.flatMap((stage) => stage.sources.map((source) => `${source.source.kind}:${source.source.id}`)) ?? []).size;
+  const sourceCount = new Set([
+    ...(session?.stages.flatMap((stage) => stage.sources.map((source) => `${source.source.kind}:${source.source.id}`)) ?? []),
+    ...(session?.pieces.flatMap((piece) => piece.sources.map((source) => `${source.source.kind}:${source.source.id}`)) ?? []),
+  ]).size;
 
   return (
     <div className="page strategy-conversation-page">
@@ -255,7 +291,7 @@ export function StrategySessionsPage() {
               ))}
               <article className="strategy-turn strategy-turn--sift strategy-turn--next">
                 <span className="strategy-turn__avatar">S</span>
-                <div><strong>One useful next step</strong><p>{nextPrompt(session)}</p><div className="strategy-turn__actions"><Button size="sm" onClick={() => openCaptureDialog("url")}><FileSearch size={14} />Add evidence</Button><Link className="ui-button ui-button--secondary ui-button--sm" href="/strategy-ai">Use current ChatGPT handoff <ArrowRight size={13} /></Link></div></div>
+                <div><strong>One useful next step</strong><p>{nextPrompt(session)}</p><div className="strategy-turn__actions"><Button size="sm" onClick={() => openCaptureDialog("url")}><FileSearch size={14} />Add evidence</Button><Button size="sm" onClick={() => setHandoffOpen(true)}><Sparkles size={14} />Think with ChatGPT</Button></div></div>
               </article>
             </div>
 
@@ -270,14 +306,18 @@ export function StrategySessionsPage() {
             <dl>
               <div><dt>Conversation</dt><dd>{session.turns.length} saved</dd></div>
               <div><dt>Original evidence</dt><dd>{sourceCount} linked</dd></div>
+              <div><dt>Working pieces</dt><dd>{session.pieces.filter((piece) => piece.status === "active").length} active</dd></div>
               <div><dt>Formal claims</dt><dd>{session.stages.length} of 6</dd></div>
             </dl>
+            {session.pieces.length ? <div className="strategy-conversation-memory__pieces"><div className="strategy-conversation-memory__pieces-head"><p className="drawer-section-label">Working pieces</p><span>Suggestions, not conclusions</span></div>{session.pieces.map((piece) => <article className={piece.status === "dismissed" ? "is-dismissed" : ""} key={piece.id}><div><Badge>{strategyPieceLabels[piece.kind]}</Badge>{piece.confidence ? <small>{piece.confidence} confidence</small> : null}</div><p>{piece.content}</p>{piece.whyItMatters ? <span>{piece.whyItMatters}</span> : null}<footer>{piece.sources.map((source, index) => <button key={source.id} type="button" onClick={() => setSelectedPieceSource(source)}>Source {index + 1}</button>)}<button type="button" onClick={() => void changePieceStatus(piece, piece.status === "dismissed" ? "active" : "dismissed")}>{piece.status === "dismissed" ? "Restore" : <><X size={11} />Dismiss</>}</button></footer></article>)}</div> : null}
             {session.stages.length ? <div className="strategy-conversation-memory__argument"><p className="drawer-section-label">Current argument</p>{session.stages.map((stage) => <button key={stage.id} type="button" onClick={() => setReviewMode(true)}><CheckCircle2 size={13} /><span><strong>{stageDefinition(stage.kind).label}</strong><small>{stage.content}</small></span></button>)}</div> : <div className="strategy-conversation-memory__empty"><Sparkles size={19} /><strong>Your argument can emerge later.</strong><span>For now, continue the conversation or add evidence whenever you find it.</span></div>}
             <Button onClick={() => setReviewMode(true)}><BookOpen size={14} />Open Review argument</Button>
-            <p className="strategy-conversation-memory__boundary">ChatGPT handoff integration will move into this conversation in the next transition increment. The current verified handoff remains available in the meantime.</p>
+            <p className="strategy-conversation-memory__boundary">Working pieces stay separate from your formal argument until you deliberately shape them later.</p>
           </aside>
         </div>
       ) : null}
+      {handoffOpen && session && project ? <StrategySessionHandoff project={project} session={session} onClose={() => setHandoffOpen(false)} onSaved={reloadCurrentSession} /> : null}
+      <StrategySourceDrawer source={selectedPieceSource} onClose={() => setSelectedPieceSource(null)} />
     </div>
   );
 }
