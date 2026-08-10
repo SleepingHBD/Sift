@@ -126,6 +126,8 @@ Before storage, the backend revalidates the exact selected sources under the cal
 
 Phase 6 is complete and accepted for the current manual workflow. The deployed result leads with a plain-language answer while retaining explicit evidence, interpretation, hypothesis, recommendation, confidence, caveat, and citation boundaries. The acceptance scope and remaining limitations are recorded in [docs/phase-6-acceptance.md](docs/phase-6-acceptance.md).
 
+Phase 7 is now in progress. Its first increment audited the existing insight, strategy-stage, citation, Signal, territory, and brief schema against the live Supabase project. The decision is to reuse and harden the existing strategy foundation before adding the Insight Builder; no production schema or data was changed by the audit. See [docs/phase-7-audit.md](docs/phase-7-audit.md).
+
 ## GitHub Pages deployment
 
 Deployment is manual. Pushing to `main` does not publish the website:
@@ -138,4 +140,4 @@ The build applies the repository subpath to routes and assets automatically.
 
 The static export includes a restrictive browser content policy and referrer policy. GitHub Pages controls HTTP response headers, so stronger server headers such as `X-Content-Type-Options` and an HTTP-delivered frame policy require moving the frontend to a host with configurable headers.
 
-See [docs/architecture.md](docs/architecture.md), [docs/radar.md](docs/radar.md), [docs/signals.md](docs/signals.md), [docs/strategy-ai.md](docs/strategy-ai.md), [docs/strategy-ai-evaluation.md](docs/strategy-ai-evaluation.md), [docs/development-roadmap.md](docs/development-roadmap.md), [docs/phase-0-audit.md](docs/phase-0-audit.md), [docs/phase-1-acceptance.md](docs/phase-1-acceptance.md), [docs/phase-3-acceptance.md](docs/phase-3-acceptance.md), [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md), [docs/phase-5-acceptance.md](docs/phase-5-acceptance.md), and [docs/phase-6-acceptance.md](docs/phase-6-acceptance.md) for implementation boundaries, the evidence-first development sequence, backend findings, and acceptance evidence.
+See [docs/architecture.md](docs/architecture.md), [docs/radar.md](docs/radar.md), [docs/signals.md](docs/signals.md), [docs/strategy-ai.md](docs/strategy-ai.md), [docs/strategy-ai-evaluation.md](docs/strategy-ai-evaluation.md), [docs/development-roadmap.md](docs/development-roadmap.md), [docs/phase-0-audit.md](docs/phase-0-audit.md), [docs/phase-1-acceptance.md](docs/phase-1-acceptance.md), [docs/phase-3-acceptance.md](docs/phase-3-acceptance.md), [docs/phase-4-acceptance.md](docs/phase-4-acceptance.md), [docs/phase-5-acceptance.md](docs/phase-5-acceptance.md), [docs/phase-6-acceptance.md](docs/phase-6-acceptance.md), and [docs/phase-7-audit.md](docs/phase-7-audit.md) for implementation boundaries, the evidence-first development sequence, backend findings, and acceptance evidence.

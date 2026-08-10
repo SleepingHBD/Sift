@@ -455,6 +455,8 @@ Answer strategic questions using the user's authorized workspace while keeping g
 
 ## Phase 7 - Insight, strategy, and creative outputs
 
+Status: **In progress.** Increment 1, the schema and architecture audit, is complete and documented in [phase-7-audit.md](phase-7-audit.md). The audit confirms that the existing `strategy_sessions`, `strategy_stages`, `insights`, `creative_territories`, and `briefs` foundation should be reused. Before the first Insight Builder writes data, Increment 2 will add normalized stage evidence, Signal/AI provenance, project-integrity checks, explicit grants and RLS, and the database foundation for dependencies, alternatives, approvals, and revisions. No Phase 7 production records or migrations were created during the audit.
+
 ### Goal
 
 Complete the path from evidence to a usable strategic and creative decision.
@@ -601,9 +603,9 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0 through 6 are complete and accepted. Phase 7 is next. Its first increment will establish the project-scoped editable insight builder across observation, pattern, tension, insight, and opportunity. It will reuse existing evidence and Strategy AI records, require explicit evidence relationships for workspace-backed claims, preserve uncertainty and alternative interpretations, and avoid generating creative outputs before the strategic logic is inspectable. The accepted Phase 6 workflow remains the evidence-grounded thinking input to this pipeline; no automatic or background AI analysis is introduced.
+Phases 0 through 6 are complete and accepted. Phase 7 is in progress, and its schema and architecture audit is complete. The next increment will establish the trusted database foundation for a project-scoped editable insight builder across observation, pattern, tension, insight, and opportunity. It will reuse existing evidence and Strategy AI records, require explicit evidence relationships for workspace-backed claims, preserve uncertainty and alternative interpretations, and avoid generating creative outputs before the strategic logic is inspectable. The accepted Phase 6 workflow remains the evidence-grounded thinking input to this pipeline; no automatic or background AI analysis is introduced.
 
-1. Audit the existing insight, strategy-session, strategy-stage, citation, and evidence-link schema before adding Phase 7 records.
+1. **Complete:** Audit the existing insight, strategy-session, strategy-stage, citation, and evidence-link schema before adding Phase 7 records. See [phase-7-audit.md](phase-7-audit.md).
 2. Build one project-scoped insight workspace that can start from selected Evidence, Signals, or a saved Strategy AI analysis.
 3. Add editable observation, pattern, tension, insight, and opportunity stages with explicit evidence relationships.
 4. Show confidence, unresolved evidence gaps, contradictions, and alternative interpretations without forcing one conclusion.
