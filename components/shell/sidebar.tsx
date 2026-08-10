@@ -21,23 +21,40 @@ import {
 import { useApp } from "@/components/app-provider";
 import { cn } from "@/lib/utils";
 
-const primaryNav = [
-  { label: "Home", href: "/", section: "home", icon: Home },
-  { label: "Radar", href: "/radar", section: "radar", icon: Radio },
-  { label: "Evidence", href: "/evidence", section: "evidence", icon: Inbox },
-  { label: "Trends", href: "/trends", section: "trends", icon: TrendingUp },
-  { label: "Brands", href: "/brands", section: "brands", icon: Building2 },
-  { label: "Competitors", href: "/competitors", section: "competitors", icon: Swords },
-  { label: "Inspiration", href: "/inspiration", section: "inspiration", icon: Images },
-  { label: "Research", href: "/research", section: "research", icon: Library },
-  { label: "Strategy AI", href: "/strategy-ai", section: "strategy-ai", icon: Sparkles },
-  { label: "Briefs", href: "/briefs", section: "briefs", icon: FileText },
-];
+type NavigationItem = {
+  label: string;
+  href: string;
+  section: string;
+  icon: typeof Home;
+};
 
-const utilityNav = [
-  { label: "Projects", href: "/projects", section: "projects", icon: FolderKanban },
-  { label: "Settings", href: "/settings", section: "settings", icon: Settings },
-];
+const homeItem: NavigationItem = { label: "Home", href: "/", section: "home", icon: Home };
+const settingsItem: NavigationItem = { label: "Settings", href: "/settings", section: "settings", icon: Settings };
+
+const workflow = [
+  {
+    letter: "A",
+    label: "Set up",
+    items: [
+      { label: "Projects", href: "/projects", section: "projects", icon: FolderKanban },
+      { label: "Brands", href: "/brands", section: "brands", icon: Building2 },
+      { label: "Competitors", href: "/competitors", section: "competitors", icon: Swords },
+    ],
+  },
+  { letter: "B", label: "Discover", items: [{ label: "Radar", href: "/radar", section: "radar", icon: Radio }] },
+  {
+    letter: "C",
+    label: "Collect",
+    items: [
+      { label: "Research", href: "/research", section: "research", icon: Library },
+      { label: "Inspiration", href: "/inspiration", section: "inspiration", icon: Images },
+    ],
+  },
+  { letter: "D", label: "Review", items: [{ label: "Evidence", href: "/evidence", section: "evidence", icon: Inbox }] },
+  { letter: "E", label: "Understand", items: [{ label: "Trends", href: "/trends", section: "trends", icon: TrendingUp }] },
+  { letter: "F", label: "Think", items: [{ label: "Strategy AI", href: "/strategy-ai", section: "strategy-ai", icon: Sparkles }] },
+  { letter: "G", label: "Create", items: [{ label: "Briefs", href: "/briefs", section: "briefs", icon: FileText }] },
+] satisfies Array<{ letter: string; label: string; items: NavigationItem[] }>;
 
 export function Sidebar({ activeSection }: { activeSection: string }) {
   const { collapsed, setCollapsed, mobileNavOpen, setMobileNavOpen, projects, activeProjectId } = useApp();
@@ -45,7 +62,7 @@ export function Sidebar({ activeSection }: { activeSection: string }) {
   const workspaceName = activeProject?.name ?? "My workspace";
   const workspaceInitials = (activeProject?.brand || activeProject?.name || "My").slice(0, 2).toUpperCase();
 
-  const renderItem = (item: (typeof primaryNav)[number]) => {
+  const renderItem = (item: NavigationItem, cue?: string) => {
     const Icon = item.icon;
     const active = activeSection === item.section;
     return (
@@ -54,11 +71,12 @@ export function Sidebar({ activeSection }: { activeSection: string }) {
         href={item.href}
         className={cn("sidebar-link", active && "sidebar-link--active")}
         aria-current={active ? "page" : undefined}
-        title={collapsed ? item.label : undefined}
+        title={collapsed ? item.label : cue ? `${item.label} — ${cue}` : undefined}
         onClick={() => setMobileNavOpen(false)}
       >
         <Icon size={18} strokeWidth={1.8} />
         <span className="sidebar-link__label">{item.label}</span>
+        {cue ? <span className="sidebar-link__hint">{cue}</span> : null}
       </Link>
     );
   };
@@ -86,11 +104,24 @@ export function Sidebar({ activeSection }: { activeSection: string }) {
         </div>
 
         <nav className="sidebar__nav" aria-label="Main navigation">
-          <p className="sidebar__label">Intelligence</p>
-          {primaryNav.map(renderItem)}
+          <div className="sidebar__home-link">{renderItem(homeItem)}</div>
           <div className="sidebar__divider" />
-          <p className="sidebar__label">Workspace</p>
-          {utilityNav.map(renderItem)}
+          <p className="sidebar__label">Guided workflow</p>
+          <div className="sidebar__workflow">
+            {workflow.map((stage) => (
+              <section className="sidebar-stage" key={stage.letter} aria-labelledby={`sidebar-stage-${stage.letter}`}>
+                <p className="sidebar-stage__label" id={`sidebar-stage-${stage.letter}`}>
+                  <span>{stage.letter}</span>
+                  <strong>{stage.label}</strong>
+                </p>
+                <div className="sidebar-stage__items">
+                  {stage.items.map((item) => renderItem(item, !projects.length && item.section === "projects" ? "Start here" : undefined))}
+                </div>
+              </section>
+            ))}
+          </div>
+          <div className="sidebar__divider sidebar__divider--utility" />
+          {renderItem(settingsItem)}
         </nav>
 
         <div className="sidebar__footer">
