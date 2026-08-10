@@ -30,6 +30,7 @@ export function CaptureEvidenceDialog() {
   const {
     captureDialogOpen,
     captureDialogMode,
+    captureDialogOptions,
     setCaptureDialogOpen,
     projects,
     researchItems,
@@ -76,7 +77,8 @@ export function CaptureEvidenceDialog() {
     if (!captureDialogOpen) return;
     const resetTimer = window.setTimeout(() => {
       setMode(captureDialogMode);
-      setSource("");
+      setProjectId(captureDialogOptions.projectId ?? "");
+      setSource(captureDialogOptions.initialSource ?? "");
       setNote("");
       setTitle("");
       setWhyItMatters("");
@@ -96,7 +98,7 @@ export function CaptureEvidenceDialog() {
       setInspectionError("");
     }, 0);
     return () => window.clearTimeout(resetTimer);
-  }, [captureDialogMode, captureDialogOpen]);
+  }, [captureDialogMode, captureDialogOpen, captureDialogOptions]);
 
   useEffect(() => {
     if (!captureDialogOpen) return;
@@ -180,6 +182,7 @@ export function CaptureEvidenceDialog() {
           file,
           captureOrigin: "global_capture",
         });
+        captureDialogOptions.onSaved?.(item);
         if (keepOpen) {
           resetCapture("file");
           setSavedMessage(`Saved “${item.title}” to ${project.name}.`);
@@ -275,6 +278,7 @@ export function CaptureEvidenceDialog() {
           screenshot: file ?? undefined,
           urlMetadata,
         });
+        captureDialogOptions.onSaved?.(item);
         if (keepOpen) {
           resetCapture("social");
           setSavedMessage(`Saved “${item.title}” to ${project.name}.`);
@@ -345,6 +349,7 @@ export function CaptureEvidenceDialog() {
       }
 
       const item = await addResearch(capture);
+      captureDialogOptions.onSaved?.(item);
       if (keepOpen) {
         resetCapture(mode);
         setSavedMessage(`Saved “${item.title}” to ${project.name}.`);

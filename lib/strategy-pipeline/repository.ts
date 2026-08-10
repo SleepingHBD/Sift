@@ -1,5 +1,6 @@
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import type { Database } from "@/lib/supabase/database.types";
+import type { Database, Json } from "@/lib/supabase/database.types";
+import type { EvidenceReference } from "@/lib/evidence/reference";
 import { nextSessionOrigin } from "./model";
 import type {
   AttachStrategyEvidenceInput,
@@ -17,6 +18,7 @@ import type {
   StrategySessionPieceRecord,
   StrategySessionSummary,
   StrategySessionTurnRecord,
+  StrategyTurnSourceRecord,
   StrategyPieceSourceRecord,
   StrategyPieceStatus,
   StrategyStageAlternativeRecord,
@@ -33,6 +35,7 @@ type StageRow = Database["public"]["Tables"]["strategy_stages"]["Row"];
 type StageSourceRow = Database["public"]["Tables"]["strategy_stage_sources"]["Row"];
 type SessionInputRow = Database["public"]["Tables"]["strategy_session_inputs"]["Row"];
 type SessionTurnRow = Database["public"]["Tables"]["strategy_session_turns"]["Row"];
+type SessionTurnSourceRow = Database["public"]["Tables"]["strategy_session_turn_sources"]["Row"];
 type SessionPieceRow = Database["public"]["Tables"]["strategy_session_pieces"]["Row"];
 type SessionPieceSourceRow = Database["public"]["Tables"]["strategy_session_piece_sources"]["Row"];
 type AlternativeRow = Database["public"]["Tables"]["strategy_stage_alternatives"]["Row"];
@@ -44,6 +47,7 @@ const stageSelect = "id,session_id,project_id,stage,content,claim_type,position,
 const sourceSelect = "id,stage_id,project_id,evidence_type,evidence_id,relationship,excerpt,rationale,created_at";
 const inputSelect = "id,session_id,project_id,input_type,input_id,role,rationale,created_at";
 const turnSelect = "id,project_id,session_id,role,origin,content,metadata,ai_message_id,created_by,created_at";
+const turnSourceSelect = "id,project_id,session_id,turn_id,evidence_type,evidence_id,relationship,excerpt,rationale,created_at";
 const pieceSelect = "id,project_id,session_id,source_turn_id,kind,origin,external_ref,content,why_it_matters,confidence,caveat,status,created_by,created_at,updated_at";
 const pieceSourceSelect = "id,project_id,piece_id,evidence_type,evidence_id,relationship,excerpt,rationale,created_at";
 const alternativeSelect = "id,project_id,stage_id,content,claim_type,confidence,status,rationale,research_gaps,created_at,updated_at";
@@ -68,7 +72,7 @@ function sessionFromRow(row: Pick<SessionRow, "id" | "project_id" | "title" | "s
   };
 }
 
-function turnFromRow(row: SessionTurnRow): StrategySessionTurnRecord {
+function turnFromRow(row: SessionTurnRow, sources: StrategyTurnSourceRecord[] = []): StrategySessionTurnRecord {
   return {
     id: row.id,
     projectId: row.project_id,
@@ -82,6 +86,7 @@ function turnFromRow(row: SessionTurnRow): StrategySessionTurnRecord {
     aiMessageId: row.ai_message_id,
     createdBy: row.created_by,
     createdAt: row.created_at,
+    sources,
   };
 }
 
@@ -191,19 +196,34 @@ export async function addStrategyConversationTurn(
   sessionId: string,
   projectId: string,
   content: string,
+  sources: EvidenceReference[] = [],
 ): Promise<StrategySessionTurnRecord> {
   const cleanContent = content.trim();
-  if (!cleanContent) throw new Error("Write a thought, question, or observation before sending it.");
+  if (!cleanContent && !sources.length) throw new Error("Write a thought or attach a source before saving.");
+  if (sources.length > 12) throw new Error("Attach no more than 12 sources to one notebook entry.");
+  if (sources.some((source) => !source.cloudId)) throw new Error("Only evidence saved in this cloud workspace can be attached.");
   const client = requireClient();
-  const { data, error } = await client.from("strategy_session_turns").insert({
-    project_id: projectId,
-    session_id: sessionId,
-    role: "user",
-    origin: "strategist",
-    content: cleanContent,
-  }).select(turnSelect).single();
-  if (error || !data) throw new Error(`This thought could not be saved: ${error?.message ?? "No turn was returned."}`);
-  return turnFromRow(data as SessionTurnRow);
+  const payload = sources.map((source) => ({
+    kind: source.kind,
+    id: source.cloudId!,
+    excerpt: source.excerpt ?? source.originalContent,
+  })) as unknown as Json;
+  const created = await client.rpc("add_strategy_conversation_turn", {
+    p_session_id: sessionId,
+    p_project_id: projectId,
+    p_content: cleanContent,
+    p_sources: payload,
+  });
+  if (created.error || !created.data) throw new Error(`This notebook entry could not be saved: ${created.error?.message ?? "No turn was returned."}`);
+  const [turnResult, sourceResult] = await Promise.all([
+    client.from("strategy_session_turns").select(turnSelect).eq("id", created.data).eq("project_id", projectId).single(),
+    client.from("strategy_session_turn_sources").select(turnSourceSelect).eq("turn_id", created.data).eq("project_id", projectId).order("created_at"),
+  ]);
+  if (turnResult.error || !turnResult.data) throw new Error(`The notebook entry was saved, but could not be reloaded: ${turnResult.error?.message ?? "No turn was returned."}`);
+  if (sourceResult.error) throw new Error(`The notebook entry was saved, but its sources could not be reloaded: ${sourceResult.error.message}`);
+  const sourceRows = (sourceResult.data ?? []) as SessionTurnSourceRow[];
+  const sourceMap = await evidenceSources(projectId, sourceRows);
+  return turnFromRow(turnResult.data as SessionTurnRow, sourceRows.map((row) => turnSourceFromRow(row, sourceMap)));
 }
 
 type EvidenceLinkRow = Pick<StageSourceRow, "project_id" | "evidence_type" | "evidence_id" | "excerpt" | "created_at">;
@@ -286,6 +306,19 @@ function unavailableSource(row: EvidenceLinkRow): StrategyEvidenceSource {
   };
 }
 
+function turnSourceFromRow(row: SessionTurnSourceRow, sources: Map<string, StrategyEvidenceSource>): StrategyTurnSourceRecord {
+  return {
+    id: row.id,
+    turnId: row.turn_id,
+    projectId: row.project_id,
+    relationship: "context",
+    excerpt: row.excerpt,
+    rationale: row.rationale,
+    createdAt: row.created_at,
+    source: sources.get(`${row.evidence_type}:${row.evidence_id}`) ?? unavailableSource(row),
+  };
+}
+
 async function inputRecords(projectId: string, rows: SessionInputRow[]): Promise<StrategySessionInputRecord[]> {
   if (!rows.length) return [];
   const client = requireClient();
@@ -336,6 +369,21 @@ export async function loadStrategySession(sessionId: string, projectId: string):
   if (turnResult.error) throw new Error(`Strategy conversation could not be loaded: ${turnResult.error.message}`);
   if (pieceResult.error) throw new Error(`Strategy working pieces could not be loaded: ${pieceResult.error.message}`);
   const stageRows = (stageResult.data ?? []) as StageRow[];
+  const turnRows = (turnResult.data ?? []) as SessionTurnRow[];
+  const turnIds = turnRows.map((row) => row.id);
+  const turnSourcesResult = turnIds.length
+    ? await client.from("strategy_session_turn_sources").select(turnSourceSelect).eq("project_id", projectId).in("turn_id", turnIds).order("created_at")
+    : { data: [], error: null };
+  if (turnSourcesResult.error) throw new Error(`Notebook sources could not be loaded: ${turnSourcesResult.error.message}`);
+  const turnSourceRows = (turnSourcesResult.data ?? []) as SessionTurnSourceRow[];
+  const turnEvidenceMap = await evidenceSources(projectId, turnSourceRows);
+  const sourcesByTurn = new Map<string, StrategyTurnSourceRecord[]>();
+  for (const row of turnSourceRows) {
+    sourcesByTurn.set(row.turn_id, [
+      ...(sourcesByTurn.get(row.turn_id) ?? []),
+      turnSourceFromRow(row, turnEvidenceMap),
+    ]);
+  }
   const stageIds = stageRows.map((row) => row.id);
   const [stageSourcesResult, alternativesResult, dependenciesResult, revisionsResult] = stageIds.length
     ? await Promise.all([
@@ -448,7 +496,7 @@ export async function loadStrategySession(sessionId: string, projectId: string):
     ...sessionFromRow(sessionResult.data as SessionRow),
     stages,
     inputs: await inputRecords(projectId, (inputResult.data ?? []) as SessionInputRow[]),
-    turns: (turnResult.data ?? []).map((row) => turnFromRow(row as SessionTurnRow)),
+    turns: turnRows.map((row) => turnFromRow(row, sourcesByTurn.get(row.id) ?? [])),
     pieces,
   };
 }

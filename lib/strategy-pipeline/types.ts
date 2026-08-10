@@ -131,6 +131,18 @@ export interface StrategySessionTurnRecord {
   aiMessageId: string | null;
   createdBy: string;
   createdAt: string;
+  sources: StrategyTurnSourceRecord[];
+}
+
+export interface StrategyTurnSourceRecord {
+  id: string;
+  turnId: string;
+  projectId: string;
+  relationship: "context";
+  excerpt: string | null;
+  rationale: string | null;
+  createdAt: string;
+  source: StrategyEvidenceSource;
 }
 
 export interface StrategyPieceSourceRecord {

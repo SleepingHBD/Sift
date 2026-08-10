@@ -8,6 +8,7 @@ const migration = readFileSync(new URL("../supabase/migrations/20260810123220_ph
 const indexMigration = readFileSync(new URL("../supabase/migrations/20260810124457_phase_7_strategy_turn_fk_index.sql", import.meta.url), "utf8");
 const indexCleanup = readFileSync(new URL("../supabase/migrations/20260810124613_remove_redundant_strategy_turn_index.sql", import.meta.url), "utf8");
 const handoffMigration = readFileSync(new URL("../supabase/migrations/20260810130647_phase_7_strategy_session_handoff.sql", import.meta.url), "utf8");
+const universalCaptureMigration = readFileSync(new URL("../supabase/migrations/20260810153551_phase_7_notebook_turn_sources.sql", import.meta.url), "utf8");
 const handoffPanel = readFileSync(new URL("../components/strategy/strategy-session-handoff.tsx", import.meta.url), "utf8");
 const strategyFunction = readFileSync(new URL("../supabase/functions/strategy-ai/index.ts", import.meta.url), "utf8");
 
@@ -16,7 +17,7 @@ test("Strategy Sessions starts with one unfinished thought and remains gradual",
   assert.match(page, /It can be incomplete/);
   assert.match(page, /startStrategyConversation/);
   assert.match(page, /addStrategyConversationTurn/);
-  assert.match(page, /This saves your thinking\. It does not turn it into a formal insight automatically/);
+  assert.match(page, /Write naturally\. Sources stay attached to this exact entry; formal strategy can wait/);
 });
 
 test("the formal pipeline is preserved as a secondary review layer", () => {
@@ -30,9 +31,24 @@ test("the notebook keeps writing primary and reveals structure only on request",
   assert.match(page, /Notebook memory/);
   assert.match(page, /memoryOpen \? <aside className="strategy-conversation-memory">/);
   assert.match(page, /strategy-conversation-composer__tools/);
-  assert.match(page, /Add source/);
+  assert.match(page, />Library</);
+  assert.match(page, /captureSource\("file"\)/);
   assert.doesNotMatch(page, /setActiveProjectId/);
   assert.doesNotMatch(page, /<span>Notebook<\/span><select/);
+});
+
+test("universal capture keeps notebook evidence project-scoped and citation-ready", () => {
+  assert.match(universalCaptureMigration, /create table public\.strategy_session_turn_sources/);
+  assert.match(universalCaptureMigration, /alter table public\.strategy_session_turn_sources enable row level security/);
+  assert.match(universalCaptureMigration, /private\.strategy_original_evidence_exists/);
+  assert.match(universalCaptureMigration, /create or replace function public\.add_strategy_conversation_turn/);
+  assert.match(universalCaptureMigration, /jsonb_array_length/);
+  assert.match(universalCaptureMigration, /source_count > 12/);
+  assert.match(universalCaptureMigration, /security invoker/);
+  assert.doesNotMatch(universalCaptureMigration, /grant (update|delete).*strategy_session_turn_sources\s+to authenticated/is);
+  assert.match(page, /findNotebookUrl/);
+  assert.match(page, /NotebookSourcePicker/);
+  assert.match(page, /pendingSources/);
 });
 
 test("conversation persistence is project-scoped and append-only for browser users", () => {

@@ -64,6 +64,8 @@ Brands and competitors become notebook context. Trends become a Radar view. Stra
 7. **Creative outputs:** develop cited territories and editable briefs inside the notebook only after the argument workflow is accepted.
 8. **Acceptance and cleanup:** verify persistence, RLS isolation, provenance, citations, responsive use, compatibility routes, and removal of obsolete presentation code.
 
+Implementation progress: steps 1-3 are complete. The next active step is **Connections and threads**.
+
 Notebook-first success means a thought can be saved in seconds, a notebook can begin with only a name, most strategy work happens without leaving the notebook, unfinished thinking never requires classification, and any eventual output remains traceable to its original sources.
 
 ## Product principles
@@ -510,7 +512,7 @@ Answer strategic questions using the user's authorized workspace while keeping g
 
 ## Phase 7 - Notebook-first thinking and creative outputs
 
-Status: **In progress under the approved notebook-first direction.** The trusted argument foundation, conversational workspace, and integrated manual ChatGPT handoff are implemented. The audit is documented in [phase-7-audit.md](phase-7-audit.md). The current work is simplifying the surrounding product so the notebook becomes the default place to capture, connect, think, and eventually shape an argument. The existing evidence-to-proposition builder remains available as **Review argument**, and no generated piece becomes approved strategy automatically.
+Status: **In progress under the approved notebook-first direction.** Product pruning, the notebook foundation, and universal composer capture are implemented. A notebook entry can now combine free writing with newly captured links/files or existing Library and Radar evidence while preserving project-scoped citations. The trusted argument foundation, integrated manual ChatGPT handoff, and **Review argument** layer remain intact; no generated piece becomes approved strategy automatically. The next active step is **Connections and threads**. The audit is documented in [phase-7-audit.md](phase-7-audit.md).
 
 ### Goal
 

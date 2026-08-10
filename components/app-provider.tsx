@@ -93,6 +93,12 @@ export interface NewSocialResearchInput {
   urlMetadata?: EvidenceUrlMetadata;
 }
 
+export interface EvidenceCaptureDialogOptions {
+  projectId?: string;
+  initialSource?: string;
+  onSaved?: (item: ResearchItem) => void;
+}
+
 interface AppContextValue {
   collapsed: boolean;
   setCollapsed: (value: boolean) => void;
@@ -138,7 +144,8 @@ interface AppContextValue {
   setSearchOpen: (value: boolean) => void;
   captureDialogOpen: boolean;
   captureDialogMode: EvidenceCaptureDialogMode;
-  openCaptureDialog: (mode?: EvidenceCaptureDialogMode) => void;
+  captureDialogOptions: EvidenceCaptureDialogOptions;
+  openCaptureDialog: (mode?: EvidenceCaptureDialogMode, options?: EvidenceCaptureDialogOptions) => void;
   setCaptureDialogOpen: (value: boolean) => void;
   strategySession: StrategyWorkingSession;
   setStrategySession: Dispatch<SetStateAction<StrategyWorkingSession>>;
@@ -169,8 +176,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [projectDialogOpen, setProjectDialogOpenState] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [captureDialogOpen, setCaptureDialogOpen] = useState(false);
+  const [captureDialogOpen, setCaptureDialogOpenState] = useState(false);
   const [captureDialogMode, setCaptureDialogMode] = useState<EvidenceCaptureDialogMode>("url");
+  const [captureDialogOptions, setCaptureDialogOptions] = useState<EvidenceCaptureDialogOptions>({});
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>("idle");
   const [workspaceError, setWorkspaceError] = useState("");
   const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
@@ -212,7 +220,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setProjectDialogOpenState(false);
       setEditingProjectId("");
       setSearchOpen(false);
-      setCaptureDialogOpen(false);
+      setCaptureDialogOpenState(false);
+      setCaptureDialogOptions({});
       setPendingProjectImports([]);
       setPendingInspirationImports([]);
       setPendingResearchImports([]);
@@ -283,7 +292,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setMobileNavOpen(false);
         setProjectDialogOpenState(false);
         setEditingProjectId("");
-        setCaptureDialogOpen(false);
+        setCaptureDialogOpenState(false);
+        setCaptureDialogOptions({});
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -570,11 +580,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSearchOpen,
     captureDialogOpen,
     captureDialogMode,
-    openCaptureDialog: (mode = "url") => {
+    captureDialogOptions,
+    openCaptureDialog: (mode = "url", options = {}) => {
       setCaptureDialogMode(mode);
-      setCaptureDialogOpen(true);
+      setCaptureDialogOptions(options);
+      setCaptureDialogOpenState(true);
     },
-    setCaptureDialogOpen,
+    setCaptureDialogOpen: (value) => {
+      setCaptureDialogOpenState(value);
+      if (!value) setCaptureDialogOptions({});
+    },
     strategySession,
     setStrategySession,
   };

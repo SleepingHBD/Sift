@@ -3,9 +3,9 @@
 import { ExternalLink, FileText, X } from "lucide-react";
 import { Badge, Button } from "@/components/ui/primitives";
 import { relationshipLabel } from "@/lib/strategy-pipeline/model";
-import type { StrategyPieceSourceRecord, StrategyStageSourceRecord } from "@/lib/strategy-pipeline/types";
+import type { StrategyPieceSourceRecord, StrategyStageSourceRecord, StrategyTurnSourceRecord } from "@/lib/strategy-pipeline/types";
 
-export function StrategySourceDrawer({ source, onClose }: { source: StrategyStageSourceRecord | StrategyPieceSourceRecord | null; onClose: () => void }) {
+export function StrategySourceDrawer({ source, onClose }: { source: StrategyStageSourceRecord | StrategyPieceSourceRecord | StrategyTurnSourceRecord | null; onClose: () => void }) {
   if (!source) return null;
   return (
     <div className="insight-source-drawer" role="dialog" aria-modal="true" aria-labelledby="insight-source-title">

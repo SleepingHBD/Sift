@@ -2351,6 +2351,63 @@ export type Database = {
           },
         ]
       }
+      strategy_session_turn_sources: {
+        Row: {
+          added_by: string
+          created_at: string
+          evidence_id: string
+          evidence_type: Database["public"]["Enums"]["item_kind"]
+          excerpt: string | null
+          id: string
+          project_id: string
+          rationale: string | null
+          relationship: string
+          session_id: string
+          turn_id: string
+        }
+        Insert: {
+          added_by?: string
+          created_at?: string
+          evidence_id: string
+          evidence_type: Database["public"]["Enums"]["item_kind"]
+          excerpt?: string | null
+          id?: string
+          project_id: string
+          rationale?: string | null
+          relationship?: string
+          session_id: string
+          turn_id: string
+        }
+        Update: {
+          added_by?: string
+          created_at?: string
+          evidence_id?: string
+          evidence_type?: Database["public"]["Enums"]["item_kind"]
+          excerpt?: string | null
+          id?: string
+          project_id?: string
+          rationale?: string | null
+          relationship?: string
+          session_id?: string
+          turn_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_session_turn_sources_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_session_turn_sources_turn_id_project_id_session_i_fkey"
+            columns: ["turn_id", "project_id", "session_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_session_turns"
+            referencedColumns: ["id", "project_id", "session_id"]
+          },
+        ]
+      }
       strategy_session_turns: {
         Row: {
           ai_message_id: string | null
@@ -3322,6 +3379,15 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      add_strategy_conversation_turn: {
+        Args: {
+          p_content: string
+          p_project_id: string
+          p_session_id: string
+          p_sources?: Json
+        }
+        Returns: string
       }
       start_strategy_conversation: {
         Args: { p_opening_message: string; p_project_id: string }

@@ -3,19 +3,23 @@
 import {
   ArrowLeft,
   BookOpen,
+  BookOpenText,
   CheckCircle2,
   FileSearch,
+  Link2,
   LoaderCircle,
   MessageCircle,
   Plus,
   Send,
   Sparkles,
+  Upload,
   X,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { InsightBuilderPage } from "@/components/pages/insight-builder-page";
 import { StrategySourceDrawer } from "@/components/strategy-pipeline/source-drawer";
+import { NotebookSourcePicker } from "@/components/strategy/notebook-source-picker";
 import { StrategySessionHandoff } from "@/components/strategy/strategy-session-handoff";
 import { Badge, Button, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
@@ -27,12 +31,16 @@ import {
   updateStrategyPieceStatus,
 } from "@/lib/strategy-pipeline/repository";
 import { strategyPieceLabels } from "@/lib/strategy-pipeline/conversation";
+import { findNotebookUrl } from "@/lib/strategy-pipeline/notebook-capture";
 import { stageDefinition } from "@/lib/strategy-pipeline/model";
+import { researchItemToEvidenceReference, type EvidenceReference } from "@/lib/evidence/reference";
+import type { ResearchItem } from "@/lib/types";
 import type {
   StrategySessionDetail,
   StrategyPieceSourceRecord,
   StrategySessionPieceRecord,
   StrategySessionSummary,
+  StrategyTurnSourceRecord,
 } from "@/lib/strategy-pipeline/types";
 
 function formatTurnTime(value: string) {
@@ -55,6 +63,10 @@ function nextPrompt(session: StrategySessionDetail) {
   return "Your formal argument is still available in Review argument. Continue thinking here whenever something changes, conflicts, or needs more evidence.";
 }
 
+function evidenceKey(source: EvidenceReference) {
+  return `${source.kind}:${source.cloudId ?? source.id}`;
+}
+
 export function StrategySessionsPage() {
   const {
     projects,
@@ -71,11 +83,13 @@ export function StrategySessionsPage() {
   const [session, setSession] = useState<StrategySessionDetail | null>(null);
   const [openingMessage, setOpeningMessage] = useState("");
   const [draft, setDraft] = useState("");
+  const [pendingSources, setPendingSources] = useState<EvidenceReference[]>([]);
+  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
   const [startingNew, setStartingNew] = useState(false);
   const [reviewMode, setReviewMode] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [handoffOpen, setHandoffOpen] = useState(false);
-  const [selectedPieceSource, setSelectedPieceSource] = useState<StrategyPieceSourceRecord | null>(null);
+  const [selectedSource, setSelectedSource] = useState<StrategyPieceSourceRecord | StrategyTurnSourceRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -116,6 +130,8 @@ export function StrategySessionsPage() {
       setReviewMode(false);
       setMemoryOpen(false);
       setHandoffOpen(false);
+      setPendingSources([]);
+      setSourcePickerOpen(false);
       setError("");
       void loadProjectSessions(cloudProjectId);
     });
@@ -162,16 +178,17 @@ export function StrategySessionsPage() {
 
   async function sendTurn(event: FormEvent) {
     event.preventDefault();
-    if (!session || !draft.trim()) return;
+    if (!session || (!draft.trim() && !pendingSources.length)) return;
     setSending(true);
     setError("");
     try {
-      const turn = await addStrategyConversationTurn(session.id, session.projectId, draft);
+      const turn = await addStrategyConversationTurn(session.id, session.projectId, draft, pendingSources);
       setSession((current) => current ? { ...current, turns: [...current.turns, turn], updatedAt: turn.createdAt } : current);
       setSessions((current) => current
         .map((item) => item.id === session.id ? { ...item, updatedAt: turn.createdAt } : item)
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
       setDraft("");
+      setPendingSources([]);
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "This thought could not be saved.");
     } finally {
@@ -183,6 +200,8 @@ export function StrategySessionsPage() {
     setStartingNew(true);
     setOpeningMessage("");
     setDraft("");
+    setPendingSources([]);
+    setSourcePickerOpen(false);
     setError("");
     setReviewMode(false);
     setMemoryOpen(false);
@@ -197,6 +216,29 @@ export function StrategySessionsPage() {
       .map((item) => item.id === detail.id ? { ...item, updatedAt: detail.updatedAt } : item)
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
     setHandoffOpen(false);
+  }
+
+  function togglePendingSource(source: EvidenceReference) {
+    const key = evidenceKey(source);
+    setPendingSources((current) => current.some((item) => evidenceKey(item) === key)
+      ? current.filter((item) => evidenceKey(item) !== key)
+      : [...current, source]);
+  }
+
+  function attachCapturedSource(item: ResearchItem) {
+    if (!cloudProjectId) return;
+    const source = researchItemToEvidenceReference(item, { cloudProjectId });
+    setPendingSources((current) => current.some((candidate) => evidenceKey(candidate) === evidenceKey(source))
+      ? current
+      : [...current, source]);
+  }
+
+  function captureSource(mode: "url" | "file", initialSource = "") {
+    openCaptureDialog(mode, {
+      projectId: resolvedProjectClientId,
+      initialSource,
+      onSaved: attachCapturedSource,
+    });
   }
 
   async function changePieceStatus(piece: StrategySessionPieceRecord, status: "active" | "dismissed") {
@@ -234,9 +276,12 @@ export function StrategySessionsPage() {
   }
 
   const sourceCount = new Set([
+    ...(session?.turns.flatMap((turn) => turn.sources.map((source) => `${source.source.kind}:${source.source.id}`)) ?? []),
     ...(session?.stages.flatMap((stage) => stage.sources.map((source) => `${source.source.kind}:${source.source.id}`)) ?? []),
     ...(session?.pieces.flatMap((piece) => piece.sources.map((source) => `${source.source.kind}:${source.source.id}`)) ?? []),
   ]).size;
+  const detectedUrl = findNotebookUrl(draft);
+  const detectedUrlAttached = Boolean(detectedUrl && pendingSources.some((source) => source.originalUrl === detectedUrl || source.canonicalUrl === detectedUrl));
 
   return (
     <div className="page strategy-conversation-page">
@@ -255,7 +300,7 @@ export function StrategySessionsPage() {
       <section className="notebook-page-switcher" aria-label="Notebook page selection">
         <label>
           <span>Page</span>
-          <select value={startingNew ? "" : sessionId} disabled={!sessions.length || startingNew} onChange={(event) => { setStartingNew(false); setSessionId(event.target.value); }}>
+          <select value={startingNew ? "" : sessionId} disabled={!sessions.length || startingNew} onChange={(event) => { setStartingNew(false); setSessionId(event.target.value); setPendingSources([]); setSourcePickerOpen(false); }}>
             {startingNew ? <option value="">Starting a new page</option> : sessions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
           </select>
         </label>
@@ -290,7 +335,7 @@ export function StrategySessionsPage() {
               {session.turns.map((turn) => (
                 <article className={`strategy-turn strategy-turn--${turn.role}`} key={turn.id}>
                   <span className="strategy-turn__avatar">{turn.role === "user" ? "You" : "S"}</span>
-                  <div><strong>{turn.role === "user" ? "You" : turn.origin === "chatgpt_manual" ? "ChatGPT handoff" : "Sift"}</strong><p>{turn.content}</p><time>{formatTurnTime(turn.createdAt)}</time></div>
+                  <div><strong>{turn.role === "user" ? "You" : turn.origin === "chatgpt_manual" ? "ChatGPT handoff" : "Sift"}</strong>{turn.metadata.capture_only !== true ? <p>{turn.content}</p> : <p className="strategy-turn__capture-label">Added to this page</p>}{turn.sources.length ? <div className="strategy-turn__sources">{turn.sources.map((source) => <button type="button" key={source.id} onClick={() => setSelectedSource(source)}><FileSearch size={14} /><span><strong>{source.source.title}</strong><small>{source.source.sourceLabel}</small></span></button>)}</div> : null}<time>{formatTurnTime(turn.createdAt)}</time></div>
                 </article>
               ))}
               <article className="strategy-turn strategy-turn--sift strategy-turn--next">
@@ -301,21 +346,25 @@ export function StrategySessionsPage() {
 
             <form className="strategy-conversation-composer" onSubmit={sendTurn}>
               <textarea rows={4} maxLength={10000} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Write what you noticed, wondered, disagreed with, or are not sure about…" aria-label="Continue strategy conversation" />
+              {detectedUrl && !detectedUrlAttached ? <div className="strategy-conversation-composer__link"><Link2 size={14} /><span><strong>Link noticed</strong><small>Save it as a source so this entry keeps the original evidence.</small></span><Button type="button" size="sm" onClick={() => captureSource("url", detectedUrl)}>Save &amp; attach</Button></div> : null}
+              {pendingSources.length ? <div className="strategy-conversation-composer__sources" aria-label="Sources attached to this entry">{pendingSources.map((source) => <span key={evidenceKey(source)}><FileSearch size={13} /><span>{source.title}</span><button type="button" onClick={() => togglePendingSource(source)} aria-label={`Remove ${source.title}`}><X size={13} /></button></span>)}</div> : null}
               <div className="strategy-conversation-composer__footer">
                 <div className="strategy-conversation-composer__tools">
-                  <Button type="button" size="sm" onClick={() => openCaptureDialog("url")}><FileSearch size={14} />Add source</Button>
+                  <Button type="button" size="sm" onClick={() => captureSource("url")}><Link2 size={14} />Link</Button>
+                  <Button type="button" size="sm" onClick={() => captureSource("file")}><Upload size={14} />File</Button>
+                  <Button type="button" size="sm" onClick={() => setSourcePickerOpen(true)}><BookOpenText size={14} />Library</Button>
                   <Button type="button" size="sm" onClick={() => setHandoffOpen(true)}><Sparkles size={14} />Think with ChatGPT</Button>
                 </div>
-                <Button variant="dark" disabled={sending || !draft.trim()}>{sending ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />}Save thought</Button>
+                <Button variant="dark" disabled={sending || (!draft.trim() && !pendingSources.length)}>{sending ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />}Save</Button>
               </div>
-              <span className="strategy-conversation-composer__note">This saves your thinking. It does not turn it into a formal insight automatically.</span>
+              <span className="strategy-conversation-composer__note">Write naturally. Sources stay attached to this exact entry; formal strategy can wait.</span>
             </form>
           </main>
 
           {memoryOpen ? <aside className="strategy-conversation-memory">
             <header><p className="eyebrow">Strategy so far</p><h2>Nothing is due.</h2><p>Keep collecting pieces. Structure appears only when it becomes useful.</p></header>
             <p className="strategy-conversation-memory__summary">{session.turns.length} {session.turns.length === 1 ? "entry" : "entries"} · {sourceCount} {sourceCount === 1 ? "source" : "sources"} · {session.pieces.filter((piece) => piece.status === "active").length} working {session.pieces.filter((piece) => piece.status === "active").length === 1 ? "piece" : "pieces"}</p>
-            {session.pieces.length ? <div className="strategy-conversation-memory__pieces"><div className="strategy-conversation-memory__pieces-head"><p className="drawer-section-label">Working pieces</p><span>Suggestions, not conclusions</span></div>{session.pieces.map((piece) => <article className={piece.status === "dismissed" ? "is-dismissed" : ""} key={piece.id}><div><Badge>{strategyPieceLabels[piece.kind]}</Badge>{piece.confidence ? <small>{piece.confidence} confidence</small> : null}</div><p>{piece.content}</p>{piece.whyItMatters ? <span>{piece.whyItMatters}</span> : null}<footer>{piece.sources.map((source, index) => <button key={source.id} type="button" onClick={() => setSelectedPieceSource(source)}>Source {index + 1}</button>)}<button type="button" onClick={() => void changePieceStatus(piece, piece.status === "dismissed" ? "active" : "dismissed")}>{piece.status === "dismissed" ? "Restore" : <><X size={11} />Dismiss</>}</button></footer></article>)}</div> : null}
+            {session.pieces.length ? <div className="strategy-conversation-memory__pieces"><div className="strategy-conversation-memory__pieces-head"><p className="drawer-section-label">Working pieces</p><span>Suggestions, not conclusions</span></div>{session.pieces.map((piece) => <article className={piece.status === "dismissed" ? "is-dismissed" : ""} key={piece.id}><div><Badge>{strategyPieceLabels[piece.kind]}</Badge>{piece.confidence ? <small>{piece.confidence} confidence</small> : null}</div><p>{piece.content}</p>{piece.whyItMatters ? <span>{piece.whyItMatters}</span> : null}<footer>{piece.sources.map((source, index) => <button key={source.id} type="button" onClick={() => setSelectedSource(source)}>Source {index + 1}</button>)}<button type="button" onClick={() => void changePieceStatus(piece, piece.status === "dismissed" ? "active" : "dismissed")}>{piece.status === "dismissed" ? "Restore" : <><X size={11} />Dismiss</>}</button></footer></article>)}</div> : null}
             {session.stages.length ? <div className="strategy-conversation-memory__argument"><p className="drawer-section-label">Current argument</p>{session.stages.map((stage) => <button key={stage.id} type="button" onClick={() => setReviewMode(true)}><CheckCircle2 size={13} /><span><strong>{stageDefinition(stage.kind).label}</strong><small>{stage.content}</small></span></button>)}</div> : <div className="strategy-conversation-memory__empty"><Sparkles size={19} /><strong>Your argument can emerge later.</strong><span>For now, continue the conversation or add evidence whenever you find it.</span></div>}
             <Button onClick={() => setReviewMode(true)}><BookOpen size={14} />Open Review argument</Button>
             <p className="strategy-conversation-memory__boundary">Working pieces stay separate from your formal argument until you deliberately shape them later.</p>
@@ -323,7 +372,8 @@ export function StrategySessionsPage() {
         </div>
       ) : null}
       {handoffOpen && session && project ? <StrategySessionHandoff project={project} session={session} onClose={() => setHandoffOpen(false)} onSaved={reloadCurrentSession} /> : null}
-      <StrategySourceDrawer source={selectedPieceSource} onClose={() => setSelectedPieceSource(null)} />
+      {sourcePickerOpen && session ? <NotebookSourcePicker projectId={session.projectId} selected={pendingSources} onToggle={togglePendingSource} onClose={() => setSourcePickerOpen(false)} /> : null}
+      <StrategySourceDrawer source={selectedSource} onClose={() => setSelectedSource(null)} />
     </div>
   );
 }
