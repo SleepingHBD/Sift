@@ -65,7 +65,7 @@ export function StrategyChatGptHandoff({
           <div className="strategy-handoff__step-body">
             <p className="eyebrow">Think in ChatGPT</p>
             <h3>Paste the prompt and run it</h3>
-            <p>Use your existing ChatGPT account. ChatGPT should return JSON only; if it adds a code fence, Sift can still read it.</p>
+            <p>Use your existing ChatGPT account. The response arrives as JSON so Sift can verify it, then Sift turns it into a plain-language strategist answer.</p>
             <div className="strategy-handoff__notice"><ShieldCheck size={15} /><span>Do not paste passwords, API keys, private credentials, or evidence you do not want processed in ChatGPT.</span></div>
           </div>
         </section>
@@ -75,7 +75,7 @@ export function StrategyChatGptHandoff({
           <div className="strategy-handoff__step-body">
             <p className="eyebrow">Return to Sift</p>
             <h3>Paste the ChatGPT response</h3>
-            <p>Sift will reject malformed output, uncited claims, and any citation outside your selected evidence before saving.</p>
+            <p>Sift verifies the source links and then presents the answer in a readable order: direct answer, meaning, evidence, uncertainty, and next steps.</p>
             <label className="strategy-handoff__response">
               <span>ChatGPT response · JSON</span>
               <textarea

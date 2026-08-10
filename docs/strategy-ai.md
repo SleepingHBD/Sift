@@ -16,7 +16,7 @@ Phase 6 uses a deliberate ChatGPT handoff instead of a paid model API. Sift retr
 10. Paste the prompt into ChatGPT using the user's existing account.
 11. Copy ChatGPT's JSON response back into Sift.
 12. Select **Validate and save analysis**.
-13. Review every stored claim, epistemic label, caveat, and evidence citation.
+13. Read the plain-language answer first, then inspect what the evidence shows, what it may mean, possible actions, uncertainty, and source citations.
 
 Evidence marked `irrelevant` or `archived` is excluded. The handoff preserves original source text, the interpretation recorded when the source entered Sift, and later strategist notes as separate fields.
 
@@ -42,6 +42,8 @@ Evidence marked `irrelevant` or `archived` is excluded. The handoff preserves or
 
 ## Response contract
 
+- The prompt requires a direct answer first, everyday language, short sentences, concrete wording, and an explanation for any unavoidable specialist term.
+- The result interface presents the summary before the analytical machinery, then groups claims into what the evidence shows, what it may mean, and what the strategist could do.
 - Each claim is classified as `measured_fact`, `interpretation`, `hypothesis`, or `recommendation`.
 - Every claim and tension must cite one or more exact stable identities from the strategist-selected evidence scope.
 - Confidence is limited to `high`, `medium`, or `low`, and every claim carries a caveat field.

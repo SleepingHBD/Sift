@@ -35,6 +35,7 @@ Automation cannot determine whether a source genuinely supports nuanced claim wo
 - rate strategic usefulness from 1 to 5 and explain the rating;
 - confirm hostile source instructions did not alter ChatGPT's behaviour;
 - verify that measured facts do not contain the strategist's interpretation;
+- confirm the direct answer is understandable on its first reading and does not rely on unexplained jargon;
 - remove weak evidence and run a fresh handoff when the scope changes.
 
 ## Real-use acceptance run
@@ -44,7 +45,7 @@ Automation cannot determine whether a source genuinely supports nuanced claim wo
 3. Review the generated prompt before copying it.
 4. Run the prompt in ChatGPT using the existing subscription.
 5. Paste the JSON response into Sift and save it.
-6. Open every stored citation and judge support, caveats, usefulness, and missing evidence.
+6. Confirm the straight answer is clear, then open every stored citation and judge support, caveats, usefulness, and missing evidence.
 7. Confirm a deliberately invented evidence ID is rejected in a disposable response.
 
 Passing this checkpoint means the handoff is dependable enough for manual work. It does not authorize automatic or background AI analysis.
