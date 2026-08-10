@@ -85,7 +85,7 @@ export function EvidenceDeleteDialog({
           {status === "ready" && blockers.length ? (
             <div className="evidence-delete-dialog__state evidence-delete-dialog__state--blocked">
               <ShieldAlert size={21} />
-              <div><strong>This source is protected from deletion.</strong><span>It supports {blockers.length} strategic {blockers.length === 1 ? "citation" : "citations"}. Remove those citations from their insight or brief first.</span></div>
+              <div><strong>This source is protected from deletion.</strong><span>It supports {blockers.length} strategic {blockers.length === 1 ? "citation" : "citations"}. Remove the citation from its Insight Builder claim, insight, or brief before deleting the source.</span></div>
             </div>
           ) : null}
 

@@ -57,7 +57,7 @@ function RetentionPreviewPanel({ monitorId, retentionDays }: { monitorId: string
 
   if (failed) return <p>Sift could not load the preview. The preference can still be saved; nothing will be deleted.</p>;
   if (!preview) return <p><LoaderCircle className="spin" size={13} />Checking this monitor&apos;s history...</p>;
-  return <div className="retention-preview__metrics"><span><b>{preview.candidateMentions}</b>Older than {retentionDays} days</span><span><b>{preview.protectedMentions}</b>Protected evidence</span><span><b>{preview.eligibleMentions}</b>Would be eligible</span></div>;
+  return <><div className="retention-preview__metrics"><span><b>{preview.candidateMentions}</b>Older than {retentionDays} days</span><span><b>{preview.protectedMentions}</b>Protected evidence</span><span><b>{preview.eligibleMentions}</b>Would be eligible</span></div><p className="retention-preview__protection">Mentions cited in the Insight Builder remain protected until you deliberately remove the citation.</p></>;
 }
 
 export function MonitorDialog({

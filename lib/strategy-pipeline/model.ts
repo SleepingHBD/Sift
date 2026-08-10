@@ -1,8 +1,10 @@
 import type {
   StrategyClaimType,
+  StrategyDependencyRelationship,
   StrategySessionOrigin,
   StrategySourceRelationship,
   StrategyStageKind,
+  StrategyStageRecord,
 } from "./types";
 
 export interface StrategyStageDefinition {
@@ -83,4 +85,20 @@ export function stageProgress(savedKinds: StrategyStageKind[]) {
 
 export function cleanResearchGaps(value: string) {
   return [...new Set(value.split("\n").map((item) => item.trim()).filter(Boolean))];
+}
+
+export function dependencyRelationshipLabel(relationship: StrategyDependencyRelationship) {
+  if (relationship === "qualifies") return "Qualifies";
+  if (relationship === "challenges") return "Challenges";
+  return "Builds from";
+}
+
+export function stageApprovalChecks(stage: StrategyStageRecord) {
+  const needsSupport = stage.claimType === "evidence" || stage.kind === "observation" || stage.kind === "insight";
+  const needsDependency = stage.kind !== "observation";
+  return [
+    { key: "claim", label: "Claim is saved", passed: Boolean(stage.content.trim()) },
+    ...(needsSupport ? [{ key: "support", label: "Supporting original evidence is linked", passed: stage.sources.some((source) => source.relationship === "support") }] : []),
+    ...(needsDependency ? [{ key: "dependency", label: "An earlier claim is connected", passed: stage.dependencies.length > 0 }] : []),
+  ];
 }

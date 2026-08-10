@@ -3,27 +3,42 @@ import type { Database } from "@/lib/supabase/database.types";
 import { nextSessionOrigin } from "./model";
 import type {
   AttachStrategyEvidenceInput,
+  CreateStrategyAlternativeInput,
+  CreateStrategyDependencyInput,
   SaveStrategyStageInput,
   StrategyAiInputOption,
+  StrategyAlternativeStatus,
+  StrategyConfidence,
   StrategyEvidenceSource,
   StrategyInputType,
   StrategySessionDetail,
   StrategySessionInputRecord,
   StrategySessionOrigin,
   StrategySessionSummary,
+  StrategyStageAlternativeRecord,
+  StrategyStageDependencyRecord,
   StrategyStageRecord,
+  StrategyStageRevisionRecord,
   StrategyStageSourceRecord,
+  StrategyStageStatus,
+  UpdateStrategyAlternativeInput,
 } from "./types";
 
 type SessionRow = Database["public"]["Tables"]["strategy_sessions"]["Row"];
 type StageRow = Database["public"]["Tables"]["strategy_stages"]["Row"];
 type StageSourceRow = Database["public"]["Tables"]["strategy_stage_sources"]["Row"];
 type SessionInputRow = Database["public"]["Tables"]["strategy_session_inputs"]["Row"];
+type AlternativeRow = Database["public"]["Tables"]["strategy_stage_alternatives"]["Row"];
+type DependencyRow = Database["public"]["Tables"]["strategy_stage_dependencies"]["Row"];
+type RevisionRow = Database["public"]["Tables"]["strategy_stage_revisions"]["Row"];
 
 const sessionSelect = "id,project_id,title,status,origin,created_at,updated_at";
-const stageSelect = "id,session_id,project_id,stage,content,claim_type,position,status,confidence,research_gaps,created_at,updated_at";
+const stageSelect = "id,session_id,project_id,stage,content,claim_type,position,status,confidence,research_gaps,approval_note,approved_at,approved_by,created_at,updated_at";
 const sourceSelect = "id,stage_id,project_id,evidence_type,evidence_id,relationship,excerpt,rationale,created_at";
 const inputSelect = "id,session_id,project_id,input_type,input_id,role,rationale,created_at";
+const alternativeSelect = "id,project_id,stage_id,content,claim_type,confidence,status,rationale,research_gaps,created_at,updated_at";
+const dependencySelect = "id,project_id,stage_id,depends_on_stage_id,relationship,rationale,created_at";
+const revisionSelect = "id,project_id,stage_id,alternative_id,entity_type,change_kind,changed_fields,before_state,after_state,changed_by,created_at";
 
 function requireClient() {
   const client = createBrowserSupabaseClient();
@@ -47,6 +62,54 @@ function sourceExcerpt(value: string | null, length = 260) {
   if (!value) return null;
   const clean = value.trim();
   return clean.length > length ? `${clean.slice(0, length - 1).trimEnd()}…` : clean;
+}
+
+function jsonRecord(value: Database["public"]["Tables"]["strategy_stage_revisions"]["Row"]["before_state"]): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function alternativeFromRow(row: AlternativeRow): StrategyStageAlternativeRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    stageId: row.stage_id,
+    content: row.content,
+    claimType: row.claim_type,
+    confidence: row.confidence as StrategyStageAlternativeRecord["confidence"],
+    status: row.status as StrategyStageAlternativeRecord["status"],
+    rationale: row.rationale,
+    researchGaps: row.research_gaps,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function dependencyFromRow(row: DependencyRow): StrategyStageDependencyRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    stageId: row.stage_id,
+    dependsOnStageId: row.depends_on_stage_id,
+    relationship: row.relationship as StrategyStageDependencyRecord["relationship"],
+    rationale: row.rationale,
+    createdAt: row.created_at,
+  };
+}
+
+function revisionFromRow(row: RevisionRow): StrategyStageRevisionRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    stageId: row.stage_id,
+    alternativeId: row.alternative_id,
+    entityType: row.entity_type as StrategyStageRevisionRecord["entityType"],
+    changeKind: row.change_kind as StrategyStageRevisionRecord["changeKind"],
+    changedFields: row.changed_fields,
+    beforeState: jsonRecord(row.before_state),
+    afterState: jsonRecord(row.after_state),
+    changedBy: row.changed_by,
+    createdAt: row.created_at,
+  };
 }
 
 export async function listStrategySessions(projectId: string): Promise<StrategySessionSummary[]> {
@@ -200,10 +263,23 @@ export async function loadStrategySession(sessionId: string, projectId: string):
   if (inputResult.error) throw new Error(`Starting points could not be loaded: ${inputResult.error.message}`);
   const stageRows = (stageResult.data ?? []) as StageRow[];
   const stageIds = stageRows.map((row) => row.id);
-  const stageSourcesResult = stageIds.length
-    ? await client.from("strategy_stage_sources").select(sourceSelect).eq("project_id", projectId).in("stage_id", stageIds).order("created_at")
-    : { data: [], error: null };
+  const [stageSourcesResult, alternativesResult, dependenciesResult, revisionsResult] = stageIds.length
+    ? await Promise.all([
+      client.from("strategy_stage_sources").select(sourceSelect).eq("project_id", projectId).in("stage_id", stageIds).is("alternative_id", null).order("created_at"),
+      client.from("strategy_stage_alternatives").select(alternativeSelect).eq("project_id", projectId).in("stage_id", stageIds).order("created_at"),
+      client.from("strategy_stage_dependencies").select(dependencySelect).eq("project_id", projectId).in("stage_id", stageIds).order("created_at"),
+      client.from("strategy_stage_revisions").select(revisionSelect).eq("project_id", projectId).in("stage_id", stageIds).order("created_at", { ascending: false }),
+    ])
+    : [
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+    ];
   if (stageSourcesResult.error) throw new Error(`Stage evidence could not be loaded: ${stageSourcesResult.error.message}`);
+  if (alternativesResult.error) throw new Error(`Alternative interpretations could not be loaded: ${alternativesResult.error.message}`);
+  if (dependenciesResult.error) throw new Error(`Stage dependencies could not be loaded: ${dependenciesResult.error.message}`);
+  if (revisionsResult.error) throw new Error(`Stage revision history could not be loaded: ${revisionsResult.error.message}`);
   const sourceRows = (stageSourcesResult.data ?? []) as StageSourceRow[];
   const sourceMap = await evidenceSources(projectId, sourceRows);
   const sourcesByStage = new Map<string, StrategyStageSourceRecord[]>();
@@ -221,6 +297,18 @@ export async function loadStrategySession(sessionId: string, projectId: string):
     };
     sourcesByStage.set(row.stage_id, [...(sourcesByStage.get(row.stage_id) ?? []), mapped]);
   }
+  const alternativesByStage = new Map<string, StrategyStageAlternativeRecord[]>();
+  for (const row of (alternativesResult.data ?? []) as AlternativeRow[]) {
+    alternativesByStage.set(row.stage_id, [...(alternativesByStage.get(row.stage_id) ?? []), alternativeFromRow(row)]);
+  }
+  const dependenciesByStage = new Map<string, StrategyStageDependencyRecord[]>();
+  for (const row of (dependenciesResult.data ?? []) as DependencyRow[]) {
+    dependenciesByStage.set(row.stage_id, [...(dependenciesByStage.get(row.stage_id) ?? []), dependencyFromRow(row)]);
+  }
+  const revisionsByStage = new Map<string, StrategyStageRevisionRecord[]>();
+  for (const row of (revisionsResult.data ?? []) as RevisionRow[]) {
+    revisionsByStage.set(row.stage_id, [...(revisionsByStage.get(row.stage_id) ?? []), revisionFromRow(row)]);
+  }
   const stages: StrategyStageRecord[] = stageRows.map((row) => ({
     id: row.id,
     sessionId: row.session_id,
@@ -232,7 +320,13 @@ export async function loadStrategySession(sessionId: string, projectId: string):
     status: row.status as StrategyStageRecord["status"],
     confidence: row.confidence as StrategyStageRecord["confidence"],
     researchGaps: row.research_gaps,
+    approvalNote: row.approval_note,
+    approvedAt: row.approved_at,
+    approvedBy: row.approved_by,
     sources: sourcesByStage.get(row.id) ?? [],
+    alternatives: alternativesByStage.get(row.id) ?? [],
+    dependencies: dependenciesByStage.get(row.id) ?? [],
+    revisions: revisionsByStage.get(row.id) ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
@@ -272,7 +366,13 @@ export async function saveStrategyStage(input: SaveStrategyStageInput): Promise<
     status: row.status as StrategyStageRecord["status"],
     confidence: row.confidence as StrategyStageRecord["confidence"],
     researchGaps: row.research_gaps,
+    approvalNote: row.approval_note,
+    approvedAt: row.approved_at,
+    approvedBy: row.approved_by,
     sources: [],
+    alternatives: [],
+    dependencies: [],
+    revisions: [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -302,6 +402,108 @@ export async function removeStrategyEvidence(sourceLinkId: string, projectId: st
     .eq("project_id", projectId)
     .eq("stage_id", stageId);
   if (error) throw new Error(`Evidence link could not be removed: ${error.message}`);
+}
+
+export async function updateStrategyStageUncertainty(
+  stageId: string,
+  projectId: string,
+  confidence: StrategyConfidence,
+  researchGaps: string[],
+): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.from("strategy_stages")
+    .update({ confidence, research_gaps: researchGaps })
+    .eq("id", stageId)
+    .eq("project_id", projectId);
+  if (error) throw new Error(`Confidence and research gaps could not be saved: ${error.message}`);
+}
+
+export async function setStrategyStageStatus(
+  stageId: string,
+  projectId: string,
+  status: StrategyStageStatus,
+  approvalNote?: string,
+): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.from("strategy_stages")
+    .update({ status, approval_note: status === "approved" ? approvalNote?.trim() || null : null })
+    .eq("id", stageId)
+    .eq("project_id", projectId);
+  if (error) throw new Error(`Stage status could not be changed: ${error.message}`);
+}
+
+export async function createStrategyAlternative(input: CreateStrategyAlternativeInput): Promise<void> {
+  const content = input.content.trim();
+  if (!content) throw new Error("Write the alternative interpretation before saving it.");
+  const client = requireClient();
+  const { error } = await client.from("strategy_stage_alternatives").insert({
+    project_id: input.projectId,
+    stage_id: input.stageId,
+    content,
+    claim_type: input.claimType,
+    confidence: input.confidence,
+    rationale: input.rationale?.trim() || null,
+    research_gaps: input.researchGaps,
+    status: "considering",
+  });
+  if (error) throw new Error(`Alternative interpretation could not be saved: ${error.message}`);
+}
+
+export async function updateStrategyAlternative(input: UpdateStrategyAlternativeInput): Promise<void> {
+  const content = input.content.trim();
+  if (!content) throw new Error("An alternative interpretation cannot be empty.");
+  const client = requireClient();
+  const { error } = await client.from("strategy_stage_alternatives")
+    .update({
+      content,
+      claim_type: input.claimType,
+      confidence: input.confidence,
+      rationale: input.rationale?.trim() || null,
+      research_gaps: input.researchGaps,
+      status: input.status,
+    })
+    .eq("id", input.id)
+    .eq("stage_id", input.stageId)
+    .eq("project_id", input.projectId);
+  if (error) throw new Error(`Alternative interpretation could not be updated: ${error.message}`);
+}
+
+export async function addStrategyDependency(input: CreateStrategyDependencyInput): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.from("strategy_stage_dependencies").insert({
+    project_id: input.projectId,
+    stage_id: input.stageId,
+    depends_on_stage_id: input.dependsOnStageId,
+    relationship: input.relationship,
+    rationale: input.rationale?.trim() || null,
+  });
+  if (error?.code === "23505") throw new Error("That dependency is already recorded for this stage.");
+  if (error) throw new Error(`Stage dependency could not be saved: ${error.message}`);
+}
+
+export async function removeStrategyDependency(dependencyId: string, projectId: string, stageId: string): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.from("strategy_stage_dependencies")
+    .delete()
+    .eq("id", dependencyId)
+    .eq("project_id", projectId)
+    .eq("stage_id", stageId);
+  if (error) throw new Error(`Stage dependency could not be removed: ${error.message}`);
+}
+
+export async function updateStrategyAlternativeStatus(
+  alternativeId: string,
+  projectId: string,
+  stageId: string,
+  status: StrategyAlternativeStatus,
+): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.from("strategy_stage_alternatives")
+    .update({ status })
+    .eq("id", alternativeId)
+    .eq("project_id", projectId)
+    .eq("stage_id", stageId);
+  if (error) throw new Error(`Alternative status could not be changed: ${error.message}`);
 }
 
 export async function listStrategyAiInputOptions(projectId: string): Promise<StrategyAiInputOption[]> {

@@ -223,8 +223,13 @@ The strategic proposition remains locked until the opportunity contains an expli
 
 ### Increment 4 - Uncertainty and traceability
 
-- Surface and exercise the implemented dependencies, alternatives, confidence, gaps, contradictions, approval, and immutable revisions.
-- Show the implemented blocking stage-citation relationship in guarded evidence deletion and Radar retention explanations.
+- **Complete:** Surface confidence and newline-based research gaps inside each saved stage.
+- **Complete:** Keep contradicting citations visible and show them before the collapsed reasoning review.
+- **Complete:** Connect later claims to earlier saved stages as `builds from`, `qualifies`, or `challenges`.
+- **Complete:** Record, revise, retain, or reject alternative interpretations without deleting the reasoning history.
+- **Complete:** Expose Draft, Ready, and Approved states with a visible readiness checklist and database-enforced approval requirements.
+- **Complete:** Display append-only stage and alternative revisions with before/after snapshots.
+- **Complete:** Identify `strategy_stage` relationships correctly in the Evidence library, guarded deletion, and Radar retention explanations.
 
 ### Increment 5 - Strategic proposition
 

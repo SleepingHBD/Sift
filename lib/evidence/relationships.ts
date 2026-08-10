@@ -20,7 +20,7 @@ export {
   type EvidenceRelationshipType,
 } from "@/lib/evidence/relationship-model";
 
-const relationshipTypes = new Set<EvidenceRelationshipType>(["signal", "insight", "brief", "project", "saved", "tag", "asset", "note", "trend"]);
+const relationshipTypes = new Set<EvidenceRelationshipType>(["signal", "strategy_stage", "insight", "brief", "project", "saved", "tag", "asset", "note", "trend"]);
 
 function requireClient() {
   const client = createBrowserSupabaseClient();

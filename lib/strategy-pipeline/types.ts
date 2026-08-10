@@ -5,6 +5,8 @@ export type StrategyClaimType = "evidence" | "interpretation" | "hypothesis" | "
 export type StrategyConfidence = "low" | "medium" | "high";
 export type StrategyStageStatus = "draft" | "ready" | "approved";
 export type StrategySourceRelationship = "support" | "contradict" | "context";
+export type StrategyDependencyRelationship = "derives_from" | "qualifies" | "challenges";
+export type StrategyAlternativeStatus = "considering" | "retained" | "rejected";
 export type StrategyInputType = "signal" | "ai_message";
 export type StrategySessionOrigin = "strategist" | "signal_assisted" | "ai_assisted" | "mixed";
 
@@ -52,9 +54,53 @@ export interface StrategyStageRecord {
   status: StrategyStageStatus;
   confidence: StrategyConfidence;
   researchGaps: string[];
+  approvalNote: string | null;
+  approvedAt: string | null;
+  approvedBy: string | null;
   sources: StrategyStageSourceRecord[];
+  alternatives: StrategyStageAlternativeRecord[];
+  dependencies: StrategyStageDependencyRecord[];
+  revisions: StrategyStageRevisionRecord[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface StrategyStageAlternativeRecord {
+  id: string;
+  projectId: string;
+  stageId: string;
+  content: string;
+  claimType: StrategyClaimType;
+  confidence: StrategyConfidence;
+  status: StrategyAlternativeStatus;
+  rationale: string | null;
+  researchGaps: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StrategyStageDependencyRecord {
+  id: string;
+  projectId: string;
+  stageId: string;
+  dependsOnStageId: string;
+  relationship: StrategyDependencyRelationship;
+  rationale: string | null;
+  createdAt: string;
+}
+
+export interface StrategyStageRevisionRecord {
+  id: string;
+  projectId: string;
+  stageId: string;
+  alternativeId: string | null;
+  entityType: "stage" | "alternative";
+  changeKind: "correction" | "status" | "approval" | "order" | "research_gaps";
+  changedFields: string[];
+  beforeState: Record<string, unknown>;
+  afterState: Record<string, unknown>;
+  changedBy: string | null;
+  createdAt: string;
 }
 
 export interface StrategySessionInputRecord {
@@ -100,5 +146,28 @@ export interface AttachStrategyEvidenceInput {
   stageId: string;
   evidence: EvidenceReference;
   relationship: StrategySourceRelationship;
+  rationale?: string;
+}
+
+export interface CreateStrategyAlternativeInput {
+  projectId: string;
+  stageId: string;
+  content: string;
+  claimType: StrategyClaimType;
+  confidence: StrategyConfidence;
+  rationale?: string;
+  researchGaps: string[];
+}
+
+export interface UpdateStrategyAlternativeInput extends CreateStrategyAlternativeInput {
+  id: string;
+  status: StrategyAlternativeStatus;
+}
+
+export interface CreateStrategyDependencyInput {
+  projectId: string;
+  stageId: string;
+  dependsOnStageId: string;
+  relationship: StrategyDependencyRelationship;
   rationale?: string;
 }

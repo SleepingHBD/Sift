@@ -6,6 +6,7 @@ import { useApp } from "@/components/app-provider";
 import { StrategySourceDrawer } from "@/components/strategy-pipeline/source-drawer";
 import { StrategySourcePanel } from "@/components/strategy-pipeline/source-panel";
 import { StrategyStageCard } from "@/components/strategy-pipeline/stage-card";
+import { StrategyStageTraceability } from "@/components/strategy-pipeline/stage-traceability";
 import { Badge, Button, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
 import type { EvidenceReference } from "@/lib/evidence/reference";
@@ -15,21 +16,32 @@ import type { SignalRecord } from "@/lib/signals/types";
 import { STRATEGY_STAGE_DEFINITIONS, stageDefinition, stageProgress } from "@/lib/strategy-pipeline/model";
 import {
   addStrategySessionInput,
+  addStrategyDependency,
   attachStrategyEvidence,
+  createStrategyAlternative,
   createStrategySession,
   listStrategyAiInputOptions,
   listStrategySessions,
   loadStrategySession,
   removeStrategyEvidence,
+  removeStrategyDependency,
   saveStrategyStage,
+  setStrategyStageStatus,
+  updateStrategyAlternative,
+  updateStrategyStageUncertainty,
 } from "@/lib/strategy-pipeline/repository";
 import type {
+  CreateStrategyAlternativeInput,
+  CreateStrategyDependencyInput,
   StrategyAiInputOption,
+  StrategyConfidence,
   StrategySessionDetail,
   StrategySessionSummary,
   StrategySourceRelationship,
   StrategyStageKind,
   StrategyStageSourceRecord,
+  StrategyStageStatus,
+  UpdateStrategyAlternativeInput,
 } from "@/lib/strategy-pipeline/types";
 
 export function InsightBuilderPage() {
@@ -151,6 +163,42 @@ export function InsightBuilderPage() {
     await reloadSession();
   }
 
+  async function saveUncertainty(stageId: string, confidence: StrategyConfidence, gaps: string[]) {
+    if (!cloudProjectId) throw new Error("Choose a project first.");
+    await updateStrategyStageUncertainty(stageId, cloudProjectId, confidence, gaps);
+    await reloadSession();
+  }
+
+  async function changeStageStatus(stageId: string, status: StrategyStageStatus, note?: string) {
+    if (!cloudProjectId) throw new Error("Choose a project first.");
+    await setStrategyStageStatus(stageId, cloudProjectId, status, note);
+    await reloadSession();
+  }
+
+  async function addAlternative(stageId: string, input: Omit<CreateStrategyAlternativeInput, "projectId" | "stageId">) {
+    if (!cloudProjectId) throw new Error("Choose a project first.");
+    await createStrategyAlternative({ ...input, projectId: cloudProjectId, stageId });
+    await reloadSession();
+  }
+
+  async function saveAlternative(stageId: string, input: Omit<UpdateStrategyAlternativeInput, "projectId" | "stageId">) {
+    if (!cloudProjectId) throw new Error("Choose a project first.");
+    await updateStrategyAlternative({ ...input, projectId: cloudProjectId, stageId });
+    await reloadSession();
+  }
+
+  async function addDependency(stageId: string, input: Omit<CreateStrategyDependencyInput, "projectId" | "stageId">) {
+    if (!cloudProjectId) throw new Error("Choose a project first.");
+    await addStrategyDependency({ ...input, projectId: cloudProjectId, stageId });
+    await reloadSession();
+  }
+
+  async function removeDependency(stageId: string, dependencyId: string) {
+    if (!cloudProjectId) throw new Error("Choose a project first.");
+    await removeStrategyDependency(dependencyId, cloudProjectId, stageId);
+    await reloadSession();
+  }
+
   async function addInput(type: "signal" | "ai_message", id: string) {
     if (!session) throw new Error("Choose an insight session first.");
     await addStrategySessionInput(session, type, id);
@@ -232,6 +280,19 @@ export function InsightBuilderPage() {
                   onSave={saveStage}
                   onOpenSource={setDrawerSource}
                   onRemoveSource={removeEvidence}
+                  renderTraceability={record ? (hasUnsavedClaimChanges) => (
+                    <StrategyStageTraceability
+                      record={record}
+                      stages={session.stages}
+                      hasUnsavedClaimChanges={hasUnsavedClaimChanges}
+                      onSaveUncertainty={(confidence, gaps) => saveUncertainty(record.id, confidence, gaps)}
+                      onSetStatus={(status, note) => changeStageStatus(record.id, status, note)}
+                      onCreateAlternative={(input) => addAlternative(record.id, input)}
+                      onUpdateAlternative={(input) => saveAlternative(record.id, input)}
+                      onAddDependency={(input) => addDependency(record.id, input)}
+                      onRemoveDependency={(dependencyId) => removeDependency(record.id, dependencyId)}
+                    />
+                  ) : undefined}
                 />
                 );
               })}

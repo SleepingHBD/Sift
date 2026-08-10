@@ -170,7 +170,7 @@ export function EvidenceDetailDrawer({
           {relationshipStatus === "error" ? <div className="inbox-detail-drawer__relationships-state inbox-detail-drawer__relationships-state--error"><ShieldAlert size={17} /><span>{relationshipError}</span><button type="button" onClick={onRetryRelationships}><RotateCcw size={13} />Try again</button></div> : null}
           {relationshipStatus === "ready" && !relationships.items.length ? <div className="inbox-detail-drawer__relationships-state"><Network size={17} /><span>No downstream relationships yet.</span></div> : null}
           {relationshipStatus === "ready" && relationships.items.length ? <ul>{relationships.items.map((relationship) => <li key={`${relationship.type}-${relationship.id}`}><span className="inbox-detail-drawer__relationship-icon"><Link2 size={14} /></span><span><strong>{relationship.label}</strong><small>{relationshipTypeLabel(relationship.type)}</small></span>{relationship.blocking ? <Badge>Strategic citation</Badge> : null}</li>)}</ul> : null}
-          {relationshipStatus === "ready" && relationships.blockingCount ? <p className="inbox-detail-drawer__relationship-protection"><ShieldAlert size={14} />This source is protected from deletion while these strategic citations remain.</p> : null}
+          {relationshipStatus === "ready" && relationships.blockingCount ? <p className="inbox-detail-drawer__relationship-protection"><ShieldAlert size={14} />This source is protected from deletion and Radar retention while these strategic citations remain.</p> : null}
         </section>
 
         {canDeleteEvidenceFromLibrary(evidence.kind) ? (

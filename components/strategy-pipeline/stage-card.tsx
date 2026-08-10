@@ -2,6 +2,7 @@
 
 import { AlertCircle, Check, ExternalLink, Link2, LoaderCircle, Save, Trash2 } from "lucide-react";
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { Badge, Button } from "@/components/ui/primitives";
 import { stageDefinition, relationshipLabel } from "@/lib/strategy-pipeline/model";
 import type { StrategyStageKind, StrategyStageRecord, StrategyStageSourceRecord } from "@/lib/strategy-pipeline/types";
@@ -14,6 +15,7 @@ export function StrategyStageCard({
   onSave,
   onOpenSource,
   onRemoveSource,
+  renderTraceability,
 }: {
   kind: StrategyStageKind;
   record?: StrategyStageRecord;
@@ -22,6 +24,7 @@ export function StrategyStageCard({
   onSave: (kind: StrategyStageKind, content: string) => Promise<void>;
   onOpenSource: (source: StrategyStageSourceRecord) => void;
   onRemoveSource: (source: StrategyStageSourceRecord) => Promise<void>;
+  renderTraceability?: (hasUnsavedClaimChanges: boolean) => ReactNode;
 }) {
   const definition = stageDefinition(kind);
   const [content, setContent] = useState(record?.content ?? "");
@@ -103,6 +106,7 @@ export function StrategyStageCard({
             </div>
           ) : <p className="insight-stage__source-empty">No original evidence is linked to this claim yet.</p>}
         </section>
+        {record && renderTraceability ? renderTraceability(dirty) : null}
       </div>
     </article>
   );

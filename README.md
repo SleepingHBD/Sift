@@ -126,7 +126,7 @@ Before storage, the backend revalidates the exact selected sources under the cal
 
 Phase 6 is complete and accepted for the current manual workflow. The deployed result leads with a plain-language answer while retaining explicit evidence, interpretation, hypothesis, recommendation, confidence, caveat, and citation boundaries. The acceptance scope and remaining limitations are recorded in [docs/phase-6-acceptance.md](docs/phase-6-acceptance.md).
 
-Phase 7 is now in progress. Its schema audit, trusted-pipeline foundation, and first project-scoped Insight Builder are implemented. Under **Think → Insight Builder**, a strategist can create durable project sessions, edit Observation → Pattern → Tension → Insight → Opportunity, link supporting/challenging/context evidence, inspect original sources, and retain Signals or saved Strategy AI responses as clearly separated provenance. The Strategic Proposition remains locked until the uncertainty and traceability surfaces pass the Phase 7 acceptance path. See [docs/phase-7-audit.md](docs/phase-7-audit.md).
+Phase 7 is now in progress. Its schema audit, trusted-pipeline foundation, project-scoped Insight Builder, and uncertainty/traceability layer are implemented. Under **Think → Insight Builder**, a strategist can create durable project sessions; edit Observation → Pattern → Tension → Insight → Opportunity; link supporting, challenging, and contextual evidence; inspect original sources; and retain Signals or saved Strategy AI responses as clearly separated provenance. Each saved stage now supports explicit confidence, research gaps, competing interpretations, earlier-stage dependencies, Draft/Ready/Approved states, database-enforced approval checks, and append-only revision history. Insight Builder citations protect their original sources from deletion and Radar retention until the citation is deliberately removed. The Strategic Proposition remains locked for the next increment. See [docs/phase-7-audit.md](docs/phase-7-audit.md).
 
 ## GitHub Pages deployment
 
@@ -134,7 +134,7 @@ Deployment is manual. Pushing to `main` does not publish the website:
 
 1. Open **Settings → Pages** in the GitHub repository.
 2. Set **Source** to **GitHub Actions**.
-3. Open **Actions â†’ Deploy Sift to GitHub Pages** and choose **Run workflow** only when you intend to publish.
+3. Open **Actions → Deploy Sift to GitHub Pages** and choose **Run workflow** only when you intend to publish.
 
 The build applies the repository subpath to routes and assets automatically.
 
