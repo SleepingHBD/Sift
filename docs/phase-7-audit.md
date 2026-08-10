@@ -2,7 +2,18 @@
 
 Date: 10 August 2026
 
-Status: **Increment 1 complete. No database migration or production data change was made.**
+Status: **Increments 1 and 2 complete. The trusted pipeline foundation is live; no Phase 7 content was seeded.**
+
+## Increment 2 implementation result
+
+The audit decision has now been implemented in two additive migrations:
+
+- `20260810091104_phase_7_strategy_pipeline_foundation.sql` hardens the existing session and stage records and adds normalized inputs, evidence citations, dependencies, retained alternatives, approval state, and append-only revisions.
+- `20260810172826_phase_7_strategy_pipeline_fk_indexes.sql` covers every new foreign-key access path in the order reported by the Supabase performance advisor.
+
+All new public tables use explicit Data API grants, project-scoped RLS, and a restrictive permanent-account policy. AI messages and Signals are derivation provenance only; original mention, Research, and Inspiration records remain the only stage evidence kinds. Workspace-backed observations and insights cannot be approved without supporting evidence, later stages require an explicit dependency, and a strategic proposition requires a saved Opportunity plus a direct dependency on it. Material edits demote an approved stage and create an immutable revision.
+
+The live database contract was tested inside an authenticated transaction and rolled back. The verification created temporary Research evidence, approved an evidence-backed Observation, confirmed an unsupported Pattern was rejected, added a dependency, approved and corrected the Pattern, confirmed revision history, and confirmed that cited evidence could not be deleted. Persisted counts remained zero for all Phase 7 content tables, while the existing 3 Strategy AI conversations and 6 messages were preserved. The Supabase advisor reports no unindexed foreign keys after the follow-up migration.
 
 ## Purpose
 
@@ -191,10 +202,10 @@ The strategic proposition remains locked until the opportunity contains an expli
 
 ### Increment 2 - Trusted pipeline foundation
 
-- Add one migration that hardens `strategy_sessions` and `strategy_stages`.
-- Add session inputs and stage evidence relationships.
-- Add RLS, grants, validation triggers/functions, indexes, and database tests.
-- Regenerate TypeScript database types.
+- **Complete:** Harden `strategy_sessions` and `strategy_stages`.
+- **Complete:** Add session inputs and stage evidence relationships.
+- **Complete:** Add RLS, grants, validation triggers/functions, indexes, and database tests.
+- **Complete:** Regenerate TypeScript database types.
 
 ### Increment 3 - First Insight Builder
 
@@ -204,8 +215,8 @@ The strategic proposition remains locked until the opportunity contains an expli
 
 ### Increment 4 - Uncertainty and traceability
 
-- Add dependencies, alternatives, confidence, gaps, contradictions, approval, and immutable revisions.
-- Extend guarded evidence deletion and Radar retention so a stage citation is a blocking strategic relationship.
+- Surface and exercise the implemented dependencies, alternatives, confidence, gaps, contradictions, approval, and immutable revisions.
+- Show the implemented blocking stage-citation relationship in guarded evidence deletion and Radar retention explanations.
 
 ### Increment 5 - Strategic proposition
 
@@ -222,4 +233,4 @@ The strategic proposition remains locked until the opportunity contains an expli
 
 **Reuse the existing foundation; do not replace it and do not create a second Insight system.**
 
-The next implementation action is Increment 2: a narrowly scoped migration and database test set for the trusted pipeline foundation. No UI should write Phase 7 records until those relationships and constraints exist.
+The next implementation action is Increment 3: the first project-scoped Insight Builder repository and interface. It can now write Phase 7 records through the trusted relationships and constraints established by Increment 2.

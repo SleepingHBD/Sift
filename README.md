@@ -126,7 +126,7 @@ Before storage, the backend revalidates the exact selected sources under the cal
 
 Phase 6 is complete and accepted for the current manual workflow. The deployed result leads with a plain-language answer while retaining explicit evidence, interpretation, hypothesis, recommendation, confidence, caveat, and citation boundaries. The acceptance scope and remaining limitations are recorded in [docs/phase-6-acceptance.md](docs/phase-6-acceptance.md).
 
-Phase 7 is now in progress. Its first increment audited the existing insight, strategy-stage, citation, Signal, territory, and brief schema against the live Supabase project. The decision is to reuse and harden the existing strategy foundation before adding the Insight Builder; no production schema or data was changed by the audit. See [docs/phase-7-audit.md](docs/phase-7-audit.md).
+Phase 7 is now in progress. Its schema audit and trusted-pipeline foundation are complete. The existing `strategy_sessions` and `strategy_stages` tables now support project-safe Signal/AI provenance, original-evidence citations, dependencies, retained alternatives, confidence, research gaps, approval gates, and append-only revision history. Stage citations also block guarded source deletion and scheduled Radar retention. The live migration was verified with a rolled-back authenticated transaction, and no Phase 7 content records were seeded. The next increment is the first project-scoped Insight Builder. See [docs/phase-7-audit.md](docs/phase-7-audit.md).
 
 ## GitHub Pages deployment
 

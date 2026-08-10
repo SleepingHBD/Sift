@@ -1329,17 +1329,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "monitor_runs_monitoring_query_id_fkey"
-            columns: ["monitoring_query_id"]
-            isOneToOne: false
-            referencedRelation: "monitoring_queries"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "monitor_runs_cursor_source_run_id_fkey"
             columns: ["cursor_source_run_id"]
             isOneToOne: false
             referencedRelation: "monitor_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitor_runs_monitoring_query_id_fkey"
+            columns: ["monitoring_query_id"]
+            isOneToOne: false
+            referencedRelation: "monitoring_queries"
             referencedColumns: ["id"]
           },
           {
@@ -1362,10 +1362,10 @@ export type Database = {
           id: string
           keywords: string[]
           language: string | null
-          last_run_at: string | null
           last_retention_deleted_count: number
           last_retention_error: string | null
           last_retention_run_at: string | null
+          last_run_at: string | null
           last_schedule_error: string | null
           last_scheduled_run_at: string | null
           market: string | null
@@ -1397,10 +1397,10 @@ export type Database = {
           id?: string
           keywords?: string[]
           language?: string | null
-          last_run_at?: string | null
           last_retention_deleted_count?: number
           last_retention_error?: string | null
           last_retention_run_at?: string | null
+          last_run_at?: string | null
           last_schedule_error?: string | null
           last_scheduled_run_at?: string | null
           market?: string | null
@@ -1432,10 +1432,10 @@ export type Database = {
           id?: string
           keywords?: string[]
           language?: string | null
-          last_run_at?: string | null
           last_retention_deleted_count?: number
           last_retention_error?: string | null
           last_retention_run_at?: string | null
+          last_run_at?: string | null
           last_schedule_error?: string | null
           last_scheduled_run_at?: string | null
           market?: string | null
@@ -1730,6 +1730,56 @@ export type Database = {
           },
         ]
       }
+      saved_items: {
+        Row: {
+          created_at: string
+          destination: string
+          destination_id: string | null
+          id: string
+          item_id: string
+          item_type: Database["public"]["Enums"]["item_kind"]
+          metadata: Json
+          note: string | null
+          project_id: string
+          source_excerpt: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          destination?: string
+          destination_id?: string | null
+          id?: string
+          item_id: string
+          item_type: Database["public"]["Enums"]["item_kind"]
+          metadata?: Json
+          note?: string | null
+          project_id: string
+          source_excerpt?: string | null
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          destination?: string
+          destination_id?: string | null
+          id?: string
+          item_id?: string
+          item_type?: Database["public"]["Enums"]["item_kind"]
+          metadata?: Json
+          note?: string | null
+          project_id?: string
+          source_excerpt?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signal_evidence: {
         Row: {
           added_by: string
@@ -1824,14 +1874,14 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "signal_lineage_source_signal_project_fkey"
+            foreignKeyName: "signal_lineage_source_signal_id_project_id_fkey"
             columns: ["source_signal_id", "project_id"]
             isOneToOne: false
             referencedRelation: "signals"
             referencedColumns: ["id", "project_id"]
           },
           {
-            foreignKeyName: "signal_lineage_target_signal_project_fkey"
+            foreignKeyName: "signal_lineage_target_signal_id_project_id_fkey"
             columns: ["target_signal_id", "project_id"]
             isOneToOne: false
             referencedRelation: "signals"
@@ -1987,8 +2037,8 @@ export type Database = {
           movement: string
           observation: string
           origin: string
-          promoted_trend_id: string | null
           project_id: string
+          promoted_trend_id: string | null
           scope_note: string
           status: string
           strategist_notes: string | null
@@ -2006,8 +2056,8 @@ export type Database = {
           movement?: string
           observation: string
           origin?: string
-          promoted_trend_id?: string | null
           project_id: string
+          promoted_trend_id?: string | null
           scope_note?: string
           status?: string
           strategist_notes?: string | null
@@ -2025,8 +2075,8 @@ export type Database = {
           movement?: string
           observation?: string
           origin?: string
-          promoted_trend_id?: string | null
           project_id?: string
+          promoted_trend_id?: string | null
           scope_note?: string
           status?: string
           strategist_notes?: string | null
@@ -2037,18 +2087,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "signals_promoted_trend_project_fkey"
-            columns: ["promoted_trend_id", "project_id"]
-            isOneToOne: false
-            referencedRelation: "trends"
-            referencedColumns: ["id", "project_id"]
-          },
-          {
             foreignKeyName: "signals_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signals_promoted_trend_project_fkey"
+            columns: ["promoted_trend_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "trends"
+            referencedColumns: ["id", "project_id"]
           },
           {
             foreignKeyName: "signals_superseded_by_signal_project_fkey"
@@ -2062,56 +2112,6 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      saved_items: {
-        Row: {
-          created_at: string
-          destination: string
-          destination_id: string | null
-          id: string
-          item_id: string
-          item_type: Database["public"]["Enums"]["item_kind"]
-          metadata: Json
-          note: string | null
-          project_id: string
-          source_excerpt: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          destination?: string
-          destination_id?: string | null
-          id?: string
-          item_id: string
-          item_type: Database["public"]["Enums"]["item_kind"]
-          metadata?: Json
-          note?: string | null
-          project_id: string
-          source_excerpt?: string | null
-          user_id?: string
-        }
-        Update: {
-          created_at?: string
-          destination?: string
-          destination_id?: string | null
-          id?: string
-          item_id?: string
-          item_type?: Database["public"]["Enums"]["item_kind"]
-          metadata?: Json
-          note?: string | null
-          project_id?: string
-          source_excerpt?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "saved_items_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -2173,11 +2173,63 @@ export type Database = {
           },
         ]
       }
+      strategy_session_inputs: {
+        Row: {
+          added_by: string
+          created_at: string
+          id: string
+          input_id: string
+          input_type: string
+          project_id: string
+          rationale: string | null
+          role: string
+          session_id: string
+        }
+        Insert: {
+          added_by?: string
+          created_at?: string
+          id?: string
+          input_id: string
+          input_type: string
+          project_id: string
+          rationale?: string | null
+          role?: string
+          session_id: string
+        }
+        Update: {
+          added_by?: string
+          created_at?: string
+          id?: string
+          input_id?: string
+          input_type?: string
+          project_id?: string
+          rationale?: string | null
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_session_inputs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_session_inputs_session_id_project_id_fkey"
+            columns: ["session_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_sessions"
+            referencedColumns: ["id", "project_id"]
+          },
+        ]
+      }
       strategy_sessions: {
         Row: {
           created_at: string
           created_by: string
           id: string
+          origin: string
           project_id: string
           source_scope: Json
           status: string
@@ -2186,8 +2238,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
+          created_by?: string
           id?: string
+          origin?: string
           project_id: string
           source_scope?: Json
           status?: string
@@ -2198,6 +2251,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          origin?: string
           project_id?: string
           source_scope?: Json
           status?: string
@@ -2214,44 +2268,325 @@ export type Database = {
           },
         ]
       }
-      strategy_stages: {
+      strategy_stage_alternatives: {
         Row: {
           claim_type: Database["public"]["Enums"]["claim_kind"]
+          confidence: string
           content: string
           created_at: string
+          created_by: string
           id: string
-          position: number
-          session_id: string
-          stage: string
+          project_id: string
+          rationale: string | null
+          research_gaps: string[]
+          stage_id: string
+          status: string
           updated_at: string
         }
         Insert: {
           claim_type: Database["public"]["Enums"]["claim_kind"]
+          confidence?: string
           content: string
           created_at?: string
+          created_by?: string
           id?: string
-          position: number
-          session_id: string
-          stage: string
+          project_id: string
+          rationale?: string | null
+          research_gaps?: string[]
+          stage_id: string
+          status?: string
           updated_at?: string
         }
         Update: {
           claim_type?: Database["public"]["Enums"]["claim_kind"]
+          confidence?: string
           content?: string
           created_at?: string
+          created_by?: string
           id?: string
-          position?: number
-          session_id?: string
-          stage?: string
+          project_id?: string
+          rationale?: string | null
+          research_gaps?: string[]
+          stage_id?: string
+          status?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "strategy_stage_alternatives_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_stage_alternatives_stage_id_project_id_fkey"
+            columns: ["stage_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_stages"
+            referencedColumns: ["id", "project_id"]
+          },
+        ]
+      }
+      strategy_stage_dependencies: {
+        Row: {
+          created_at: string
+          created_by: string
+          depends_on_stage_id: string
+          id: string
+          project_id: string
+          rationale: string | null
+          relationship: string
+          stage_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          depends_on_stage_id: string
+          id?: string
+          project_id: string
+          rationale?: string | null
+          relationship?: string
+          stage_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          depends_on_stage_id?: string
+          id?: string
+          project_id?: string
+          rationale?: string | null
+          relationship?: string
+          stage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_stage_dependencies_depends_on_stage_id_project_id_fkey"
+            columns: ["depends_on_stage_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_stages"
+            referencedColumns: ["id", "project_id"]
+          },
+          {
+            foreignKeyName: "strategy_stage_dependencies_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_stage_dependencies_stage_id_project_id_fkey"
+            columns: ["stage_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_stages"
+            referencedColumns: ["id", "project_id"]
+          },
+        ]
+      }
+      strategy_stage_revisions: {
+        Row: {
+          after_state: Json
+          alternative_id: string | null
+          before_state: Json
+          change_kind: string
+          changed_by: string | null
+          changed_fields: string[]
+          created_at: string
+          entity_type: string
+          id: string
+          project_id: string
+          stage_id: string
+        }
+        Insert: {
+          after_state: Json
+          alternative_id?: string | null
+          before_state: Json
+          change_kind: string
+          changed_by?: string | null
+          changed_fields: string[]
+          created_at?: string
+          entity_type: string
+          id?: string
+          project_id: string
+          stage_id: string
+        }
+        Update: {
+          after_state?: Json
+          alternative_id?: string | null
+          before_state?: Json
+          change_kind?: string
+          changed_by?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          entity_type?: string
+          id?: string
+          project_id?: string
+          stage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_stage_revisions_alternative_id_project_id_stage_i_fkey"
+            columns: ["alternative_id", "project_id", "stage_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_stage_alternatives"
+            referencedColumns: ["id", "project_id", "stage_id"]
+          },
+          {
+            foreignKeyName: "strategy_stage_revisions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_stage_revisions_stage_id_project_id_fkey"
+            columns: ["stage_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_stages"
+            referencedColumns: ["id", "project_id"]
+          },
+        ]
+      }
+      strategy_stage_sources: {
+        Row: {
+          added_by: string
+          alternative_id: string | null
+          created_at: string
+          evidence_id: string
+          evidence_type: Database["public"]["Enums"]["item_kind"]
+          excerpt: string | null
+          id: string
+          project_id: string
+          rationale: string | null
+          relationship: string
+          stage_id: string
+        }
+        Insert: {
+          added_by?: string
+          alternative_id?: string | null
+          created_at?: string
+          evidence_id: string
+          evidence_type: Database["public"]["Enums"]["item_kind"]
+          excerpt?: string | null
+          id?: string
+          project_id: string
+          rationale?: string | null
+          relationship: string
+          stage_id: string
+        }
+        Update: {
+          added_by?: string
+          alternative_id?: string | null
+          created_at?: string
+          evidence_id?: string
+          evidence_type?: Database["public"]["Enums"]["item_kind"]
+          excerpt?: string | null
+          id?: string
+          project_id?: string
+          rationale?: string | null
+          relationship?: string
+          stage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_stage_sources_alternative_id_project_id_stage_id_fkey"
+            columns: ["alternative_id", "project_id", "stage_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_stage_alternatives"
+            referencedColumns: ["id", "project_id", "stage_id"]
+          },
+          {
+            foreignKeyName: "strategy_stage_sources_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_stage_sources_stage_id_project_id_fkey"
+            columns: ["stage_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_stages"
+            referencedColumns: ["id", "project_id"]
+          },
+        ]
+      }
+      strategy_stages: {
+        Row: {
+          approval_note: string | null
+          approved_at: string | null
+          approved_by: string | null
+          claim_type: Database["public"]["Enums"]["claim_kind"]
+          confidence: string
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          position: number
+          project_id: string
+          research_gaps: string[]
+          session_id: string
+          stage: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approval_note?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          claim_type: Database["public"]["Enums"]["claim_kind"]
+          confidence?: string
+          content: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          position: number
+          project_id: string
+          research_gaps?: string[]
+          session_id: string
+          stage: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approval_note?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          claim_type?: Database["public"]["Enums"]["claim_kind"]
+          confidence?: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          position?: number
+          project_id?: string
+          research_gaps?: string[]
+          session_id?: string
+          stage?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_stages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "strategy_stages_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "strategy_sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_stages_session_project_fkey"
+            columns: ["session_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_sessions"
+            referencedColumns: ["id", "project_id"]
           },
         ]
       }
@@ -2511,6 +2846,18 @@ export type Database = {
           retry_after_seconds: number
         }[]
       }
+      delete_evidence_item: {
+        Args: {
+          p_item_id: string
+          p_kind: Database["public"]["Enums"]["item_kind"]
+          p_project_id: string
+        }
+        Returns: string
+      }
+      delete_signal_candidate: {
+        Args: { p_signal_id: string }
+        Returns: string
+      }
       enforce_radar_retention: {
         Args: { p_batch_limit?: number; p_monitor_id: string }
         Returns: {
@@ -2524,18 +2871,6 @@ export type Database = {
           retention_status: string
         }[]
       }
-      delete_evidence_item: {
-        Args: {
-          p_item_id: string
-          p_kind: Database["public"]["Enums"]["item_kind"]
-          p_project_id: string
-        }
-        Returns: string
-      }
-      delete_signal_candidate: {
-        Args: { p_signal_id: string }
-        Returns: string
-      }
       evidence_inbox_stats: {
         Args: { p_project_id?: string }
         Returns: {
@@ -2544,23 +2879,6 @@ export type Database = {
           total_count: number
           unreviewed_count: number
         }[]
-      }
-      persist_strategy_analysis: {
-        Args: {
-          p_citations: Json
-          p_client_request_id: string
-          p_model: string
-          p_project_id: string
-          p_question: string
-          p_request_id: string
-          p_source_scope: Json
-          p_structured_claims: Json
-          p_structured_response: Json
-          p_title: string
-          p_usage: Json
-          p_user_id: string
-        }
-        Returns: Json
       }
       finalize_radar_schedule_claim: {
         Args: {
@@ -2588,25 +2906,6 @@ export type Database = {
         }
         Returns: Json
       }
-      merge_signals: {
-        Args: { p_source_signal_ids: string[]; p_target_signal_id: string }
-        Returns: string
-      }
-      promote_signal_to_trend: {
-        Args: { p_signal_id: string }
-        Returns: string
-      }
-      preview_signal_deletion: {
-        Args: { p_signal_id: string }
-        Returns: {
-          assessment_count: number
-          blockers: string[]
-          deletable: boolean
-          evidence_link_count: number
-          lineage_count: number
-          revision_count: number
-        }[]
-      }
       list_evidence_relationships: {
         Args: {
           p_item_id: string
@@ -2623,6 +2922,27 @@ export type Database = {
           target_project_id: string
         }[]
       }
+      merge_signals: {
+        Args: { p_source_signal_ids: string[]; p_target_signal_id: string }
+        Returns: string
+      }
+      persist_strategy_analysis: {
+        Args: {
+          p_citations: Json
+          p_client_request_id: string
+          p_model: string
+          p_project_id: string
+          p_question: string
+          p_request_id: string
+          p_source_scope: Json
+          p_structured_claims: Json
+          p_structured_response: Json
+          p_title: string
+          p_usage: Json
+          p_user_id: string
+        }
+        Returns: Json
+      }
       preview_evidence_csv_duplicates: {
         Args: { p_project_id: string; p_rows: Json }
         Returns: {
@@ -2631,78 +2951,20 @@ export type Database = {
           row_number: number
         }[]
       }
-      radar_monitor_summary: {
-        Args: {
-          p_end: string
-          p_monitor_id: string
-          p_previous_end: string
-          p_previous_start: string
-          p_start: string
-          p_topic?: string
-        }
+      preview_signal_deletion: {
+        Args: { p_signal_id: string }
         Returns: {
-          active_sources: number
-          all_time_mentions: number
-          current_mentions: number
-          estimated_engagement: number
-          first_observed_at: string | null
-          last_observed_at: string | null
-          last_run_at: string | null
-          last_successful_run_at: string | null
-          latest_run_status: string | null
-          mention_growth: number
-          monitor_id: string
-          negative_percent: number
-          neutral_percent: number
-          positive_percent: number
-          previous_mentions: number
-          range_end: string
-          range_first_observed_at: string | null
-          range_last_observed_at: string | null
-          range_start: string
-          scope_topic: string | null
-          source_counts: Json
-          unique_authors: number
+          assessment_count: number
+          blockers: string[]
+          deletable: boolean
+          evidence_link_count: number
+          lineage_count: number
+          revision_count: number
         }[]
       }
-      radar_retention_preview: {
-        Args: {
-          p_monitor_id: string
-          p_retention_days: number
-        }
-        Returns: {
-          candidate_mentions: number
-          cutoff_at: string
-          eligible_mentions: number
-          oldest_candidate_at: string | null
-          protected_mentions: number
-        }[]
-      }
-      radar_scheduler_status: {
-        Args: never
-        Returns: {
-          available: boolean
-          last_dispatch_at: string
-          last_dispatch_status: string
-        }[]
-      }
-      radar_monitor_analysis: {
-        Args: {
-          p_bucket_seconds: number
-          p_end: string
-          p_monitor_id: string
-          p_previous_end: string
-          p_previous_start: string
-          p_start: string
-          p_topic?: string
-        }
-        Returns: {
-          keywords: Json
-          sentiment: Json
-          spikes: Json
-          topics: Json
-          volume: Json
-        }[]
+      promote_signal_to_trend: {
+        Args: { p_signal_id: string }
+        Returns: string
       }
       radar_conversation_page: {
         Args: {
@@ -2726,28 +2988,79 @@ export type Database = {
         }[]
       }
       radar_mentions_by_ids: {
-        Args: {
-          p_mention_ids: string[]
-          p_monitor_id: string
-        }
+        Args: { p_mention_ids: string[]; p_monitor_id: string }
         Returns: {
           conversation: Json
         }[]
       }
-      search_evidence_page: {
+      radar_monitor_analysis: {
         Args: {
-          p_cursor?: Json
-          p_kind?: string
-          p_page_size?: number
-          p_project_id?: string
-          p_recent_after?: string
-          p_review_status?: string
-          p_search?: string
-          p_sort?: string
+          p_bucket_seconds: number
+          p_end: string
+          p_monitor_id: string
+          p_previous_end: string
+          p_previous_start: string
+          p_start: string
+          p_topic?: string
         }
         Returns: {
-          cursor_value: Json
-          evidence: Json
+          keywords: Json
+          sentiment: Json
+          spikes: Json
+          topics: Json
+          volume: Json
+        }[]
+      }
+      radar_monitor_summary: {
+        Args: {
+          p_end: string
+          p_monitor_id: string
+          p_previous_end: string
+          p_previous_start: string
+          p_start: string
+          p_topic?: string
+        }
+        Returns: {
+          active_sources: number
+          all_time_mentions: number
+          current_mentions: number
+          estimated_engagement: number
+          first_observed_at: string
+          last_observed_at: string
+          last_run_at: string
+          last_successful_run_at: string
+          latest_run_status: string
+          mention_growth: number
+          monitor_id: string
+          negative_percent: number
+          neutral_percent: number
+          positive_percent: number
+          previous_mentions: number
+          range_end: string
+          range_first_observed_at: string
+          range_last_observed_at: string
+          range_start: string
+          scope_topic: string
+          source_counts: Json
+          unique_authors: number
+        }[]
+      }
+      radar_retention_preview: {
+        Args: { p_monitor_id: string; p_retention_days: number }
+        Returns: {
+          candidate_mentions: number
+          cutoff_at: string
+          eligible_mentions: number
+          oldest_candidate_at: string
+          protected_mentions: number
+        }[]
+      }
+      radar_scheduler_status: {
+        Args: never
+        Returns: {
+          available: boolean
+          last_dispatch_at: string
+          last_dispatch_status: string
         }[]
       }
       release_strategy_ai_budget: {
@@ -2771,7 +3084,25 @@ export type Database = {
       }
       resolve_strategy_evidence: {
         Args: { p_identities: string[]; p_project_id: string }
-        Returns: { evidence: Json }[]
+        Returns: {
+          evidence: Json
+        }[]
+      }
+      search_evidence_page: {
+        Args: {
+          p_cursor?: Json
+          p_kind?: string
+          p_page_size?: number
+          p_project_id?: string
+          p_recent_after?: string
+          p_review_status?: string
+          p_search?: string
+          p_sort?: string
+        }
+        Returns: {
+          cursor_value: Json
+          evidence: Json
+        }[]
       }
       split_signal: {
         Args: {
@@ -2781,10 +3112,19 @@ export type Database = {
           p_observation: string
           p_scope_note: string
           p_source_signal_id: string
-          p_strategist_notes?: string | null
+          p_strategist_notes?: string
           p_title: string
         }
         Returns: string
+      }
+      strategy_ai_budget_status: {
+        Args: {
+          p_monthly_request_limit: number
+          p_monthly_token_limit: number
+          p_token_reserve: number
+          p_user_id: string
+        }
+        Returns: Json
       }
       update_evidence_note: {
         Args: {
@@ -2796,15 +3136,6 @@ export type Database = {
         Returns: {
           notes: string
         }[]
-      }
-      strategy_ai_budget_status: {
-        Args: {
-          p_monthly_request_limit: number
-          p_monthly_token_limit: number
-          p_token_reserve: number
-          p_user_id: string
-        }
-        Returns: Json
       }
     }
     Enums: {

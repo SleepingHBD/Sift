@@ -283,7 +283,7 @@ export async function splitCloudSignal(input: SplitSignalInput): Promise<string>
     p_observation: input.observation.trim(),
     p_kind: input.kind,
     p_scope_note: input.scopeNote.trim(),
-    p_strategist_notes: input.strategistNotes.trim() || null,
+    p_strategist_notes: input.strategistNotes.trim() || undefined,
     p_move_evidence: input.moveEvidence,
   });
   if (error || !data) throw new Error(`Signal could not be split: ${error?.message ?? "No record was returned."}`);
