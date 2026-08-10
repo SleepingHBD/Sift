@@ -2,6 +2,8 @@
 
 Phase 6 uses a deliberate ChatGPT handoff instead of a paid model API. Sift retrieves and scopes private workspace evidence, prepares a visible citation-ready prompt, and validates the response when the strategist brings it back. Sift never receives the user's ChatGPT password, session, subscription credential, or API key.
 
+Status: **Complete and accepted for the current manual workflow.** See [phase-6-acceptance.md](phase-6-acceptance.md).
+
 ## Current workflow
 
 1. Open **Strategy AI**.
@@ -67,6 +69,6 @@ Evidence marked `irrelevant` or `archived` is excluded. The handoff preserves or
 - Existing direct-write denial, RLS, and idempotency controls remain intact.
 - See [strategy-ai-evaluation.md](strategy-ai-evaluation.md) for the short real-use acceptance checkpoint.
 
-## Next checkpoint
+## Accepted checkpoint
 
-Run the fixed evidence scenarios through the manual handoff, inspect every citation, and record whether ChatGPT's response is useful enough for real strategy work. No spending or model activation checkpoint is required.
+The strategist confirmed the deployed manual workflow works for current use after the response was reorganized around a straight answer, evidence, interpretation, possible actions, uncertainty, and next steps. Phase 7 now builds the editable insight and strategy pipeline on top of this accepted evidence boundary.

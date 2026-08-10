@@ -2,6 +2,8 @@
 
 This checkpoint tests the manual ChatGPT handoff without activating an API model or adding API billing.
 
+Status: **Accepted on 10 August 2026.** See [phase-6-acceptance.md](phase-6-acceptance.md) for the recorded scope and retained limitations.
+
 ## Fixed scenarios
 
 The codebase defines five evaluation scenarios in `lib/strategy-ai/evaluation.ts`. They describe the evidence shape to assemble and never add demo records to the user's workspace.

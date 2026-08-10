@@ -404,7 +404,7 @@ Help the strategist identify what deserves attention before asking AI to produce
 
 ## Phase 6 - Evidence-grounded Strategy AI
 
-Status: **In progress.** The evidence boundary, manual ChatGPT handoff, structured response contract, citation validator, durable conversation persistence, and five-scenario evaluation suite are implemented. The JWT-protected `strategy-ai` Edge Function retrieves an inspectable project evidence scope and revalidates the strategist's exact selection under the caller's RLS context before accepting a pasted response. Natural-language questions now use transparent partial-match retrieval and deterministic ranking instead of requiring every extracted term. When direct matches are weak or absent, other eligible project evidence remains visible as clearly labelled, unselected context for manual inclusion. Sift prepares a visible prompt, sends nothing automatically, rejects changed or inaccessible identities, enforces classified and cited claims, fixes provenance as a manual handoff, and atomically persists validated conversations through a service-only database function. Original source text, capture-time interpretation, and later strategist notes remain distinct. No OpenAI API key or separate model billing is required.
+Status: **Complete and accepted.** The acceptance evidence is documented in [phase-6-acceptance.md](phase-6-acceptance.md). The evidence boundary, manual ChatGPT handoff, structured response contract, citation validator, durable conversation persistence, transparent retrieval, session continuity, plain-language prompt, and readable answer hierarchy are implemented. The JWT-protected `strategy-ai` Edge Function retrieves an inspectable project evidence scope and revalidates the strategist's exact selection under the caller's RLS context before accepting a pasted response. Sift sends nothing automatically, rejects changed or inaccessible identities, enforces classified and cited claims, fixes provenance as a manual handoff, and atomically persists validated conversations through a service-only database function. The strategist confirmed the deployed workflow works for current use on 10 August 2026. No OpenAI API key or separate model billing is required.
 
 ### Goal
 
@@ -601,17 +601,15 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0 through 5 are complete. Phase 6 is in progress. Its current increments secure strategy persistence against direct browser writes, provide an authenticated RLS-scoped evidence preview, prepare an inspectable ChatGPT prompt from the strategist's exact source selection, validate pasted structured responses, and persist accepted citations idempotently. The Strategy AI page begins with one project, one thinking task, and one real question; exposes the derived full-text search; returns stable evidence identities; and lets the strategist remove sources before anything is copied. The server revalidates that final scope, requires classified claims with valid citations, rejects malformed or out-of-scope output, and stores fixed manual-handoff provenance. Five evaluation scenarios and deterministic contract scoring are ready. No paid API activation remains in the default path; the next checkpoint is a short real-use copy, ChatGPT, paste, citation, and usefulness review. Monitor configuration, transparent source coverage, connector reliability, run diagnostics, run locking and recovery, complete-history analytics, cursor-paged conversations, direct supporting-record retrieval, cloud-synced connector settings, trusted scheduling, explicit retention opt-in, protected-evidence previews, bounded enforcement, and retention audit records are implemented. Phase 3 was delivered through these verified increments:
+Phases 0 through 6 are complete and accepted. Phase 7 is next. Its first increment will establish the project-scoped editable insight builder across observation, pattern, tension, insight, and opportunity. It will reuse existing evidence and Strategy AI records, require explicit evidence relationships for workspace-backed claims, preserve uncertainty and alternative interpretations, and avoid generating creative outputs before the strategic logic is inspectable. The accepted Phase 6 workflow remains the evidence-grounded thinking input to this pipeline; no automatic or background AI analysis is introduced.
 
-1. Create a project evidence inbox over the shared evidence reference contract, with search, core filters, provenance, and a common detail drawer. **Completed.**
-2. Add persistent review states through an additive migration and explicit single-item review actions. **Completed.**
-3. Add bulk review and organization actions with safe partial-failure reporting. **Completed.**
-4. Move growing inbox queries to server-side full-text retrieval and cursor pagination. **Completed.**
-5. Add private durable Evidence Inbox saved views. **Completed.**
-6. Add relationship visibility and protected deletion warnings. **Completed.**
-7. Add CSV import mapping, validation, duplicate handling, and import history. **Completed.**
-8. Complete topic-assignment and editable strategist-note workflows. **Completed.**
-9. Run the Phase 3 acceptance checkpoint. **Completed: deletion integrity, tenant isolation, and 10k query performance pass.**
+1. Audit the existing insight, strategy-session, strategy-stage, citation, and evidence-link schema before adding Phase 7 records.
+2. Build one project-scoped insight workspace that can start from selected Evidence, Signals, or a saved Strategy AI analysis.
+3. Add editable observation, pattern, tension, insight, and opportunity stages with explicit evidence relationships.
+4. Show confidence, unresolved evidence gaps, contradictions, and alternative interpretations without forcing one conclusion.
+5. Add stage ordering, approval state, and version history without allowing edits to overwrite source evidence.
+6. Extend the pipeline through a strategic proposition only after the opportunity is explicit.
+7. Run the Phase 7 insight-pipeline acceptance checkpoint before adding creative territories, briefs, or exports.
 
 ## Definition of a successful first strategist release
 
