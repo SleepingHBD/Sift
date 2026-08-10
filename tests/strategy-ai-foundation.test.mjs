@@ -4,11 +4,15 @@ import {
   buildStrategyOpenAiRequest,
   normalizeStrategyEvidenceRow,
   parseStrategyOpenAiResponse,
+  strategyBudgetConfiguration,
   strategyEvidenceSearchText,
+  STRATEGY_MAX_OUTPUT_TOKENS,
+  STRATEGY_TOKEN_RESERVATION,
   validateStrategyAnalysisRequest,
   validateStrategyEvidencePreviewRequest,
   validateStrategyStructuredResponse,
 } from "../supabase/functions/_shared/strategy-ai.ts";
+import { scoreStrategyEvaluation, STRATEGY_EVALUATION_CASES } from "../lib/strategy-ai/evaluation.ts";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const evidenceIdentity = "research:22222222-2222-4222-8222-222222222222";
@@ -98,6 +102,21 @@ test("Strategy AI analysis requests require a unique bounded stable evidence sco
   );
 });
 
+test("Strategy AI activation requires bounded server-side request and token limits", () => {
+  assert.equal(strategyBudgetConfiguration({}).configured, false);
+  assert.equal(strategyBudgetConfiguration({ monthlyRequestLimit: "20", monthlyTokenLimit: "not-a-number" }).configured, false);
+  assert.equal(strategyBudgetConfiguration({ monthlyRequestLimit: "0", monthlyTokenLimit: "150000" }).configured, false);
+  assert.equal(strategyBudgetConfiguration({ monthlyRequestLimit: "20", monthlyTokenLimit: String(STRATEGY_TOKEN_RESERVATION - 1) }).configured, false);
+
+  assert.deepEqual(strategyBudgetConfiguration({ monthlyRequestLimit: "20", monthlyTokenLimit: "150000" }), {
+    configured: true,
+    monthlyRequestLimit: 20,
+    monthlyTokenLimit: 150000,
+    tokenReservation: STRATEGY_TOKEN_RESERVATION,
+    reason: null,
+  });
+});
+
 test("Strategy AI builds a non-stored strict-schema model request from selected evidence only", () => {
   const evidence = normalizeStrategyEvidenceRow({
     evidence: {
@@ -123,6 +142,7 @@ test("Strategy AI builds a non-stored strict-schema model request from selected 
 
   assert.equal(request.store, false);
   assert.equal(request.model, "configured-model");
+  assert.equal(request.max_output_tokens, STRATEGY_MAX_OUTPUT_TOKENS);
   assert.equal(request.text.format.strict, true);
   assert.equal(request.text.format.type, "json_schema");
   assert.match(serialized, /untrusted research material/);
@@ -156,6 +176,60 @@ test("Strategy AI parses model provenance and bounded token usage from a determi
   assert.equal(parsed.responseId, "resp_fixture");
   assert.equal(parsed.analysis.claims[0].evidenceIds[0], evidenceIdentity);
   assert.deepEqual(parsed.usage, { input_tokens: 310, output_tokens: 205, total_tokens: 515 });
+  assert.throws(
+    () => parseStrategyOpenAiResponse({
+      id: "resp_without_usage",
+      model: "configured-model",
+      status: "completed",
+      output_text: JSON.stringify(fixtureAnalysis()),
+      usage: {},
+    }, "req_without_usage", [evidenceIdentity]),
+    /missing total token usage/i,
+  );
+});
+
+test("Strategy AI ships task-specific activation cases and deterministic contract scoring", () => {
+  assert.deepEqual(STRATEGY_EVALUATION_CASES.map((item) => item.id), [
+    "insufficient-evidence",
+    "fact-vs-interpretation",
+    "contradictory-sources",
+    "hostile-source-text",
+    "evidence-to-recommendation",
+  ]);
+
+  const score = scoreStrategyEvaluation({
+    analysis: fixtureAnalysis(),
+    selectedEvidenceIds: [evidenceIdentity],
+    expectation: {
+      requiredClassifications: ["interpretation"],
+      maximumClaims: 3,
+      requiresTension: false,
+      requiresEvidenceGap: true,
+      requiresLimitation: true,
+    },
+  });
+  assert.equal(score.passesAutomatedGate, true);
+  assert.equal(score.citationValidity, 1);
+  assert.equal(score.claimCitationCoverage, 1);
+  assert.equal(score.selectedSourceCoverage, 1);
+
+  const invalid = scoreStrategyEvaluation({
+    analysis: {
+      ...fixtureAnalysis(),
+      claims: [{ ...fixtureAnalysis().claims[0], evidenceIds: ["research:55555555-5555-4555-8555-555555555555"] }],
+    },
+    selectedEvidenceIds: [evidenceIdentity],
+    expectation: {
+      requiredClassifications: ["interpretation"],
+      maximumClaims: 3,
+      requiresTension: false,
+      requiresEvidenceGap: true,
+      requiresLimitation: true,
+    },
+  });
+  assert.equal(invalid.passesAutomatedGate, false);
+  assert.equal(invalid.citationValidity, 0);
+  assert.equal(invalid.invalidEvidenceIds.length, 1);
 });
 
 function fixtureAnalysis() {

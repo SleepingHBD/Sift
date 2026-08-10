@@ -1,5 +1,7 @@
 export const STRATEGY_EVIDENCE_LIMIT = 12;
 export const STRATEGY_QUESTION_LIMIT = 1_000;
+export const STRATEGY_MAX_OUTPUT_TOKENS = 2_000;
+export const STRATEGY_TOKEN_RESERVATION = 30_000;
 
 const evidenceKinds = new Set(["mention", "research", "inspiration"]);
 const excludedReviewStatuses = new Set(["irrelevant", "archived"]);
@@ -77,6 +79,14 @@ export interface StrategyOpenAiResult {
   usage: Record<string, number>;
 }
 
+export interface StrategyBudgetConfiguration {
+  configured: boolean;
+  monthlyRequestLimit: number | null;
+  monthlyTokenLimit: number | null;
+  tokenReservation: number;
+  reason: string | null;
+}
+
 const strategyClaimClassifications = new Set<StrategyClaimClassification>(["measured_fact", "interpretation", "hypothesis", "recommendation"]);
 const strategyClaimConfidences = new Set<StrategyClaimConfidence>(["high", "medium", "low"]);
 const evidenceIdentityPattern = /^(mention|research|inspiration):([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
@@ -143,6 +153,39 @@ export function validateStrategyAnalysisRequest(value: unknown): StrategyAnalysi
   if (evidenceIdentities.some((identity) => !evidenceIdentityPattern.test(identity))) throw new Error("The evidence scope contains an invalid source identity.");
 
   return { action: "analyze", projectId, question, evidenceIdentities, clientRequestId };
+}
+
+export function strategyBudgetConfiguration(value: {
+  monthlyRequestLimit?: string | null;
+  monthlyTokenLimit?: string | null;
+}): StrategyBudgetConfiguration {
+  const requestLimit = strictPositiveInteger(value.monthlyRequestLimit);
+  const tokenLimit = strictPositiveInteger(value.monthlyTokenLimit);
+  if (requestLimit === null || tokenLimit === null) {
+    return {
+      configured: false,
+      monthlyRequestLimit: null,
+      monthlyTokenLimit: null,
+      tokenReservation: STRATEGY_TOKEN_RESERVATION,
+      reason: "Server-side monthly request and token limits have not been configured yet.",
+    };
+  }
+  if (requestLimit < 1 || requestLimit > 500 || tokenLimit < STRATEGY_TOKEN_RESERVATION || tokenLimit > 100_000_000) {
+    return {
+      configured: false,
+      monthlyRequestLimit: null,
+      monthlyTokenLimit: null,
+      tokenReservation: STRATEGY_TOKEN_RESERVATION,
+      reason: "The server-side Strategy AI usage limits are outside the supported range.",
+    };
+  }
+  return {
+    configured: true,
+    monthlyRequestLimit: requestLimit,
+    monthlyTokenLimit: tokenLimit,
+    tokenReservation: STRATEGY_TOKEN_RESERVATION,
+    reason: null,
+  };
 }
 
 export function strategyEvidenceSearchText(question: string) {
@@ -250,7 +293,7 @@ export function buildStrategyOpenAiRequest(input: {
   return {
     model: input.model,
     store: false,
-    max_output_tokens: 2_000,
+    max_output_tokens: STRATEGY_MAX_OUTPUT_TOKENS,
     safety_identifier: input.safetyIdentifier,
     input: [
       { role: "system", content: [{ type: "input_text", text: STRATEGY_SYSTEM_PROMPT }] },
@@ -351,12 +394,17 @@ export function parseStrategyOpenAiResponse(value: unknown, requestIdHeader: str
   const requestId = text(requestIdHeader) || responseId;
   if (!responseId || !requestId || !model) throw new Error("The model response is missing provenance metadata.");
 
+  const usage = normalizeStrategyUsage(response.usage);
+  if (!Number.isInteger(usage.total_tokens) || usage.total_tokens < 1) {
+    throw new Error("The model response is missing total token usage.");
+  }
+
   return {
     analysis: validateStrategyStructuredResponse(parsed, allowedEvidenceIdentities),
     model,
     requestId,
     responseId,
-    usage: normalizeStrategyUsage(response.usage),
+    usage,
   };
 }
 
@@ -415,4 +463,11 @@ function normalizeStrategyUsage(value: unknown) {
     if (Number.isFinite(amount) && amount >= 0) normalized[key] = Math.trunc(amount);
   }
   return normalized;
+}
+
+function strictPositiveInteger(value: string | null | undefined) {
+  const clean = typeof value === "string" ? value.trim() : "";
+  if (!/^\d+$/.test(clean)) return null;
+  const amount = Number(clean);
+  return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
 }

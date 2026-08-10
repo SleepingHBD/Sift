@@ -24,9 +24,11 @@ Evidence marked `irrelevant` or `archived` is excluded from the preview. A previ
 - The browser never receives a model credential or service-role key.
 - Direct authenticated insert, update, and delete access to `ai_conversations` and `ai_messages` is revoked. Messages, citations, model identifiers, and usage records are written only through an atomic service-only database function after validation.
 - Existing AI tables are reused rather than creating a duplicate conversation store.
-- A client request ID makes safe retries idempotent, while changed or missing source scopes are rejected before generation.
+- A client request ID blocks duplicate provider attempts, while atomic persistence prevents duplicate conversation records; changed or missing source scopes are rejected before generation.
 
-Model activation requires two Edge Function secrets: `OPENAI_API_KEY` and `OPENAI_STRATEGY_MODEL`. They must never be placed in a `NEXT_PUBLIC_` variable, GitHub Pages bundle, database row, or repository file. No default model is silently selected.
+Model activation requires four private Edge Function settings: `OPENAI_API_KEY`, `OPENAI_STRATEGY_MODEL`, `STRATEGY_AI_MONTHLY_REQUEST_LIMIT`, and `STRATEGY_AI_MONTHLY_TOKEN_LIMIT`. They must never be placed in a `NEXT_PUBLIC_` variable, GitHub Pages bundle, database row, or repository file. No default model or allowance is silently selected.
+
+Sift reserves a conservative token allowance transactionally before any provider request, replaces it with actual reported usage after success, and counts the full reservation when a provider attempt cannot report usage. The browser cannot alter these limits or write usage records.
 
 ## Response contract
 
@@ -45,17 +47,19 @@ Model activation requires two Edge Function secrets: `OPENAI_API_KEY` and `OPENA
 - The deployed environment currently has no activated model configuration, so the analysis action is intentionally disabled and labelled honestly.
 - The structured path is model-ready, but it is not considered production-ready until a real evaluation set passes citation-validity, unsupported-claim, usefulness, and cost checks.
 - General brainstorming is not yet implemented and cannot be mistaken for workspace-backed analysis.
+- No live model evaluation has run. The five activation scenarios and automated contract scorer are ready, but evidence fit, usefulness, and cost still need human review.
 
 ## Foundation verification
 
 - The Phase 6 migration is applied to the linked Supabase project and the JWT-protected `strategy-ai` Edge Function is active.
 - An unauthenticated function request returns `401`.
+- An authenticated production-build preview returns `200`, reports the intentionally missing model and budget configuration honestly, and creates no usage reservation.
 - A rollback-only database test confirmed RLS-scoped identity resolution, service-only atomic persistence, and direct-write denial for authenticated browser clients.
 - Authenticated browser checks confirmed the honest empty state, a newly captured matched project source, exact source selection, and the intentionally disabled analysis action.
 - The temporary browser-test source was deleted after verification and its remaining database count was confirmed as zero.
 - Deterministic fixtures test request validation, strict provider formatting, prompt-injection boundaries, citation rejection, response parsing, and usage normalization without making a paid model call.
-- The final quality gate covers 154 automated tests, TypeScript checking, ESLint, and the Next.js production build.
+- The final quality gate covers 157 automated tests, TypeScript checking, ESLint, and the Next.js production build.
 
 ## Next activation checkpoint
 
-Choose one structured-output-capable model, add both server secrets, run a small fixed evaluation set with explicit spend limits, inspect every citation, and confirm stored usage before making generation generally available. Automatic or scheduled AI analysis remains out of scope until manual requests are reliable and affordable.
+Choose one structured-output-capable model, create a small OpenAI project spend limit, add all four server secrets, run the fixed evaluation set, inspect every citation, and confirm stored usage before making generation generally available. Automatic or scheduled AI analysis remains out of scope until manual requests are reliable and affordable. See [strategy-ai-evaluation.md](strategy-ai-evaluation.md) for the exact checkpoint.

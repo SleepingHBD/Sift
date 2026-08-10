@@ -2483,6 +2483,16 @@ export type Database = {
           user_id: string
         }[]
       }
+      complete_strategy_ai_budget: {
+        Args: {
+          p_actual_tokens: number
+          p_client_request_id: string
+          p_failure_code?: string
+          p_usage: Json
+          p_user_id: string
+        }
+        Returns: Json
+      }
       consume_evidence_extraction_quota: {
         Args: { target_user_id: string }
         Returns: {
@@ -2740,6 +2750,25 @@ export type Database = {
           evidence: Json
         }[]
       }
+      release_strategy_ai_budget: {
+        Args: {
+          p_client_request_id: string
+          p_failure_code: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      reserve_strategy_ai_budget: {
+        Args: {
+          p_client_request_id: string
+          p_model: string
+          p_monthly_request_limit: number
+          p_monthly_token_limit: number
+          p_token_reserve: number
+          p_user_id: string
+        }
+        Returns: Json
+      }
       resolve_strategy_evidence: {
         Args: { p_identities: string[]; p_project_id: string }
         Returns: { evidence: Json }[]
@@ -2767,6 +2796,15 @@ export type Database = {
         Returns: {
           notes: string
         }[]
+      }
+      strategy_ai_budget_status: {
+        Args: {
+          p_monthly_request_limit: number
+          p_monthly_token_limit: number
+          p_token_reserve: number
+          p_user_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {

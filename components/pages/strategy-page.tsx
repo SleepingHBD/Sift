@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, LoaderCircle, Plus, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
+import { StrategyActivationReadiness } from "@/components/strategy/strategy-activation-readiness";
 import { StrategyAnalysisPanel } from "@/components/strategy/strategy-analysis-result";
 import { StrategyEvidenceScope } from "@/components/strategy/strategy-evidence-scope";
 import { Badge, Button, Card, PageIntro } from "@/components/ui/primitives";
@@ -121,6 +122,7 @@ export function StrategyPage() {
       {analysis ? <StrategyAnalysisPanel result={analysis} /> : null}
 
       <div className="strategy-foundation-note"><Sparkles size={17} /><div><strong>Structured citation pipeline ready</strong><span>Sift now rejects uncited claims, unknown evidence IDs, malformed output, and changed source scopes before anything is saved. Live generation remains unavailable until a model and server-side key are deliberately activated.</span></div><Link href="/evidence">Review all evidence <ArrowRight size={13} /></Link></div>
+      <StrategyActivationReadiness preview={preview} />
     </div>
   );
 }

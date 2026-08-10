@@ -81,6 +81,28 @@ test("Strategy AI generation revalidates citations and persists only through the
   assert.match(migration, /claim cites evidence outside the authorized source scope/i);
 });
 
+test("Strategy AI reserves monthly request and token allowances through service-only database functions", async () => {
+  const [handler, migration, environment] = await Promise.all([
+    read("supabase/functions/strategy-ai/index.ts"),
+    read("supabase/migrations/20260810032340_phase_6_strategy_ai_budget_guardrails.sql"),
+    read("supabase/functions/.env.example"),
+  ]);
+
+  assert.match(environment, /STRATEGY_AI_MONTHLY_REQUEST_LIMIT/);
+  assert.match(environment, /STRATEGY_AI_MONTHLY_TOKEN_LIMIT/);
+  assert.match(handler, /reserve_strategy_ai_budget/);
+  assert.match(handler, /complete_strategy_ai_budget/);
+  assert.match(handler, /conservatively counted the full protected reservation/);
+  assert.match(migration, /create table private\.strategy_ai_usage_reservations/);
+  assert.match(migration, /alter table private\.strategy_ai_usage_reservations enable row level security/);
+  assert.match(migration, /pg_catalog\.pg_advisory_xact_lock/);
+  assert.match(migration, /create or replace function public\.reserve_strategy_ai_budget[\s\S]*security definer/);
+  assert.match(migration, /create or replace function public\.complete_strategy_ai_budget[\s\S]*security definer/);
+  assert.match(migration, /revoke all on function public\.reserve_strategy_ai_budget[\s\S]*from public, anon, authenticated/);
+  assert.match(migration, /grant execute on function public\.reserve_strategy_ai_budget[\s\S]*to service_role/);
+  assert.doesNotMatch(migration, /grant execute on function public\.(reserve|complete|release)_strategy_ai_budget[\s\S]*to authenticated/);
+});
+
 test("the client cannot perform manual identity linking", async () => {
   const provider = await read("components/auth/auth-provider.tsx");
 

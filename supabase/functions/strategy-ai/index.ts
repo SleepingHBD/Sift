@@ -3,10 +3,13 @@ import {
   buildStrategyOpenAiRequest,
   normalizeStrategyEvidenceRow,
   parseStrategyOpenAiResponse,
+  strategyBudgetConfiguration,
   strategyEvidenceSearchText,
   strategySafetyIdentifier,
+  STRATEGY_TOKEN_RESERVATION,
   validateStrategyAnalysisRequest,
   validateStrategyEvidencePreviewRequest,
+  type StrategyBudgetConfiguration,
   type StrategyEvidencePreviewItem,
   type StrategyStructuredResponse,
 } from "../_shared/strategy-ai.ts";
@@ -50,6 +53,13 @@ export default {
         const evidence = normalizeEvidenceRows(searchResult.data).slice(0, input.limit);
         const totalEvidence = Number(statsResult.data?.total_count) || 0;
         const model = modelConfiguration();
+        const budget = await loadStrategyBudgetStatus(context.supabaseAdmin, userId, model.budget);
+        const analysisAvailable = model.modelConfigured && budget.configured && budget.available;
+        const analysisReason = !model.modelConfigured
+          ? "Secure model generation has not been activated yet."
+          : !budget.configured
+            ? model.budget.reason
+            : budget.reason;
         return Response.json({
           mode: "workspace_backed",
           project,
@@ -62,8 +72,10 @@ export default {
             excludedReviewStatuses: ["irrelevant", "archived"],
           },
           analysis: {
-            available: model.available,
-            reason: model.available ? null : "Secure model generation has not been activated yet.",
+            available: analysisAvailable,
+            reason: analysisAvailable ? null : analysisReason,
+            modelConfigured: model.modelConfigured,
+            budget,
           },
           limitations: evidence.length
             ? ["This is a deterministic full-text retrieval preview. No AI conclusion has been generated."]
@@ -75,8 +87,11 @@ export default {
         const input = validateStrategyAnalysisRequest(body);
         const project = await requireProjectAccess(context.supabase, input.projectId);
         const model = modelConfiguration();
-        if (!model.available) {
+        if (!model.modelConfigured) {
           throw new StrategyAiRequestError("Secure model generation has not been activated yet.", 503, "MODEL_NOT_CONFIGURED");
+        }
+        if (!model.budget.configured || model.budget.monthlyRequestLimit === null || model.budget.monthlyTokenLimit === null) {
+          throw new StrategyAiRequestError(model.budget.reason || "Server-side Strategy AI usage limits are not configured.", 503, "BUDGET_NOT_CONFIGURED");
         }
 
         const evidenceResult = await context.supabase.rpc("resolve_strategy_evidence", {
@@ -92,51 +107,93 @@ export default {
         }
         const orderedEvidence = input.evidenceIdentities.map((identity) => evidence.find((item) => item.identity === identity)!);
         const safetyIdentifier = await strategySafetyIdentifier(userId);
-        const openAiResult = await requestOpenAiAnalysis(model.apiKey, buildStrategyOpenAiRequest({
+        const modelRequest = buildStrategyOpenAiRequest({
           model: model.model,
           question: input.question,
           evidence: orderedEvidence,
           safetyIdentifier,
-        }), input.evidenceIdentities);
-        const citations = buildPersistedCitations(openAiResult.analysis, orderedEvidence);
-        const sourceScope = {
-          projectId: input.projectId,
-          question: input.question,
-          searchText: strategyEvidenceSearchText(input.question),
-          evidenceIdentities: input.evidenceIdentities,
-          excludedReviewStatuses: ["irrelevant", "archived"],
-          clientRequestId: input.clientRequestId,
-        };
-        const persistence = await context.supabaseAdmin.rpc("persist_strategy_analysis", {
+        });
+        const reservationResult = await context.supabaseAdmin.rpc("reserve_strategy_ai_budget", {
           p_user_id: userId,
-          p_project_id: input.projectId,
           p_client_request_id: input.clientRequestId,
-          p_title: input.question,
-          p_source_scope: sourceScope,
-          p_question: input.question,
-          p_structured_response: openAiResult.analysis,
-          p_structured_claims: openAiResult.analysis.claims,
-          p_citations: citations,
-          p_model: openAiResult.model,
-          p_request_id: openAiResult.requestId,
-          p_usage: { ...openAiResult.usage, response_id: openAiResult.responseId },
+          p_model: model.model,
+          p_monthly_request_limit: model.budget.monthlyRequestLimit,
+          p_monthly_token_limit: model.budget.monthlyTokenLimit,
+          p_token_reserve: model.budget.tokenReservation,
         });
-        if (persistence.error) throw new StrategyAiRequestError(`The cited analysis could not be saved: ${persistence.error.message}`, 500, "PERSISTENCE_FAILED");
-        const stored = record(persistence.data);
+        if (reservationResult.error) throw new StrategyAiRequestError(`The Strategy AI allowance could not be reserved: ${reservationResult.error.message}`, 500, "BUDGET_RESERVATION_FAILED");
+        const reservation = record(reservationResult.data);
+        if (reservation.allowed !== true) {
+          throw new StrategyAiRequestError(text(reservation.reason) || "The monthly Strategy AI allowance has been reached.", 429, "BUDGET_EXHAUSTED");
+        }
+        const reservedTokens = Number(reservation.reservedTokens) || STRATEGY_TOKEN_RESERVATION;
+        let usageRecorded = false;
 
-        return Response.json({
-          mode: "workspace_backed",
-          project,
-          question: input.question,
-          conversationId: text(stored.conversationId),
-          assistantMessageId: text(stored.assistantMessageId),
-          analysis: openAiResult.analysis,
-          citations,
-          sources: orderedEvidence,
-          model: openAiResult.model,
-          requestId: openAiResult.requestId,
-          usage: openAiResult.usage,
-        });
+        try {
+          const openAiResult = await requestOpenAiAnalysis(model.apiKey, modelRequest, input.evidenceIdentities);
+          const usageResult = await context.supabaseAdmin.rpc("complete_strategy_ai_budget", {
+            p_user_id: userId,
+            p_client_request_id: input.clientRequestId,
+            p_actual_tokens: openAiResult.usage.total_tokens,
+            p_usage: { ...openAiResult.usage, response_id: openAiResult.responseId, request_id: openAiResult.requestId },
+            p_failure_code: null,
+          });
+          if (usageResult.error) throw new StrategyAiRequestError(`Strategy AI usage could not be recorded: ${usageResult.error.message}`, 500, "BUDGET_ACCOUNTING_FAILED");
+          usageRecorded = true;
+
+          const citations = buildPersistedCitations(openAiResult.analysis, orderedEvidence);
+          const sourceScope = {
+            projectId: input.projectId,
+            question: input.question,
+            searchText: strategyEvidenceSearchText(input.question),
+            evidenceIdentities: input.evidenceIdentities,
+            excludedReviewStatuses: ["irrelevant", "archived"],
+            clientRequestId: input.clientRequestId,
+          };
+          const persistence = await context.supabaseAdmin.rpc("persist_strategy_analysis", {
+            p_user_id: userId,
+            p_project_id: input.projectId,
+            p_client_request_id: input.clientRequestId,
+            p_title: input.question,
+            p_source_scope: sourceScope,
+            p_question: input.question,
+            p_structured_response: openAiResult.analysis,
+            p_structured_claims: openAiResult.analysis.claims,
+            p_citations: citations,
+            p_model: openAiResult.model,
+            p_request_id: openAiResult.requestId,
+            p_usage: { ...openAiResult.usage, response_id: openAiResult.responseId },
+          });
+          if (persistence.error) throw new StrategyAiRequestError(`The cited analysis could not be saved: ${persistence.error.message}`, 500, "PERSISTENCE_FAILED");
+          const stored = record(persistence.data);
+          const budgetAfter = await loadStrategyBudgetStatus(context.supabaseAdmin, userId, model.budget);
+
+          return Response.json({
+            mode: "workspace_backed",
+            project,
+            question: input.question,
+            conversationId: text(stored.conversationId),
+            assistantMessageId: text(stored.assistantMessageId),
+            analysis: openAiResult.analysis,
+            citations,
+            sources: orderedEvidence,
+            model: openAiResult.model,
+            requestId: openAiResult.requestId,
+            usage: openAiResult.usage,
+            budget: budgetAfter,
+          });
+        } catch (error) {
+          if (!usageRecorded) {
+            await recordFailedBudgetAttempt(
+              context.supabaseAdmin,
+              userId,
+              input.clientRequestId,
+              reservedTokens,
+              error instanceof StrategyAiRequestError ? error.code : "MODEL_ATTEMPT_FAILED",
+            );
+          }
+          throw error;
+        }
       }
 
       throw new StrategyAiRequestError("The Strategy AI action is not supported.", 400, "UNSUPPORTED_ACTION");
@@ -232,10 +289,86 @@ function normalizeEvidenceRows(value: unknown): StrategyEvidencePreviewItem[] {
     .filter((item): item is StrategyEvidencePreviewItem => Boolean(item));
 }
 
-function modelConfiguration(): { available: false; apiKey: ""; model: "" } | { available: true; apiKey: string; model: string } {
+function modelConfiguration() {
   const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim() || "";
   const model = Deno.env.get("OPENAI_STRATEGY_MODEL")?.trim() || "";
-  return apiKey && model ? { available: true, apiKey, model } : { available: false, apiKey: "", model: "" };
+  const budget = strategyBudgetConfiguration({
+    monthlyRequestLimit: Deno.env.get("STRATEGY_AI_MONTHLY_REQUEST_LIMIT"),
+    monthlyTokenLimit: Deno.env.get("STRATEGY_AI_MONTHLY_TOKEN_LIMIT"),
+  });
+  return { apiKey, model, modelConfigured: Boolean(apiKey && model), budget };
+}
+
+async function loadStrategyBudgetStatus(client: StrategyAdminClient, userId: string, configuration: StrategyBudgetConfiguration): Promise<StrategyBudgetStatus> {
+  if (!configuration.configured || configuration.monthlyRequestLimit === null || configuration.monthlyTokenLimit === null) {
+    return {
+      configured: false,
+      available: false,
+      reason: configuration.reason,
+      periodStart: null,
+      periodEnd: null,
+      monthlyRequestLimit: null,
+      monthlyTokenLimit: null,
+      completedRequests: 0,
+      failedRequests: 0,
+      activeReservations: 0,
+      usedRequests: 0,
+      usedTokens: 0,
+      reservedTokens: 0,
+      remainingRequests: 0,
+      remainingTokens: 0,
+      nextRequestReservationTokens: configuration.tokenReservation,
+    };
+  }
+  const result = await client.rpc("strategy_ai_budget_status", {
+    p_user_id: userId,
+    p_monthly_request_limit: configuration.monthlyRequestLimit,
+    p_monthly_token_limit: configuration.monthlyTokenLimit,
+    p_token_reserve: configuration.tokenReservation,
+  });
+  if (result.error) throw new StrategyAiRequestError(`Strategy AI usage limits could not be checked: ${result.error.message}`, 500, "BUDGET_STATUS_FAILED");
+  const value = record(result.data);
+  return {
+    configured: value.configured === true,
+    available: value.available === true,
+    reason: text(value.reason) || null,
+    periodStart: text(value.periodStart) || null,
+    periodEnd: text(value.periodEnd) || null,
+    monthlyRequestLimit: numberOrZero(value.monthlyRequestLimit),
+    monthlyTokenLimit: numberOrZero(value.monthlyTokenLimit),
+    completedRequests: numberOrZero(value.completedRequests),
+    failedRequests: numberOrZero(value.failedRequests),
+    activeReservations: numberOrZero(value.activeReservations),
+    usedRequests: numberOrZero(value.usedRequests),
+    usedTokens: numberOrZero(value.usedTokens),
+    reservedTokens: numberOrZero(value.reservedTokens),
+    remainingRequests: numberOrZero(value.remainingRequests),
+    remainingTokens: numberOrZero(value.remainingTokens),
+    nextRequestReservationTokens: numberOrZero(value.nextRequestReservationTokens),
+  };
+}
+
+async function recordFailedBudgetAttempt(
+  client: StrategyAdminClient,
+  userId: string,
+  clientRequestId: string,
+  reservedTokens: number,
+  failureCode: string,
+) {
+  const result = await client.rpc("complete_strategy_ai_budget", {
+    p_user_id: userId,
+    p_client_request_id: clientRequestId,
+    p_actual_tokens: reservedTokens,
+    p_usage: {
+      estimated: true,
+      reserved_tokens: reservedTokens,
+      reason: "Provider usage was unavailable, so Sift conservatively counted the full protected reservation.",
+    },
+    p_failure_code: failureCode,
+  });
+  if (result.error) {
+    console.error("Strategy AI failed-attempt usage could not be recorded", { code: failureCode, message: result.error.message });
+  }
 }
 
 function authenticatedUserId(context: { authMode: string; userClaims: Record<string, unknown> }) {
@@ -251,6 +384,37 @@ function record(value: unknown): Record<string, unknown> {
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function numberOrZero(value: unknown) {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? Math.trunc(amount) : 0;
+}
+
+interface StrategyBudgetStatus {
+  configured: boolean;
+  available: boolean;
+  reason: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  monthlyRequestLimit: number | null;
+  monthlyTokenLimit: number | null;
+  completedRequests: number;
+  failedRequests: number;
+  activeReservations: number;
+  usedRequests: number;
+  usedTokens: number;
+  reservedTokens: number;
+  remainingRequests: number;
+  remainingTokens: number;
+  nextRequestReservationTokens: number;
+}
+
+interface StrategyAdminClient {
+  rpc: (functionName: string, parameters: Record<string, unknown>) => Promise<{
+    data: unknown;
+    error: { message: string } | null;
+  }>;
 }
 
 interface StrategySupabaseClient {

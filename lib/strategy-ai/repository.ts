@@ -2,6 +2,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { Project } from "@/lib/types";
 import type {
   StrategyAnalysisResult,
+  StrategyBudgetStatus,
   StrategyCitation,
   StrategyClaim,
   StrategyEvidencePreview,
@@ -92,7 +93,10 @@ function isStrategyEvidencePreview(value: unknown): value is StrategyEvidencePre
     && Array.isArray(preview.evidence)
     && preview.evidence.every(isStrategyEvidencePreviewItem)
     && Boolean(preview.coverage && typeof preview.coverage.totalEvidence === "number")
-    && Boolean(preview.analysis && typeof preview.analysis.available === "boolean")
+    && Boolean(preview.analysis
+      && typeof preview.analysis.available === "boolean"
+      && typeof preview.analysis.modelConfigured === "boolean"
+      && isStrategyBudgetStatus(preview.analysis.budget))
     && Array.isArray(preview.limitations)
     && preview.limitations.every((item) => typeof item === "string");
 }
@@ -112,7 +116,29 @@ function isStrategyAnalysisResult(value: unknown): value is StrategyAnalysisResu
     && result.citations.every(isStrategyCitation)
     && Array.isArray(result.sources)
     && result.sources.every(isStrategyEvidencePreviewItem)
-    && Boolean(result.usage && typeof result.usage === "object");
+    && Boolean(result.usage && typeof result.usage === "object")
+    && isStrategyBudgetStatus(result.budget);
+}
+
+function isStrategyBudgetStatus(value: unknown): value is StrategyBudgetStatus {
+  if (!value || typeof value !== "object") return false;
+  const budget = value as Partial<StrategyBudgetStatus>;
+  return typeof budget.configured === "boolean"
+    && typeof budget.available === "boolean"
+    && (budget.reason === null || typeof budget.reason === "string")
+    && (budget.periodStart === null || typeof budget.periodStart === "string")
+    && (budget.periodEnd === null || typeof budget.periodEnd === "string")
+    && nullableNumber(budget.monthlyRequestLimit)
+    && nullableNumber(budget.monthlyTokenLimit)
+    && finiteNumber(budget.completedRequests)
+    && finiteNumber(budget.failedRequests)
+    && finiteNumber(budget.activeReservations)
+    && finiteNumber(budget.usedRequests)
+    && finiteNumber(budget.usedTokens)
+    && finiteNumber(budget.reservedTokens)
+    && finiteNumber(budget.remainingRequests)
+    && finiteNumber(budget.remainingTokens)
+    && finiteNumber(budget.nextRequestReservationTokens);
 }
 
 function isStrategyStructuredResponse(value: unknown): value is StrategyStructuredResponse {
@@ -161,4 +187,12 @@ function isStrategyCitation(value: unknown): value is StrategyCitation {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function finiteNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function nullableNumber(value: unknown) {
+  return value === null || finiteNumber(value);
 }

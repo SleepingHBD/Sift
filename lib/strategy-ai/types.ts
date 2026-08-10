@@ -3,6 +3,25 @@ export type StrategyEvidenceKind = "mention" | "research" | "inspiration";
 export type StrategyClaimClassification = "measured_fact" | "interpretation" | "hypothesis" | "recommendation";
 export type StrategyClaimConfidence = "high" | "medium" | "low";
 
+export interface StrategyBudgetStatus {
+  configured: boolean;
+  available: boolean;
+  reason: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  monthlyRequestLimit: number | null;
+  monthlyTokenLimit: number | null;
+  completedRequests: number;
+  failedRequests: number;
+  activeReservations: number;
+  usedRequests: number;
+  usedTokens: number;
+  reservedTokens: number;
+  remainingRequests: number;
+  remainingTokens: number;
+  nextRequestReservationTokens: number;
+}
+
 export interface StrategyEvidencePreviewItem {
   identity: string;
   id: string;
@@ -33,6 +52,8 @@ export interface StrategyEvidencePreview {
   analysis: {
     available: boolean;
     reason: string | null;
+    modelConfigured: boolean;
+    budget: StrategyBudgetStatus;
   };
   limitations: string[];
 }
@@ -85,4 +106,5 @@ export interface StrategyAnalysisResult {
   model: string;
   requestId: string;
   usage: Record<string, number>;
+  budget: StrategyBudgetStatus;
 }
