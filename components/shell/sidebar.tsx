@@ -33,7 +33,7 @@ const settingsItem: NavigationItem = { label: "Settings", href: "/settings", sec
 
 const workflow = [
   {
-    letter: "A",
+    step: "01",
     label: "Set up",
     items: [
       { label: "Projects", href: "/projects", section: "projects", icon: FolderKanban },
@@ -41,20 +41,20 @@ const workflow = [
       { label: "Competitors", href: "/competitors", section: "competitors", icon: Swords },
     ],
   },
-  { letter: "B", label: "Discover", items: [{ label: "Radar", href: "/radar", section: "radar", icon: Radio }] },
+  { step: "02", label: "Discover", items: [{ label: "Radar", href: "/radar", section: "radar", icon: Radio }] },
   {
-    letter: "C",
+    step: "03",
     label: "Collect",
     items: [
       { label: "Research", href: "/research", section: "research", icon: Library },
       { label: "Inspiration", href: "/inspiration", section: "inspiration", icon: Images },
     ],
   },
-  { letter: "D", label: "Review", items: [{ label: "Evidence", href: "/evidence", section: "evidence", icon: Inbox }] },
-  { letter: "E", label: "Understand", items: [{ label: "Trends", href: "/trends", section: "trends", icon: TrendingUp }] },
-  { letter: "F", label: "Think", items: [{ label: "Strategy AI", href: "/strategy-ai", section: "strategy-ai", icon: Sparkles }] },
-  { letter: "G", label: "Create", items: [{ label: "Briefs", href: "/briefs", section: "briefs", icon: FileText }] },
-] satisfies Array<{ letter: string; label: string; items: NavigationItem[] }>;
+  { step: "04", label: "Review", items: [{ label: "Evidence", href: "/evidence", section: "evidence", icon: Inbox }] },
+  { step: "05", label: "Understand", items: [{ label: "Trends", href: "/trends", section: "trends", icon: TrendingUp }] },
+  { step: "06", label: "Think", items: [{ label: "Strategy AI", href: "/strategy-ai", section: "strategy-ai", icon: Sparkles }] },
+  { step: "07", label: "Create", items: [{ label: "Briefs", href: "/briefs", section: "briefs", icon: FileText }] },
+] satisfies Array<{ step: string; label: string; items: NavigationItem[] }>;
 
 export function Sidebar({ activeSection }: { activeSection: string }) {
   const { collapsed, setCollapsed, mobileNavOpen, setMobileNavOpen, projects, activeProjectId } = useApp();
@@ -109,9 +109,9 @@ export function Sidebar({ activeSection }: { activeSection: string }) {
           <p className="sidebar__label">Guided workflow</p>
           <div className="sidebar__workflow">
             {workflow.map((stage) => (
-              <section className="sidebar-stage" key={stage.letter} aria-labelledby={`sidebar-stage-${stage.letter}`}>
-                <p className="sidebar-stage__label" id={`sidebar-stage-${stage.letter}`}>
-                  <span>{stage.letter}</span>
+              <section className="sidebar-stage" key={stage.step} aria-labelledby={`sidebar-stage-${stage.step}`}>
+                <p className="sidebar-stage__label" id={`sidebar-stage-${stage.step}`}>
+                  <span>{stage.step}</span>
                   <strong>{stage.label}</strong>
                 </p>
                 <div className="sidebar-stage__items">

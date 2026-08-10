@@ -89,7 +89,7 @@ a { color: inherit; text-decoration: none; }
 .sidebar-stage { margin-top: 8px; }
 .sidebar-stage:first-child { margin-top: 1px; }
 .sidebar-stage__label { min-height: 18px; margin: 0 11px 3px; display: flex; align-items: center; gap: 7px; color: #777d6d; white-space: nowrap; transition: opacity 140ms; }
-.sidebar-stage__label span { width: 17px; height: 17px; display: grid; place-items: center; border: 1px solid #3c4033; border-radius: 5px; color: var(--acid); font-size: 9px; font-weight: 850; }
+.sidebar-stage__label span { width: 21px; height: 17px; display: grid; place-items: center; border: 1px solid #3c4033; border-radius: 5px; color: var(--acid); font-size: 8px; font-weight: 850; letter-spacing: .25px; }
 .sidebar-stage__label strong { font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
 .sidebar-stage__items { display: flex; flex-direction: column; gap: 1px; }
 .sidebar-stage .sidebar-link { min-height: 36px; }
