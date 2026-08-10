@@ -11,6 +11,7 @@ import { EvidenceDetailDrawer } from "@/components/evidence/evidence-detail-draw
 import { EvidenceSavedViews } from "@/components/evidence/evidence-saved-views";
 import { Badge, Button, Card, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
+import { LibraryImportNotice } from "@/components/workspace/library-import-notice";
 import {
   captureMethodLabel,
   evidenceReviewLabel,
@@ -83,6 +84,14 @@ function bulkFeedback(result: EvidenceBulkResult, verb: string): EvidenceBulkFee
   return { tone: "warning", message: `${succeeded} ${succeeded === 1 ? "item" : "items"} ${verb}; ${failed} need attention.`, failures: result.failures };
 }
 
+function initialEvidenceKind(fallback: EvidenceInboxKindFilter): EvidenceInboxKindFilter {
+  if (typeof window === "undefined") return fallback;
+  const requestedKind = new URLSearchParams(window.location.search).get("kind");
+  return requestedKind === "all" || requestedKind === "mention" || requestedKind === "research" || requestedKind === "inspiration"
+    ? requestedKind
+    : fallback;
+}
+
 function applyReviewUpdates(
   items: EvidenceReference[],
   updates: Record<string, EvidenceReviewUpdate>,
@@ -98,7 +107,7 @@ function applyReviewUpdates(
     : updatedItems;
 }
 
-export function EvidencePage() {
+export function EvidencePage({ initialKind = "all" }: { initialKind?: EvidenceInboxKindFilter }) {
   const {
     projects,
     inspirationItems,
@@ -111,6 +120,8 @@ export function EvidencePage() {
     clearWorkspaceError,
     setProjectDialogOpen,
     openCaptureDialog,
+    pendingResearchImports,
+    importPendingResearch,
   } = useApp();
   const [items, setItems] = useState<EvidenceReference[]>([]);
   const [evidenceStatus, setEvidenceStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -125,7 +136,7 @@ export function EvidencePage() {
   const [query, setQuery] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [projectFilter, setProjectFilter] = useState("all");
-  const [kindFilter, setKindFilter] = useState<EvidenceInboxKindFilter>("all");
+  const [kindFilter, setKindFilter] = useState<EvidenceInboxKindFilter>(() => initialEvidenceKind(initialKind));
   const [view, setView] = useState<EvidenceInboxView>("all");
   const [sort, setSort] = useState<EvidenceInboxSort>("newest");
   const [group, setGroup] = useState<EvidenceInboxGroup>("none");
@@ -576,11 +587,13 @@ export function EvidencePage() {
 
   return (
     <div className="page evidence-inbox-page">
-      <PageIntro eyebrow="Evidence inbox" title="Review what you’ve collected." description="One traceable queue for conversations, research, social captures, files, and inspiration across your projects.">
+      <PageIntro eyebrow="Evidence library" title="Collect it once. Use it everywhere." description="Capture research and source material, then review, organise, search, and cite it without moving between separate sections.">
         {projects.length ? <><Button onClick={() => setCsvImportOpen(true)}><FileSpreadsheet size={16} />Import CSV</Button><Button variant="dark" onClick={() => openCaptureDialog("url")}><Plus size={16} />Capture evidence</Button></> : <Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={16} />Create project</Button>}
       </PageIntro>
 
       {workspaceError ? <div className="workspace-sync-notice workspace-sync-notice--error" role="alert"><div><strong>Cloud workspace needs attention</strong><span>{workspaceError}</span></div><div><Button size="sm" onClick={retryWorkspace}>Try again</Button><button type="button" aria-label="Dismiss error" onClick={clearWorkspaceError}>×</button></div></div> : null}
+
+      {pendingResearchImports.length ? <LibraryImportNotice kind="research" items={pendingResearchImports} onImport={importPendingResearch} /> : null}
 
       {workspaceStatus === "loading" && !projects.length ? (
         <Card className="project-loading-state"><LoaderCircle className="spin" size={24} /><div><strong>Loading your private evidence…</strong><span>Project records are being retrieved from Supabase.</span></div></Card>
@@ -593,7 +606,7 @@ export function EvidencePage() {
       ) : evidenceStatus === "error" ? (
         <EmptyState icon={Cloud} title="Your evidence could not be searched." description={evidenceError || "The server-side evidence query did not complete."} actions={<Button variant="dark" onClick={() => setRetryVersion((current) => current + 1)}>Try again</Button>} />
       ) : statsStatus === "ready" && stats.total === 0 && projectFilter === "all" ? (
-        <EmptyState icon={Inbox} title="Your evidence inbox is empty." description="Capture a source, import a research spreadsheet, save inspiration, or run a permitted Radar monitor. Each item will appear here with its original provenance." actions={<><Button variant="dark" onClick={() => openCaptureDialog("url")}><Plus size={15} />Capture evidence</Button><Button onClick={() => setCsvImportOpen(true)}><FileSpreadsheet size={15} />Import CSV</Button><Link className="ui-button ui-button--secondary ui-button--md" href="/radar">Open Radar <ArrowRight size={14} /></Link></>} />
+        <EmptyState icon={Inbox} title="Your evidence library is empty." description="Capture research, import a spreadsheet, save inspiration, or run a permitted Radar monitor. Each source will appear here with its original provenance and review status." actions={<><Button variant="dark" onClick={() => openCaptureDialog("url")}><Plus size={15} />Capture evidence</Button><Button onClick={() => setCsvImportOpen(true)}><FileSpreadsheet size={15} />Import CSV</Button><Link className="ui-button ui-button--secondary ui-button--md" href="/radar">Open Radar <ArrowRight size={14} /></Link></>} />
       ) : (
         <>
           <section className="evidence-inbox-summary" aria-label="Evidence inbox summary">
@@ -631,7 +644,7 @@ export function EvidencePage() {
           <div className="evidence-inbox-toolbar">
             <label className="evidence-inbox-search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search evidence, interpretations, notes, authors, topics, and tags" /></label>
             <select aria-label="Filter evidence by project" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}><option value="all">All projects</option>{projects.map((project) => <option key={project.id} value={projectEvidenceId(project)}>{project.name}</option>)}</select>
-            <select aria-label="Filter evidence by type" value={kindFilter} onChange={(event) => setKindFilter(event.target.value as EvidenceInboxKindFilter)}><option value="all">All evidence types</option><option value="mention">Radar mentions</option><option value="research">Research & captures</option><option value="inspiration">Inspiration</option></select>
+            <select aria-label="Filter evidence by type" value={kindFilter} onChange={(event) => setKindFilter(event.target.value as EvidenceInboxKindFilter)}><option value="all">All evidence types</option><option value="mention">Radar conversations</option><option value="research">Research, notes & captures</option><option value="inspiration">Inspiration</option></select>
             <select aria-label="Sort evidence" value={sort} onChange={(event) => setSort(event.target.value as EvidenceInboxSort)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="recently-reviewed">Recently reviewed</option><option value="source">Source A–Z</option><option value="project">Source project A–Z</option></select>
             <select aria-label="Group evidence" value={group} onChange={(event) => setGroup(event.target.value as EvidenceInboxGroup)}><option value="none">No grouping</option><option value="project">Group by source project</option><option value="kind">Group by type</option><option value="status">Group by status</option></select>
             {filtersActive ? <button className="evidence-inbox-clear" type="button" onClick={clearFilters}><X size={14} />Clear</button> : null}

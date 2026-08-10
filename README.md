@@ -53,7 +53,7 @@ Projects, Research, Inspiration, Radar monitors, connector-created conversations
 
 Research and Inspiration deletion first inspects tags, project links, saved markers, attachments, and strategic citations. Insight and brief citations protect a source from deletion until the citation is deliberately removed; non-strategic organization links are disclosed and removed atomically with the source. The original external webpage or social post is never affected.
 
-Screenshot, image, and PDF evidence is stored in the private `evidence-assets` Storage bucket. Uploads are limited to JPG, PNG, WebP, and PDF files of 20 MB or less. Storage paths are uploader- and project-scoped, access is checked through Row Level Security, and the Research library opens files with short-lived signed links rather than public URLs.
+Screenshot, image, and PDF evidence is stored in the private `evidence-assets` Storage bucket. Uploads are limited to JPG, PNG, WebP, and PDF files of 20 MB or less. Storage paths are uploader- and project-scoped, access is checked through Row Level Security, and the unified Evidence library opens files with short-lived signed links rather than public URLs.
 
 CSV evidence import accepts a local file of up to 500 data rows or 5 MB, automatically suggests field mappings, previews validation and duplicates, and lets the strategist skip or deliberately retain matches. The raw CSV remains in the browser. Supabase receives only the mapped rows, imports accepted records into `research_items`, links shared tags, and stores a minimal RLS-protected run/row audit. A stable request UUID makes network retries idempotent.
 

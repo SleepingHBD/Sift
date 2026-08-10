@@ -10,7 +10,7 @@ export function GlobalSearch() {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const groups = useMemo(() => [
-    { label: "Research", href: "/research", icon: FileText, items: researchItems.map((item) => ({ id: item.id, title: item.title, meta: item.publication })) },
+    { label: "Research evidence", href: "/evidence?kind=research", icon: FileText, items: researchItems.map((item) => ({ id: item.id, title: item.title, meta: item.publication })) },
     { label: "Inspiration", href: "/inspiration", icon: Images, items: inspirationItems.map((item) => ({ id: item.id, title: item.title, meta: item.brand })) },
     { label: "Projects", href: "/projects", icon: FolderKanban, items: projects.map((item) => ({ id: item.id, title: item.name, meta: item.focus })) },
   ], [inspirationItems, projects, researchItems]);
@@ -41,7 +41,7 @@ export function GlobalSearch() {
           {filtered.length ? filtered.map((group) => {
             const Icon = group.icon;
             return <div className="search-group" key={group.label}><p>{group.label}</p>{group.items.map((item) => <Link key={item.id} href={group.href} onClick={() => setSearchOpen(false)}><span className="search-result__icon"><Icon size={16} /></span><span><strong>{item.title}</strong><small>{item.meta || "No description"}</small></span></Link>)}</div>;
-          }) : <div className="search-empty"><Search size={28} /><strong>{query ? "No exact match" : "Your workspace is ready to search"}</strong><span>{query ? "Try a broader project, source, or topic." : "Results will appear as you add projects, research, inspiration, and evidence."}</span></div>}
+          }) : <div className="search-empty"><Search size={28} /><strong>{query ? "No exact match" : "Your workspace is ready to search"}</strong><span>{query ? "Try a broader project, source, or topic." : "Results will appear as you add projects, evidence, and inspiration."}</span></div>}
         </div>
         <div className="search-dialog__footer"><span>Searching your workspace</span><span><kbd>esc</kbd> to close</span></div>
       </div>

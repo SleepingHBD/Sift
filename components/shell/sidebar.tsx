@@ -8,7 +8,6 @@ import {
   Home,
   Images,
   Inbox,
-  Library,
   PanelLeftClose,
   PanelLeftOpen,
   Radio,
@@ -44,16 +43,15 @@ const workflow = [
   { step: "02", label: "Discover", items: [{ label: "Radar", href: "/radar", section: "radar", icon: Radio }] },
   {
     step: "03",
-    label: "Collect",
+    label: "Build evidence",
     items: [
-      { label: "Research", href: "/research", section: "research", icon: Library },
+      { label: "Evidence", href: "/evidence", section: "evidence", icon: Inbox },
       { label: "Inspiration", href: "/inspiration", section: "inspiration", icon: Images },
     ],
   },
-  { step: "04", label: "Review", items: [{ label: "Evidence", href: "/evidence", section: "evidence", icon: Inbox }] },
-  { step: "05", label: "Understand", items: [{ label: "Trends", href: "/trends", section: "trends", icon: TrendingUp }] },
-  { step: "06", label: "Think", items: [{ label: "Strategy AI", href: "/strategy-ai", section: "strategy-ai", icon: Sparkles }] },
-  { step: "07", label: "Create", items: [{ label: "Briefs", href: "/briefs", section: "briefs", icon: FileText }] },
+  { step: "04", label: "Understand", items: [{ label: "Trends", href: "/trends", section: "trends", icon: TrendingUp }] },
+  { step: "05", label: "Think", items: [{ label: "Strategy AI", href: "/strategy-ai", section: "strategy-ai", icon: Sparkles }] },
+  { step: "06", label: "Create", items: [{ label: "Briefs", href: "/briefs", section: "briefs", icon: FileText }] },
 ] satisfies Array<{ step: string; label: string; items: NavigationItem[] }>;
 
 export function Sidebar({ activeSection }: { activeSection: string }) {

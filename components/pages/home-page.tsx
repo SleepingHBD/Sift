@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookOpen, CornerDownLeft, FolderKanban, Images, Lightbulb, MessageCircleMore, Radio, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowRight, CornerDownLeft, FolderKanban, Images, Inbox, Lightbulb, MessageCircleMore, Radio, Sparkles, TrendingUp } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { Card } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
 
 export function HomePage() {
-  const { setProjectDialogOpen, projects, researchItems } = useApp();
+  const { setProjectDialogOpen, openCaptureDialog, projects, researchItems } = useApp();
   const [question, setQuestion] = useState("");
   const [answerVisible, setAnswerVisible] = useState(false);
   const hasEvidence = researchItems.length > 0;
@@ -32,7 +32,7 @@ export function HomePage() {
           <textarea rows={2} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask your strategist…" aria-label="Ask your strategist" />
           <div className="strategist-input__footer"><span>{hasEvidence ? `${researchItems.length} research item${researchItems.length === 1 ? "" : "s"} available · ChatGPT handoff ready` : "Add evidence for workspace-backed analysis"}</span><button type="submit" aria-label="Ask question"><CornerDownLeft size={18} /></button></div>
         </form>
-        {answerVisible ? <Card className="quick-answer general-ai-notice"><div className="quick-answer__icon"><Sparkles size={18} /></div><div><div className="quick-answer__label"><strong>{hasEvidence ? "Workspace-backed workflow" : "Evidence needed"}</strong><span>{hasEvidence ? "Uses your ChatGPT account" : "No finding generated"}</span></div><p>{hasEvidence ? "Open Strategy AI to retrieve the relevant sources, prepare a citation-ready ChatGPT prompt, and save the validated response back into Sift." : "I don’t have enough workspace evidence yet to answer this as a research-backed strategist. Add research and conversations first so future analysis can cite your sources."}</p><div className="general-ai-actions">{hasEvidence ? <Link href="/strategy-ai">Open Strategy AI <ArrowRight size={13} /></Link> : <><Link href="/research">Add research <ArrowRight size={13} /></Link><Link href="/radar/#new-monitor">Create Radar monitor <ArrowRight size={13} /></Link></>}</div></div></Card> : null}
+        {answerVisible ? <Card className="quick-answer general-ai-notice"><div className="quick-answer__icon"><Sparkles size={18} /></div><div><div className="quick-answer__label"><strong>{hasEvidence ? "Workspace-backed workflow" : "Evidence needed"}</strong><span>{hasEvidence ? "Uses your ChatGPT account" : "No finding generated"}</span></div><p>{hasEvidence ? "Open Strategy AI to retrieve the relevant sources, prepare a citation-ready ChatGPT prompt, and save the validated response back into Sift." : "I don’t have enough workspace evidence yet to answer this as a research-backed strategist. Add evidence and conversations first so future analysis can cite your sources."}</p><div className="general-ai-actions">{hasEvidence ? <Link href="/strategy-ai">Open Strategy AI <ArrowRight size={13} /></Link> : <><Link href="/evidence">Open Evidence <ArrowRight size={13} /></Link><Link href="/radar/#new-monitor">Create Radar monitor <ArrowRight size={13} /></Link></>}</div></div></Card> : null}
       </section>
 
       <section className="workspace-onboarding">
@@ -40,7 +40,7 @@ export function HomePage() {
         <div className="workspace-onboarding__actions">
           <button onClick={() => setProjectDialogOpen(true)}><FolderKanban size={18} /><span><strong>{projects.length ? "Create another project" : "Create project"}</strong><small>Define the decision and context</small></span><ArrowRight size={14} /></button>
           <Link href="/radar/#new-monitor"><Radio size={18} /><span><strong>Create Radar monitor</strong><small>Define a conversation to collect</small></span><ArrowRight size={14} /></Link>
-          <Link href="/research"><BookOpen size={18} /><span><strong>Add research</strong><small>Build a source-backed knowledge base</small></span><ArrowRight size={14} /></Link>
+          <button onClick={() => openCaptureDialog("url")}><Inbox size={18} /><span><strong>Add evidence</strong><small>Capture research, notes, links, or files</small></span><ArrowRight size={14} /></button>
           <Link href="/inspiration"><Images size={18} /><span><strong>Save inspiration</strong><small>Keep work and ideas worth revisiting</small></span><ArrowRight size={14} /></Link>
         </div>
       </section>
@@ -52,7 +52,7 @@ export function HomePage() {
         <EmptyState compact icon={FolderKanban} eyebrow="Competitor activity" title="No competitors are being tracked." description="Add competitors to a project to begin comparing their activity." actions={<button className="text-link" onClick={() => setProjectDialogOpen(true)}>Add competitor <ArrowRight size={13} /></button>} />
       </div>
 
-      <EmptyState icon={Lightbulb} eyebrow="AI daily insight" title="Sift needs some evidence first." description="Add research or start monitoring conversations and Sift will surface strategic observations here." actions={<><Link className="text-link" href="/research">Add research <ArrowRight size={13} /></Link><Link className="text-link" href="/radar/#new-monitor">Start monitoring <ArrowRight size={13} /></Link></>} />
+      <EmptyState icon={Lightbulb} eyebrow="AI daily insight" title="Sift needs some evidence first." description="Add evidence or start monitoring conversations and Sift will surface strategic observations here." actions={<><Link className="text-link" href="/evidence">Open Evidence <ArrowRight size={13} /></Link><Link className="text-link" href="/radar/#new-monitor">Start monitoring <ArrowRight size={13} /></Link></>} />
     </div>
   );
 }

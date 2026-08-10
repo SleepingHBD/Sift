@@ -54,7 +54,8 @@ GitHub Pages cannot protect connector or model secrets. Radar calls authenticate
 | `/brands` | What brand context should constrain the work? |
 | `/competitors` | What does each brand own and where is the gap? |
 | `/inspiration` | What work is worth remembering and why? |
-| `/research` | What evidence has been collected? |
+| `/evidence` | What has been collected, what needs review, and what can support strategy? |
+| `/research` | Compatibility route that opens the Research-filtered view inside Evidence. |
 | `/strategy-ai` | What pattern, tension, insight, and opportunity follow? |
 | `/briefs` | What should a creative team make from this evidence? |
 | `/projects` | Which strategic question does each knowledge set serve? |

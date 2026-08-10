@@ -7,7 +7,6 @@ import { HomePage } from "@/components/pages/home-page";
 import { InspirationPage } from "@/components/pages/inspiration-page";
 import { ProjectsPage } from "@/components/pages/projects-page";
 import { RadarPage } from "@/components/pages/radar-page";
-import { ResearchPage } from "@/components/pages/research-page";
 import { SettingsPage } from "@/components/pages/settings-page";
 import { StrategyPage } from "@/components/pages/strategy-page";
 import { TrendsPage } from "@/components/pages/trends-page";
@@ -20,7 +19,6 @@ const pages: Record<string, React.ComponentType> = {
   brands: BrandsPage,
   competitors: CompetitorsPage,
   inspiration: InspirationPage,
-  research: ResearchPage,
   "strategy-ai": StrategyPage,
   briefs: BriefsPage,
   projects: ProjectsPage,
@@ -28,6 +26,9 @@ const pages: Record<string, React.ComponentType> = {
 };
 
 export function AppView({ section }: { section: string }) {
+  if (section === "research") {
+    return <AppShell activeSection="evidence"><EvidencePage initialKind="research" /></AppShell>;
+  }
   const Page = pages[section] ?? HomePage;
   return <AppShell activeSection={section}><Page /></AppShell>;
 }
