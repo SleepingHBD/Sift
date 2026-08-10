@@ -2,13 +2,15 @@
 
 Date: 10 August 2026
 
-Status: **Increments 1 through 3 implemented. The trusted pipeline foundation is live and the first Insight Builder is complete locally; no Phase 7 content was seeded during verification.**
+Status: **Increments 1 through 5 implemented. The trusted pipeline foundation is live and the complete evidence-to-proposition builder is implemented locally; no Phase 7 content was seeded during verification.**
 
-## Increment 3 implementation result
+## Current Insight Builder implementation result
 
-The guided workflow now includes **Think → Insight Builder** after Strategy AI. The project-scoped screen can create durable sessions, edit and save Observation, Pattern, Tension, Insight, and Opportunity claims, show stage progress, link original Evidence as support, contradiction, or context, inspect preserved source details, and remove a stage citation without altering the source itself.
+The guided workflow includes **Think → Insight Builder** after Strategy AI. The project-scoped screen can create durable sessions; edit and save Observation, Pattern, Tension, Insight, Opportunity, and Strategic Proposition claims; show stage progress; link original Evidence as support, contradiction, or context; inspect preserved source details; and remove a stage citation without altering the source itself.
 
-Signals and saved Strategy AI assistant messages can be retained as session starting points, but the interface and repository keep them in `strategy_session_inputs`; they never enter `strategy_stage_sources`. This preserves the database distinction between analytical provenance and citable original mentions, Research, or Inspiration. The Strategic Proposition is visibly locked. Confidence, research gaps, alternatives, dependencies, approval state, and revisions remain the next explicit uncertainty-and-traceability increment rather than being implied as complete.
+Signals and saved Strategy AI assistant messages can be retained as session starting points, but the interface and repository keep them in `strategy_session_inputs`; they never enter `strategy_stage_sources`. This preserves the database distinction between analytical provenance and citable original mentions, Research, or Inspiration. Every saved stage exposes confidence, research gaps, contradictions, alternatives, dependencies, review state, and append-only revisions.
+
+The Strategic Proposition remains visibly locked until an explicit Opportunity has been saved. Saving the proposition idempotently creates its required direct Opportunity dependency. Its reasoning review shows the recursively inherited upstream stage path and unique original-source count without copying evidence. Approval remains database-gated, and an approved proposition receives a focused completion state at the session level.
 
 The static production build, lint, TypeScript check, and full automated suite pass. A read-only live database check confirmed the authenticated session-insert grant and project-scoped create policy are present, while all four first-builder content tables remain at zero rows before the strategist creates real work.
 
@@ -199,7 +201,7 @@ The first usable screen should contain:
 
 1. Project and session selector.
 2. Optional starting inputs: selected Evidence, a Signal, or a saved Strategy AI analysis.
-3. A vertical editable sequence: Observation, Pattern, Tension, Insight, Opportunity.
+3. A vertical editable sequence: Observation, Pattern, Tension, Insight, Opportunity, then an Opportunity-gated Strategic Proposition.
 4. For each stage: claim classification, confidence, supporting and contradicting evidence, research gaps, alternatives, dependency trail, and approval state.
 5. A source drawer that opens the original evidence.
 6. Autosave with an explicit saved/error state and revision history.
@@ -233,8 +235,12 @@ The strategic proposition remains locked until the opportunity contains an expli
 
 ### Increment 5 - Strategic proposition
 
-- Unlock the proposition only after an explicit Opportunity exists.
-- Preserve the full dependency and evidence trail.
+- **Complete:** Unlock the proposition only after an explicit saved Opportunity exists.
+- **Complete:** Save the proposition through the existing durable stage repository and automatically preserve its required direct Opportunity dependency.
+- **Complete:** Apply the same evidence links, confidence, gaps, alternatives, review states, approval checks, and revision history as every earlier stage.
+- **Complete:** Display the recursively inherited stage path and unique original-source count without duplicating evidence records.
+- **Complete:** Keep the required Opportunity link visible and protected from accidental removal in the interface.
+- **Complete:** Show a focused completion state when the proposition is approved.
 
 ### Increment 6 - Phase 7 pipeline acceptance
 
@@ -246,4 +252,4 @@ The strategic proposition remains locked until the opportunity contains an expli
 
 **Reuse the existing foundation; do not replace it and do not create a second Insight system.**
 
-The next implementation action is Increment 4: surface and exercise confidence, research gaps, contradictions, alternatives, dependencies, approval state, and append-only revisions in the existing Insight Builder.
+The next implementation action is Increment 6: exercise one real project from source evidence through an approved Strategic Proposition and complete the Phase 7 acceptance checkpoint.

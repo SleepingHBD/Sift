@@ -13,13 +13,14 @@ import type { EvidenceReference } from "@/lib/evidence/reference";
 import { searchEvidencePage } from "@/lib/evidence/search";
 import { listCloudSignals } from "@/lib/signals/repository";
 import type { SignalRecord } from "@/lib/signals/types";
-import { STRATEGY_STAGE_DEFINITIONS, stageDefinition, stageProgress } from "@/lib/strategy-pipeline/model";
+import { STRATEGY_STAGE_DEFINITIONS, stageDefinition, stageProgress, stageProgressPercent, strategicPropositionUnlocked } from "@/lib/strategy-pipeline/model";
 import {
   addStrategySessionInput,
   addStrategyDependency,
   attachStrategyEvidence,
   createStrategyAlternative,
   createStrategySession,
+  ensureStrategyDependency,
   listStrategyAiInputOptions,
   listStrategySessions,
   loadStrategySession,
@@ -65,6 +66,9 @@ export function InsightBuilderPage() {
     : (cloudProjects.find((project) => project.id === activeProjectId) ?? cloudProjects[0])?.id ?? "";
   const selectedProject = cloudProjects.find((project) => project.id === resolvedProjectClientId);
   const cloudProjectId = selectedProject?.cloudId ?? "";
+  const savedStageKinds = session?.stages.map((stage) => stage.kind) ?? [];
+  const propositionUnlocked = session ? strategicPropositionUnlocked(session.stages) : false;
+  const approvedProposition = session?.stages.find((stage) => stage.kind === "strategic_proposition" && stage.status === "approved");
 
   const loadProjectData = useCallback(async (projectId: string) => {
     setLoading(true);
@@ -134,7 +138,11 @@ export function InsightBuilderPage() {
     if (!session || !cloudProjectId) throw new Error("Choose an insight session first.");
     const definition = stageDefinition(kind);
     const existing = session.stages.find((stage) => stage.kind === kind);
-    await saveStrategyStage({
+    const opportunity = session.stages.find((stage) => stage.kind === "opportunity");
+    if (kind === "strategic_proposition" && (!opportunity || !opportunity.content.trim())) {
+      throw new Error("Save an explicit Opportunity before writing the Strategic Proposition.");
+    }
+    const saved = await saveStrategyStage({
       id: existing?.id,
       sessionId: session.id,
       projectId: cloudProjectId,
@@ -145,6 +153,21 @@ export function InsightBuilderPage() {
       confidence: existing?.confidence ?? "medium",
       researchGaps: existing?.researchGaps ?? [],
     });
+    if (kind === "strategic_proposition" && opportunity) {
+      try {
+        await ensureStrategyDependency({
+          projectId: cloudProjectId,
+          stageId: saved.id,
+          dependsOnStageId: opportunity.id,
+          relationship: "derives_from",
+          rationale: "Required direct link: the Strategic Proposition answers this saved Opportunity.",
+        });
+      } catch (dependencyError) {
+        await reloadSession();
+        const message = dependencyError instanceof Error ? dependencyError.message : "The Opportunity connection could not be saved.";
+        throw new Error(`The proposition was saved, but its required Opportunity connection needs attention. ${message}`);
+      }
+    }
     await reloadSession();
   }
 
@@ -238,7 +261,7 @@ export function InsightBuilderPage() {
 
   return (
     <div className="page insight-builder-page">
-      <PageIntro eyebrow="Think / Insight Builder" title="Turn evidence into an argument." description="Move carefully from observation to opportunity. Every claim stays editable, and original evidence remains traceable.">
+      <PageIntro eyebrow="Think / Insight Builder" title="Turn evidence into an argument." description="Move carefully from observation to a focused strategic proposition. Every claim stays editable, and original evidence remains traceable.">
         <Button variant="dark" onClick={() => setCreating(true)}><Plus size={15} /> New insight session</Button>
       </PageIntro>
 
@@ -246,7 +269,7 @@ export function InsightBuilderPage() {
         <label><span>Project</span><select value={resolvedProjectClientId} onChange={(event) => changeProject(event.target.value)}>{cloudProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
         <ArrowRight size={16} />
         <label><span>Insight session</span><select value={sessionId} disabled={!sessions.length} onChange={(event) => setSessionId(event.target.value)}>{sessions.length ? sessions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>) : <option value="">No sessions yet</option>}</select></label>
-        {session ? <div className="insight-builder-toolbar__progress"><span>{stageProgress(session.stages.map((stage) => stage.kind))}/5 stages saved</span><i><b style={{ width: `${stageProgress(session.stages.map((stage) => stage.kind)) * 20}%` }} /></i></div> : null}
+        {session ? <div className="insight-builder-toolbar__progress"><span>{stageProgress(savedStageKinds)}/{STRATEGY_STAGE_DEFINITIONS.length} stages saved</span><i><b style={{ width: `${stageProgressPercent(savedStageKinds)}%` }} /></i></div> : null}
       </section>
 
       {error ? <div className="insight-builder-error" role="alert"><strong>Insight Builder needs attention.</strong><span>{error}</span><Button size="sm" onClick={() => cloudProjectId && void loadProjectData(cloudProjectId)}>Try again</Button></div> : null}
@@ -266,9 +289,14 @@ export function InsightBuilderPage() {
             </div>
           </section>
 
+          {approvedProposition ? <section className="insight-proposition-complete"><CheckCircle2 size={19} /><div><p className="eyebrow">Argument approved</p><strong>{approvedProposition.content}</strong><span>The proposition remains connected to its Opportunity and the complete upstream evidence trail.</span></div><Badge>Approved</Badge></section> : null}
+
           <div className="insight-builder-layout">
             <main className="insight-pipeline" aria-label="Insight reasoning stages">
               {STRATEGY_STAGE_DEFINITIONS.map((definition) => {
+                if (definition.kind === "strategic_proposition" && !propositionUnlocked) {
+                  return <section key="strategic-proposition-locked" className="insight-proposition-lock"><span><LockKeyhole size={18} /></span><div><p className="eyebrow">Final reasoning stage</p><h2>Strategic Proposition</h2><p>Save a clear Opportunity above to unlock this stage. The proposition will then connect directly to that Opportunity.</p></div><Badge>Locked</Badge></section>;
+                }
                 const record = session.stages.find((stage) => stage.kind === definition.kind);
                 return (
                 <StrategyStageCard
@@ -296,7 +324,6 @@ export function InsightBuilderPage() {
                 />
                 );
               })}
-              <section className="insight-proposition-lock"><span><LockKeyhole size={18} /></span><div><p className="eyebrow">Next stage</p><h2>Strategic Proposition</h2><p>This remains locked until the Opportunity is explicit and the Phase 7 evidence trail has passed its acceptance checkpoint.</p></div><Badge>Locked</Badge></section>
             </main>
             <StrategySourcePanel
               session={session}

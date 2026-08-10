@@ -1,6 +1,6 @@
 import type { EvidenceKind, EvidenceReference } from "@/lib/evidence/reference";
 
-export type StrategyStageKind = "observation" | "pattern" | "tension" | "insight" | "opportunity";
+export type StrategyStageKind = "observation" | "pattern" | "tension" | "insight" | "opportunity" | "strategic_proposition";
 export type StrategyClaimType = "evidence" | "interpretation" | "hypothesis" | "recommendation";
 export type StrategyConfidence = "low" | "medium" | "high";
 export type StrategyStageStatus = "draft" | "ready" | "approved";

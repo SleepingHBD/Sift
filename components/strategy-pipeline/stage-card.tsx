@@ -45,7 +45,7 @@ export function StrategyStageCard({
   }
 
   return (
-    <article className={`insight-stage ${active ? "insight-stage--active" : ""}`}>
+    <article className={`insight-stage insight-stage--${kind} ${active ? "insight-stage--active" : ""}`}>
       <div className="insight-stage__rail"><span>{definition.position}</span></div>
       <div className="insight-stage__body">
         <header>

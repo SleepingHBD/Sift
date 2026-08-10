@@ -481,6 +481,21 @@ export async function addStrategyDependency(input: CreateStrategyDependencyInput
   if (error) throw new Error(`Stage dependency could not be saved: ${error.message}`);
 }
 
+export async function ensureStrategyDependency(input: CreateStrategyDependencyInput): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.from("strategy_stage_dependencies").upsert({
+    project_id: input.projectId,
+    stage_id: input.stageId,
+    depends_on_stage_id: input.dependsOnStageId,
+    relationship: input.relationship,
+    rationale: input.rationale?.trim() || null,
+  }, {
+    onConflict: "stage_id,depends_on_stage_id,relationship",
+    ignoreDuplicates: true,
+  });
+  if (error) throw new Error(`Required stage dependency could not be preserved: ${error.message}`);
+}
+
 export async function removeStrategyDependency(dependencyId: string, projectId: string, stageId: string): Promise<void> {
   const client = requireClient();
   const { error } = await client.from("strategy_stage_dependencies")

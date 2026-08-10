@@ -1,9 +1,9 @@
 "use client";
 
-import { AlertTriangle, Check, ChevronRight, CircleHelp, GitBranch, History, LoaderCircle, Plus, Save, ShieldCheck, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, CircleHelp, GitBranch, History, LoaderCircle, LockKeyhole, Network, Plus, Save, ShieldCheck, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge, Button } from "@/components/ui/primitives";
-import { cleanResearchGaps, dependencyRelationshipLabel, stageApprovalChecks, stageDefinition } from "@/lib/strategy-pipeline/model";
+import { cleanResearchGaps, dependencyRelationshipLabel, stageApprovalChecks, stageDefinition, upstreamStageTrail } from "@/lib/strategy-pipeline/model";
 import type {
   CreateStrategyAlternativeInput,
   CreateStrategyDependencyInput,
@@ -66,7 +66,7 @@ export function StrategyStageTraceability({
   const [pending, setPending] = useState<PendingAction>("");
   const [error, setError] = useState("");
   const contradictions = record.sources.filter((source) => source.relationship === "contradict");
-  const approvalChecks = stageApprovalChecks(record);
+  const approvalChecks = stageApprovalChecks(record, stages);
   const approvalReady = approvalChecks.every((check) => check.passed) && !hasUnsavedClaimChanges;
   const earlierStages = useMemo(
     () => stages.filter((stage) => stage.position < record.position),
@@ -74,6 +74,8 @@ export function StrategyStageTraceability({
   );
   const uncertaintyDirty = confidence !== record.confidence
     || gaps.trim() !== record.researchGaps.join("\n").trim();
+  const upstreamTrail = useMemo(() => upstreamStageTrail(record, stages), [record, stages]);
+  const upstreamSourceCount = useMemo(() => new Set(upstreamTrail.flatMap((stage) => stage.sources.map((source) => `${source.source.kind}:${source.source.id}`))).size, [upstreamTrail]);
 
   async function run(action: PendingAction, work: () => Promise<void>) {
     setPending(action);
@@ -117,7 +119,7 @@ export function StrategyStageTraceability({
             <ul className="stage-approval-checks">
               {approvalChecks.map((check) => <li key={check.key} className={check.passed ? "passed" : ""}>{check.passed ? <Check size={13} /> : <span />}{check.label}</li>)}
             </ul>
-            <label className="stage-approval-note"><span>Approval note <small>Optional</small></span><input value={approvalNote} maxLength={2000} onChange={(event) => setApprovalNote(event.target.value)} placeholder="Why are you comfortable relying on this claim?" /></label>
+            <label className="stage-approval-note"><span>Approval note <small>{record.status === "approved" ? "Recorded with this approval" : "Optional"}</small></span><input value={approvalNote} disabled={record.status === "approved"} maxLength={2000} onChange={(event) => setApprovalNote(event.target.value)} placeholder="Why are you comfortable relying on this claim?" /></label>
             <div className="stage-review-state__actions">
               <Button size="sm" disabled={pending !== "" || hasUnsavedClaimChanges || record.status === "draft"} onClick={() => void changeStatus("draft")}>Return to draft</Button>
               <Button size="sm" disabled={pending !== "" || hasUnsavedClaimChanges || record.status === "ready"} onClick={() => void changeStatus("ready")}>Mark ready</Button>
@@ -142,9 +144,12 @@ export function StrategyStageTraceability({
             {dependencyOpen ? <DependencyComposer stages={earlierStages} pending={pending === "dependency"} onCancel={() => setDependencyOpen(false)} onSave={(input) => run("dependency", async () => { await onAddDependency(input); setDependencyOpen(false); })} /> : null}
             {record.dependencies.length ? <ul>{record.dependencies.map((dependency) => {
               const upstream = stages.find((stage) => stage.id === dependency.dependsOnStageId);
-              return <li key={dependency.id}><GitBranch size={14} /><span><Badge>{dependencyRelationshipLabel(dependency.relationship)}</Badge><strong>{upstream ? stageDefinition(upstream.kind).label : "Earlier claim"}</strong>{dependency.rationale ? <small>{dependency.rationale}</small> : null}</span><button type="button" disabled={pending !== ""} onClick={() => void run("dependency", () => onRemoveDependency(dependency.id))} aria-label="Remove stage dependency"><Trash2 size={14} /></button></li>;
+              const requiredOpportunityLink = record.kind === "strategic_proposition" && upstream?.kind === "opportunity";
+              return <li key={dependency.id}><GitBranch size={14} /><span><Badge>{requiredOpportunityLink ? "Required link" : dependencyRelationshipLabel(dependency.relationship)}</Badge><strong>{upstream ? stageDefinition(upstream.kind).label : "Earlier claim"}</strong>{dependency.rationale ? <small>{dependency.rationale}</small> : null}</span>{requiredOpportunityLink ? <span className="stage-dependency-required" title="The Strategic Proposition must remain connected to its Opportunity"><LockKeyhole size={13} /></span> : <button type="button" disabled={pending !== ""} onClick={() => void run("dependency", () => onRemoveDependency(dependency.id))} aria-label="Remove stage dependency"><Trash2 size={14} /></button>}</li>;
             })}</ul> : earlierStages.length && !dependencyOpen ? <p className="stage-traceability__empty">No earlier claim is connected yet.</p> : null}
           </section>
+
+          {upstreamTrail.length ? <section className="stage-evidence-trail"><header><div><p className="drawer-section-label">Inherited evidence trail</p><span>This claim remains traceable through its saved dependencies; evidence is referenced, never copied or rewritten.</span></div><Badge>{upstreamSourceCount} original {upstreamSourceCount === 1 ? "source" : "sources"}</Badge></header><ol>{upstreamTrail.map((stage) => <li key={stage.id}><Network size={13} /><span><strong>{stageDefinition(stage.kind).label}</strong><small>{stage.content}</small></span><span><Badge>{stage.status}</Badge><small>{stage.confidence} confidence · {stage.sources.length} direct {stage.sources.length === 1 ? "source" : "sources"}</small></span></li>)}</ol></section> : null}
 
           <section className="stage-alternatives">
             <header><div><p className="drawer-section-label">Alternative interpretations</p><span>Keep credible competing explanations visible instead of forcing one answer too early.</span></div><Button size="sm" onClick={() => setAlternativeOpen((current) => !current)}><Plus size={13} />Add alternative</Button></header>
