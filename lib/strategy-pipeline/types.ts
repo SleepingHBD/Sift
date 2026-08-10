@@ -9,6 +9,8 @@ export type StrategyDependencyRelationship = "derives_from" | "qualifies" | "cha
 export type StrategyAlternativeStatus = "considering" | "retained" | "rejected";
 export type StrategyInputType = "signal" | "ai_message";
 export type StrategySessionOrigin = "strategist" | "signal_assisted" | "ai_assisted" | "mixed";
+export type StrategyTurnRole = "user" | "assistant";
+export type StrategyTurnOrigin = "strategist" | "chatgpt_manual" | "sift_guidance";
 
 export interface StrategySessionSummary {
   id: string;
@@ -116,9 +118,22 @@ export interface StrategySessionInputRecord {
   createdAt: string;
 }
 
+export interface StrategySessionTurnRecord {
+  id: string;
+  projectId: string;
+  sessionId: string;
+  role: StrategyTurnRole;
+  origin: StrategyTurnOrigin;
+  content: string;
+  metadata: Record<string, unknown>;
+  createdBy: string;
+  createdAt: string;
+}
+
 export interface StrategySessionDetail extends StrategySessionSummary {
   stages: StrategyStageRecord[];
   inputs: StrategySessionInputRecord[];
+  turns: StrategySessionTurnRecord[];
 }
 
 export interface StrategyAiInputOption {

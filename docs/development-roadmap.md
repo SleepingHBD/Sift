@@ -455,7 +455,7 @@ Answer strategic questions using the user's authorized workspace while keeping g
 
 ## Phase 7 - Insight, strategy, and creative outputs
 
-Status: **In progress. Increments 1 through 3 implemented.** The audit is documented in [phase-7-audit.md](phase-7-audit.md). The trusted pipeline foundation is live, and the first project-scoped Insight Builder now writes durable sessions and editable Observation → Pattern → Tension → Insight → Opportunity stages, links original evidence, and keeps Signal/AI starting points as separate provenance. Increment 4 will surface the existing uncertainty, dependency, approval, and revision contracts in the interface.
+Status: **In progress. The trusted argument foundation and first conversational transition increment are implemented.** The audit is documented in [phase-7-audit.md](phase-7-audit.md). Strategy Sessions is now the default Think experience: a strategist can begin with one unfinished question and append thoughts gradually, while the existing evidence-to-proposition builder remains available as **Review argument**. Existing sessions, citations, stages, approvals, alternatives, and revisions are preserved rather than replaced. The next transition increments will introduce flexible working pieces and bring the accepted manual ChatGPT handoff into the session itself.
 
 ### Goal
 
@@ -463,17 +463,20 @@ Complete the path from evidence to a usable strategic and creative decision.
 
 ### Work
 
-#### Insight builder
+#### Strategy Sessions
 
-- Create editable observation, pattern, tension, insight, and opportunity stages.
-- Require evidence relationships for measured observations and workspace-backed insights.
-- Show confidence and unresolved research gaps.
-- Preserve alternative interpretations rather than forcing one conclusion.
+- Start with one natural-language question, observation, uncertainty, or situation rather than a full form.
+- Preserve an append-only conversation so unfinished thinking can develop over multiple research sessions.
+- Let evidence, Signals, and accepted manual ChatGPT responses enter the conversation as visible, attributable working pieces.
+- Suggest one useful next step at a time without requiring the strategist to complete every stage.
+- Allow the strategist to shape useful pieces into observation, pattern, tension, insight, opportunity, and proposition only when that structure becomes helpful.
+- Keep confidence, unresolved research gaps, contradictions, and alternative interpretations inspectable in the formal review layer.
 
-#### Strategy pipeline
+#### Formal argument review
 
 - Reuse `strategy_sessions` and `strategy_stages`.
-- Allow stages to be reordered, edited, approved, and versioned.
+- Treat the existing staged builder as **Review argument**, not the default place where all thinking begins.
+- Allow stages to be edited, approved, and versioned.
 - Show which earlier claims each later stage depends on.
 - Add a strategic proposition only after the opportunity is explicit.
 
@@ -494,6 +497,9 @@ Complete the path from evidence to a usable strategic and creative decision.
 
 ### Acceptance criteria
 
+- A strategist can start with one incomplete thought, leave, return, and continue without losing the conversation.
+- Evidence and imported ChatGPT thinking remain visibly attributable and never masquerade as original source material.
+- The interface asks for one useful next action at a time; it never requires every strategic field to be completed at once.
 - A source can be traced through an insight and proposition into a brief.
 - Editing generated output never overwrites source evidence.
 - Territory options differ strategically, not just in wording.
@@ -603,16 +609,18 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0 through 6 are complete and accepted. Phase 7 is in progress; its audit, trusted database foundation, and first project-scoped Insight Builder are implemented. The next increment will expose uncertainty and traceability: confidence, research gaps, contradictions, alternatives, dependencies, approval state, and immutable revisions. The accepted Phase 6 workflow remains an optional evidence-grounded thinking input; no automatic or background AI analysis is introduced.
+Phases 0 through 6 are complete and accepted. Phase 7 is in progress. Its trusted database foundation and complete evidence-to-proposition review layer are preserved, and the first conversation-first transition increment is implemented. Strategy Sessions now stores gradual strategist turns and makes the formal builder a secondary Review argument view. No automatic or background AI analysis is introduced; the accepted free ChatGPT handoff remains the model path until it is integrated directly into the session workflow.
 
 1. **Complete:** Audit the existing insight, strategy-session, strategy-stage, citation, and evidence-link schema before adding Phase 7 records. See [phase-7-audit.md](phase-7-audit.md).
 2. **Complete:** Establish the trusted Supabase foundation for stage evidence, Signal/AI provenance, dependencies, alternatives, approval, revision history, deletion protection, RLS, grants, and foreign-key indexes.
-3. **Complete:** Build one project-scoped insight workspace that can start from selected Evidence, Signals, or a saved Strategy AI analysis.
-4. **Complete:** Add editable observation, pattern, tension, insight, and opportunity stages with explicit evidence relationships.
-5. Show confidence, unresolved evidence gaps, contradictions, and alternative interpretations without forcing one conclusion.
-6. Surface stage ordering, approval state, and version history without allowing edits to overwrite source evidence.
-7. Extend the pipeline through a strategic proposition only after the opportunity is explicit.
-8. Run the Phase 7 insight-pipeline acceptance checkpoint before adding creative territories, briefs, or exports.
+3. **Complete:** Build and verify the formal evidence-to-proposition argument layer, including confidence, gaps, contradictions, alternatives, dependencies, approval, revisions, and an Opportunity-gated proposition.
+4. **Complete:** Add project-scoped, append-only Strategy Session turns and make the calm conversation view the default Think experience while preserving the formal builder as Review argument.
+5. Introduce flexible working pieces for observations, questions, evidence, interpretations, contradictions, hypotheses, and possible opportunities without forcing stage assignment.
+6. Let Evidence, Signals, and manual ChatGPT handoff responses enter the active session with visible provenance and one-click source inspection.
+7. Add an explicit **Shape into argument** action that helps organize selected working pieces into the existing formal stages without overwriting either the conversation or source evidence.
+8. Run the conversation-first Phase 7 acceptance checkpoint: gradual use across sessions, refresh persistence, RLS isolation, provenance, citation integrity, review usability, and responsive layout.
+9. Only after acceptance, develop distinct creative territories from an approved strategic proposition.
+10. Build editable briefs and exports after territory provenance is reliable.
 
 ## Definition of a successful first strategist release
 

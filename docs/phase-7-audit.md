@@ -2,7 +2,7 @@
 
 Date: 10 August 2026
 
-Status: **Increments 1 through 5 implemented. The trusted pipeline foundation is live and the complete evidence-to-proposition builder is implemented locally; no Phase 7 content was seeded during verification.**
+Status: **The trusted pipeline foundation and complete evidence-to-proposition review layer are live. The first conversation-first transition increment is implemented without replacing existing sessions or strategic records.**
 
 ## Current Insight Builder implementation result
 
@@ -13,6 +13,21 @@ Signals and saved Strategy AI assistant messages can be retained as session star
 The Strategic Proposition remains visibly locked until an explicit Opportunity has been saved. Saving the proposition idempotently creates its required direct Opportunity dependency. Its reasoning review shows the recursively inherited upstream stage path and unique original-source count without copying evidence. Approval remains database-gated, and an approved proposition receives a focused completion state at the session level.
 
 The static production build, lint, TypeScript check, and full automated suite pass. A read-only live database check confirmed the authenticated session-insert grant and project-scoped create policy are present, while all four first-builder content tables remain at zero rows before the strategist creates real work.
+
+## Conversation-first transition
+
+Real use showed that the formal builder asks the strategist to classify and complete too many small fields before the thinking is mature. Phase 7 therefore changes the default interaction without discarding its trusted data model:
+
+- **Strategy Sessions** becomes the default Think route.
+- A session begins with one unfinished question, observation, tension, or situation.
+- `strategy_session_turns` preserves gradual strategist input as an append-only timeline.
+- The existing staged builder remains available as **Review argument** for evidence, dependencies, uncertainty, approval, alternatives, and revisions.
+- Existing `strategy_sessions`, `strategy_stages`, inputs, citations, dependencies, alternatives, and revisions remain authoritative and intact.
+- The accepted manual ChatGPT handoff remains available during the transition; bringing it into the session itself is a later increment.
+
+The new table is deliberately narrow. Authenticated permanent users can select and insert only inside projects they can access. Browser clients can insert only their own `user` / `strategist` turns; they cannot forge assistant, Sift-guidance, or ChatGPT provenance. Trusted future server paths may add those origins after validation. An atomic `start_strategy_conversation` function creates a session and its first user turn together.
+
+The transition is reproduced by three synchronized migrations: `20260810123220_phase_7_conversational_strategy_turns.sql` adds the table and policies, `20260810124457_phase_7_strategy_turn_fk_index.sql` covers the composite session/project relationship and hydration order, and `20260810124613_remove_redundant_strategy_turn_index.sql` removes the narrower index superseded by that covering index.
 
 ## Increment 2 implementation result
 
@@ -195,18 +210,19 @@ The source record always stays authoritative. Editing a stage, alternative, terr
 
 ## UI boundary
 
-Add one project-scoped **Insight Builder** inside the existing Think step. It should not be a dashboard of disconnected cards.
+Use one project-scoped **Strategy Sessions** experience inside Think. It should feel like a continuing working conversation, not a dashboard or compulsory worksheet.
 
-The first usable screen should contain:
+The default screen contains:
 
-1. Project and session selector.
-2. Optional starting inputs: selected Evidence, a Signal, or a saved Strategy AI analysis.
-3. A vertical editable sequence: Observation, Pattern, Tension, Insight, Opportunity, then an Opportunity-gated Strategic Proposition.
-4. For each stage: claim classification, confidence, supporting and contradicting evidence, research gaps, alternatives, dependency trail, and approval state.
-5. A source drawer that opens the original evidence.
-6. Autosave with an explicit saved/error state and revision history.
+1. Project and conversation selectors.
+2. One opening prompt that accepts an incomplete thought.
+3. An append-only conversation timeline.
+4. One transparent, deterministic next-step prompt at a time until the trusted ChatGPT handoff is integrated.
+5. Quick actions to add evidence or use the current verified handoff.
+6. A compact summary of saved turns, linked original evidence, and formal claims.
+7. **Review argument**, which opens the complete existing Observation → Proposition builder and its source drawer, uncertainty, dependencies, approval, and revision history.
 
-The strategic proposition remains locked until the opportunity contains an explicit saved claim. Creative territories and briefs remain unavailable from this screen until the insight-pipeline acceptance checkpoint passes.
+Creative territories and briefs remain unavailable until the conversation-first strategy workflow passes acceptance.
 
 ## Incremental implementation plan
 
@@ -242,14 +258,26 @@ The strategic proposition remains locked until the opportunity contains an expli
 - **Complete:** Keep the required Opportunity link visible and protected from accidental removal in the interface.
 - **Complete:** Show a focused completion state when the proposition is approved.
 
-### Increment 6 - Phase 7 pipeline acceptance
+### Increment 6 - Conversation foundation
 
-- Test one real project from source evidence through an approved proposition.
-- Verify RLS, cross-project rejection, citation integrity, edit history, deletion protection, refresh persistence, and responsive usability.
+- **Complete:** Add append-only, project-scoped session turns with explicit provenance, RLS, grants, and atomic conversation creation.
+- **Complete:** Make Strategy Sessions the default Think interface and preserve the staged builder as Review argument.
+- **Complete:** Keep deterministic guidance visibly separate from AI analysis.
+
+### Increment 7 - Working pieces and integrated handoff
+
+- Add flexible observations, questions, evidence, interpretations, contradictions, hypotheses, and opportunities without requiring a formal stage.
+- Bring Evidence, Signals, and validated manual ChatGPT responses into the active session with visible provenance.
+- Let the strategist select useful pieces and explicitly shape them into the existing formal argument.
+
+### Increment 8 - Phase 7 conversational acceptance
+
+- Test one real project through gradual conversation, evidence attachment, handoff import, formal review, and an approved proposition.
+- Verify RLS, cross-project rejection, provenance, citation integrity, edit history, deletion protection, refresh persistence, and responsive usability.
 - Only after acceptance, begin creative territories and briefs.
 
 ## Audit decision
 
-**Reuse the existing foundation; do not replace it and do not create a second Insight system.**
+**Reuse the existing foundation; do not replace it and do not create a second Insight system. Make conversation the working layer and the existing pipeline the formal review layer.**
 
-The next implementation action is Increment 6: exercise one real project from source evidence through an approved Strategic Proposition and complete the Phase 7 acceptance checkpoint.
+The next implementation action is Increment 7: introduce flexible working pieces and integrate the accepted manual ChatGPT handoff into the active Strategy Session.

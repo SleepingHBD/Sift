@@ -15,6 +15,7 @@ import type {
   StrategySessionInputRecord,
   StrategySessionOrigin,
   StrategySessionSummary,
+  StrategySessionTurnRecord,
   StrategyStageAlternativeRecord,
   StrategyStageDependencyRecord,
   StrategyStageRecord,
@@ -28,6 +29,7 @@ type SessionRow = Database["public"]["Tables"]["strategy_sessions"]["Row"];
 type StageRow = Database["public"]["Tables"]["strategy_stages"]["Row"];
 type StageSourceRow = Database["public"]["Tables"]["strategy_stage_sources"]["Row"];
 type SessionInputRow = Database["public"]["Tables"]["strategy_session_inputs"]["Row"];
+type SessionTurnRow = Database["public"]["Tables"]["strategy_session_turns"]["Row"];
 type AlternativeRow = Database["public"]["Tables"]["strategy_stage_alternatives"]["Row"];
 type DependencyRow = Database["public"]["Tables"]["strategy_stage_dependencies"]["Row"];
 type RevisionRow = Database["public"]["Tables"]["strategy_stage_revisions"]["Row"];
@@ -36,6 +38,7 @@ const sessionSelect = "id,project_id,title,status,origin,created_at,updated_at";
 const stageSelect = "id,session_id,project_id,stage,content,claim_type,position,status,confidence,research_gaps,approval_note,approved_at,approved_by,created_at,updated_at";
 const sourceSelect = "id,stage_id,project_id,evidence_type,evidence_id,relationship,excerpt,rationale,created_at";
 const inputSelect = "id,session_id,project_id,input_type,input_id,role,rationale,created_at";
+const turnSelect = "id,project_id,session_id,role,origin,content,metadata,created_by,created_at";
 const alternativeSelect = "id,project_id,stage_id,content,claim_type,confidence,status,rationale,research_gaps,created_at,updated_at";
 const dependencySelect = "id,project_id,stage_id,depends_on_stage_id,relationship,rationale,created_at";
 const revisionSelect = "id,project_id,stage_id,alternative_id,entity_type,change_kind,changed_fields,before_state,after_state,changed_by,created_at";
@@ -55,6 +58,22 @@ function sessionFromRow(row: Pick<SessionRow, "id" | "project_id" | "title" | "s
     origin: row.origin as StrategySessionOrigin,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function turnFromRow(row: SessionTurnRow): StrategySessionTurnRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    sessionId: row.session_id,
+    role: row.role as StrategySessionTurnRecord["role"],
+    origin: row.origin as StrategySessionTurnRecord["origin"],
+    content: row.content,
+    metadata: row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? row.metadata as Record<string, unknown>
+      : {},
+    createdBy: row.created_by,
+    createdAt: row.created_at,
   };
 }
 
@@ -136,6 +155,47 @@ export async function createStrategySession(projectId: string, title: string): P
   }).select(sessionSelect).single();
   if (error || !data) throw new Error(`Insight session could not be created: ${error?.message ?? "No record was returned."}`);
   return sessionFromRow(data as SessionRow);
+}
+
+export async function startStrategyConversation(projectId: string, openingMessage: string): Promise<StrategySessionSummary> {
+  const cleanMessage = openingMessage.trim();
+  if (!cleanMessage) throw new Error("Tell Sift what you are trying to understand.");
+  const client = requireClient();
+  const started = await client.rpc("start_strategy_conversation", {
+    p_project_id: projectId,
+    p_opening_message: cleanMessage,
+  });
+  if (started.error || !started.data) {
+    throw new Error(`Strategy conversation could not be started: ${started.error?.message ?? "No session was returned."}`);
+  }
+  const session = await client.from("strategy_sessions")
+    .select(sessionSelect)
+    .eq("id", started.data)
+    .eq("project_id", projectId)
+    .single();
+  if (session.error || !session.data) {
+    throw new Error(`The conversation was created, but it could not be loaded: ${session.error?.message ?? "No session was returned."}`);
+  }
+  return sessionFromRow(session.data as SessionRow);
+}
+
+export async function addStrategyConversationTurn(
+  sessionId: string,
+  projectId: string,
+  content: string,
+): Promise<StrategySessionTurnRecord> {
+  const cleanContent = content.trim();
+  if (!cleanContent) throw new Error("Write a thought, question, or observation before sending it.");
+  const client = requireClient();
+  const { data, error } = await client.from("strategy_session_turns").insert({
+    project_id: projectId,
+    session_id: sessionId,
+    role: "user",
+    origin: "strategist",
+    content: cleanContent,
+  }).select(turnSelect).single();
+  if (error || !data) throw new Error(`This thought could not be saved: ${error?.message ?? "No turn was returned."}`);
+  return turnFromRow(data as SessionTurnRow);
 }
 
 async function evidenceSources(projectId: string, rows: StageSourceRow[]) {
@@ -253,14 +313,16 @@ async function inputRecords(projectId: string, rows: SessionInputRow[]): Promise
 
 export async function loadStrategySession(sessionId: string, projectId: string): Promise<StrategySessionDetail> {
   const client = requireClient();
-  const [sessionResult, stageResult, inputResult] = await Promise.all([
+  const [sessionResult, stageResult, inputResult, turnResult] = await Promise.all([
     client.from("strategy_sessions").select(sessionSelect).eq("id", sessionId).eq("project_id", projectId).single(),
     client.from("strategy_stages").select(stageSelect).eq("session_id", sessionId).eq("project_id", projectId).order("position"),
     client.from("strategy_session_inputs").select(inputSelect).eq("session_id", sessionId).eq("project_id", projectId).order("created_at"),
+    client.from("strategy_session_turns").select(turnSelect).eq("session_id", sessionId).eq("project_id", projectId).order("created_at", { ascending: true }).order("id", { ascending: true }),
   ]);
   if (sessionResult.error || !sessionResult.data) throw new Error(`Insight session could not be loaded: ${sessionResult.error?.message ?? "No record was returned."}`);
   if (stageResult.error) throw new Error(`Insight stages could not be loaded: ${stageResult.error.message}`);
   if (inputResult.error) throw new Error(`Starting points could not be loaded: ${inputResult.error.message}`);
+  if (turnResult.error) throw new Error(`Strategy conversation could not be loaded: ${turnResult.error.message}`);
   const stageRows = (stageResult.data ?? []) as StageRow[];
   const stageIds = stageRows.map((row) => row.id);
   const [stageSourcesResult, alternativesResult, dependenciesResult, revisionsResult] = stageIds.length
@@ -334,6 +396,7 @@ export async function loadStrategySession(sessionId: string, projectId: string):
     ...sessionFromRow(sessionResult.data as SessionRow),
     stages,
     inputs: await inputRecords(projectId, (inputResult.data ?? []) as SessionInputRow[]),
+    turns: (turnResult.data ?? []).map((row) => turnFromRow(row as SessionTurnRow)),
   };
 }
 

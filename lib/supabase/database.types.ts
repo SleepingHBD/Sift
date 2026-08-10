@@ -2224,6 +2224,57 @@ export type Database = {
           },
         ]
       }
+      strategy_session_turns: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          metadata: Json
+          origin: string
+          project_id: string
+          role: string
+          session_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          metadata?: Json
+          origin?: string
+          project_id: string
+          role: string
+          session_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          metadata?: Json
+          origin?: string
+          project_id?: string
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_session_turns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_session_turns_session_id_project_id_fkey"
+            columns: ["session_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_sessions"
+            referencedColumns: ["id", "project_id"]
+          },
+        ]
+      }
       strategy_sessions: {
         Row: {
           created_at: string
@@ -3125,6 +3176,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      start_strategy_conversation: {
+        Args: { p_opening_message: string; p_project_id: string }
+        Returns: string
       }
       update_evidence_note: {
         Args: {
