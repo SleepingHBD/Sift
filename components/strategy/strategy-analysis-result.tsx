@@ -11,15 +11,16 @@ const classificationLabels: Record<StrategyClaimClassification, string> = {
 
 export function StrategyAnalysisPanel({ result }: { result: StrategyAnalysisResult }) {
   const sourceNumber = new Map(result.sources.map((source, index) => [source.identity, index + 1]));
+  const importedFromChatGpt = result.origin === "chatgpt_manual";
 
   return (
     <section className="strategy-analysis" aria-labelledby="strategy-analysis-heading">
       <header className="strategy-analysis__head">
         <span className="ai-orb"><BookOpenCheck size={18} /></span>
         <div>
-          <Badge>Workspace-backed analysis</Badge>
+          <Badge>{importedFromChatGpt ? "ChatGPT response · Sift validated" : "Workspace-backed analysis"}</Badge>
           <h2 id="strategy-analysis-heading">Evidence before conclusion.</h2>
-          <p>Every claim below is labelled by what kind of thinking it represents and linked to the exact selected source.</p>
+          <p>{importedFromChatGpt ? "Sift checked the structure and source identities before saving. You should still judge whether each source genuinely supports the wording." : "Every claim below is labelled by what kind of thinking it represents and linked to the exact selected source."}</p>
         </div>
         <span className="strategy-analysis__model">{result.model}</span>
       </header>

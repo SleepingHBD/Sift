@@ -9,13 +9,15 @@ import {
   STRATEGY_TOKEN_RESERVATION,
   validateStrategyAnalysisRequest,
   validateStrategyEvidencePreviewRequest,
+  validateStrategyImportAnalysisRequest,
   type StrategyBudgetConfiguration,
   type StrategyEvidencePreviewItem,
   type StrategyStructuredResponse,
 } from "../_shared/strategy-ai.ts";
 
-const MAX_REQUEST_BYTES = 24_000;
+const MAX_REQUEST_BYTES = 64_000;
 const OPENAI_TIMEOUT_MS = 45_000;
+const MANUAL_CHATGPT_MODEL = "ChatGPT manual handoff";
 
 export default {
   fetch: withSupabase({ auth: "user" }, async (request, context) => {
@@ -80,6 +82,66 @@ export default {
           limitations: evidence.length
             ? ["This is a deterministic full-text retrieval preview. No AI conclusion has been generated."]
             : ["No eligible source matched these search terms. Broaden the question or add more project evidence."],
+        });
+      }
+
+      if (body?.action === "import-analysis") {
+        const input = validateStrategyImportAnalysisRequest(body);
+        const project = await requireProjectAccess(context.supabase, input.projectId);
+        const evidenceResult = await context.supabase.rpc("resolve_strategy_evidence", {
+          p_project_id: input.projectId,
+          p_identities: input.evidenceIdentities,
+        });
+        if (evidenceResult.error) throw new StrategyAiRequestError(`Selected evidence could not be verified: ${evidenceResult.error.message}`, 500, "EVIDENCE_REVALIDATION_FAILED");
+        const evidence = normalizeEvidenceRows(evidenceResult.data);
+        const resolved = new Set(evidence.map((item) => item.identity));
+        const missing = input.evidenceIdentities.filter((identity) => !resolved.has(identity));
+        if (missing.length) {
+          throw new StrategyAiRequestError("The selected evidence changed or is no longer eligible. Prepare the ChatGPT handoff again before saving.", 409, "EVIDENCE_SCOPE_CHANGED");
+        }
+
+        const orderedEvidence = input.evidenceIdentities.map((identity) => evidence.find((item) => item.identity === identity)!);
+        const citations = buildPersistedCitations(input.structuredResponse, orderedEvidence);
+        const requestId = `manual:${input.clientRequestId}`;
+        const sourceScope = {
+          projectId: input.projectId,
+          question: input.question,
+          searchText: strategyEvidenceSearchText(input.question),
+          evidenceIdentities: input.evidenceIdentities,
+          excludedReviewStatuses: ["irrelevant", "archived"],
+          clientRequestId: input.clientRequestId,
+          handoff: "chatgpt_manual",
+        };
+        const persistence = await context.supabaseAdmin.rpc("persist_strategy_analysis", {
+          p_user_id: userId,
+          p_project_id: input.projectId,
+          p_client_request_id: input.clientRequestId,
+          p_title: input.question,
+          p_source_scope: sourceScope,
+          p_question: input.question,
+          p_structured_response: input.structuredResponse,
+          p_structured_claims: input.structuredResponse.claims,
+          p_citations: citations,
+          p_model: MANUAL_CHATGPT_MODEL,
+          p_request_id: requestId,
+          p_usage: { mode: "manual_handoff", token_usage_available: false },
+        });
+        if (persistence.error) throw new StrategyAiRequestError(`The cited analysis could not be saved: ${persistence.error.message}`, 500, "PERSISTENCE_FAILED");
+        const stored = record(persistence.data);
+
+        return Response.json({
+          mode: "workspace_backed",
+          origin: "chatgpt_manual",
+          project,
+          question: input.question,
+          conversationId: text(stored.conversationId),
+          assistantMessageId: text(stored.assistantMessageId),
+          analysis: input.structuredResponse,
+          citations,
+          sources: orderedEvidence,
+          model: MANUAL_CHATGPT_MODEL,
+          requestId,
+          usage: {},
         });
       }
 
@@ -170,6 +232,7 @@ export default {
 
           return Response.json({
             mode: "workspace_backed",
+            origin: "openai_api",
             project,
             question: input.question,
             conversationId: text(stored.conversationId),

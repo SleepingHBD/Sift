@@ -10,6 +10,7 @@ import {
   STRATEGY_TOKEN_RESERVATION,
   validateStrategyAnalysisRequest,
   validateStrategyEvidencePreviewRequest,
+  validateStrategyImportAnalysisRequest,
   validateStrategyStructuredResponse,
 } from "../supabase/functions/_shared/strategy-ai.ts";
 import { scoreStrategyEvaluation, STRATEGY_EVALUATION_CASES } from "../lib/strategy-ai/evaluation.ts";
@@ -99,6 +100,30 @@ test("Strategy AI analysis requests require a unique bounded stable evidence sco
   assert.throws(
     () => validateStrategyAnalysisRequest({ ...request, evidenceIdentities: ["research:not-a-uuid"] }),
     /invalid source identity/i,
+  );
+});
+
+test("Strategy AI manual imports require the same bounded cited evidence scope", () => {
+  const request = validateStrategyImportAnalysisRequest({
+    action: "import-analysis",
+    projectId,
+    clientRequestId: "66666666-6666-4666-8666-666666666666",
+    question: "What might trusted communities mean for the brand?",
+    evidenceIdentities: [evidenceIdentity],
+    structuredResponse: fixtureAnalysis(),
+  });
+
+  assert.equal(request.action, "import-analysis");
+  assert.equal(request.structuredResponse.claims[0].evidenceIds[0], evidenceIdentity);
+  assert.throws(
+    () => validateStrategyImportAnalysisRequest({
+      ...request,
+      structuredResponse: {
+        ...fixtureAnalysis(),
+        claims: [{ ...fixtureAnalysis().claims[0], evidenceIds: ["research:55555555-5555-4555-8555-555555555555"] }],
+      },
+    }),
+    /outside the selected scope/i,
   );
 });
 

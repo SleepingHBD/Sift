@@ -46,7 +46,7 @@ Sift is not required to observe the whole internet. It is required to be explici
 - GitHub is the only enabled sign-in method. Workspace ownership has been transferred to that permanent identity; obsolete anonymous users and sessions have been removed.
 - Private routes require a verified permanent session and the implemented Phase 1 domains now hydrate from Supabase.
 - Research supports rich provenance, authenticated URL extraction, private screenshots/documents, social capture, and bounded CSV import; richer automatic document processing remains deferred.
-- Strategy AI now has a JWT-protected, RLS-scoped evidence-preview foundation, but model generation and persisted cited conversations are not connected yet.
+- Strategy AI now has a JWT-protected, RLS-scoped evidence preview, a visible manual ChatGPT handoff, response validation, and durable cited conversations; real-use acceptance remains.
 - Polymorphic evidence relationships use guarded database operations and project checks; future relationship types must preserve those integrity rules.
 - Radar conversations and the unified Evidence Inbox use server-side filtering and stable cursor pagination; broader retrieval evaluation remains Phase 6 work.
 - Database ownership, RLS, client grants, Auth providers, and the Radar Edge Function have completed the Phase 0 security audit; repository-level least privilege remains part of the cloud hydration work.
@@ -402,7 +402,7 @@ Help the strategist identify what deserves attention before asking AI to produce
 
 ## Phase 6 - Evidence-grounded Strategy AI
 
-Status: **In progress.** The evidence boundary, model-ready structured-analysis pipeline, transactional monthly request/token guardrails, and five-scenario activation evaluation suite are implemented. The JWT-protected `strategy-ai` Edge Function retrieves an inspectable project evidence scope, revalidates the strategist's exact selection under the caller's RLS context, reserves usage before a provider call, rejects changed or inaccessible identities, enforces classified and cited structured claims, and atomically persists validated conversations through a service-only database function. Original source text, capture-time interpretation, and later strategist notes remain distinct. Live generation is deliberately unconfigured; activation now requires a model choice, OpenAI project spend limit, four private server settings, and a short citation/usefulness/cost evaluation.
+Status: **In progress.** The evidence boundary, manual ChatGPT handoff, structured response contract, citation validator, durable conversation persistence, and five-scenario evaluation suite are implemented. The JWT-protected `strategy-ai` Edge Function retrieves an inspectable project evidence scope and revalidates the strategist's exact selection under the caller's RLS context before accepting a pasted response. Sift prepares a visible prompt, sends nothing automatically, rejects changed or inaccessible identities, enforces classified and cited claims, fixes provenance as a manual handoff, and atomically persists validated conversations through a service-only database function. Original source text, capture-time interpretation, and later strategist notes remain distinct. No OpenAI API key or separate model billing is required.
 
 ### Goal
 
@@ -410,13 +410,14 @@ Answer strategic questions using the user's authorized workspace while keeping g
 
 ### Work
 
-#### Secure AI boundary
+#### Secure handoff boundary
 
-- Call the model only from an authenticated Edge Function or another private server runtime.
-- Keep model credentials server-side.
+- Keep ChatGPT authentication entirely outside Sift; never request or store the user's subscription credentials.
+- Show the exact prompt and selected evidence before the strategist copies anything.
 - Retrieve only evidence the caller can access through project ownership and RLS.
-- Add per-request evidence limits, token limits, timeouts, and structured error handling.
-- Store conversation scope, model, citations, and structured claims.
+- Add per-request evidence and response-size limits plus structured error handling.
+- Revalidate the selected scope before storing an imported response.
+- Store conversation scope, manual provenance, citations, and structured claims.
 
 #### Retrieval
 
@@ -438,8 +439,8 @@ Answer strategic questions using the user's authorized workspace while keeping g
 
 - Build a small evaluation set from real strategist questions and known evidence.
 - Test citation validity, evidence coverage, unsupported-claim rate, and usefulness.
-- Add request budgets, model selection by task, usage summaries, and hard monthly limits.
-- Do not launch automatic daily AI analysis until manual requests are reliable and affordable.
+- Test the copy, paste, validation, citation, and storage flow with real strategist questions.
+- Do not launch automatic daily AI analysis while Sift relies on the user's manual ChatGPT subscription workflow.
 
 ### Acceptance criteria
 
@@ -448,6 +449,7 @@ Answer strategic questions using the user's authorized workspace while keeping g
 - General responses never appear as workspace findings.
 - The response states when evidence is insufficient or one-sided.
 - Evaluation cases meet an agreed citation-validity threshold before Strategy AI is treated as production-ready.
+- No API credential or additional model payment is required for the accepted manual workflow.
 
 ## Phase 7 - Insight, strategy, and creative outputs
 
@@ -505,7 +507,7 @@ Make Sift dependable enough to remain open throughout real strategy work.
 - Build a lightweight browser capture extension after the capture API stabilizes.
 - Add a daily home view for new evidence, review queue, strengthening signals, source failures, and research gaps.
 - Add export and backup for projects and evidence.
-- Add connector quota and AI usage dashboards.
+- Add connector quota, Strategy handoff history, and response-validation health views.
 - Add configurable retention, archive, and permanent-deletion workflows.
 - Add structured operational logs without storing secrets or unnecessary source content.
 - Add scheduled-run alerts and retry controls.
@@ -597,7 +599,7 @@ Every phase should add tests at the layer where its risk lives.
 
 ## Immediate implementation sequence
 
-Phases 0 through 5 are complete. Phase 6 is in progress. Its first three increments secure AI persistence against direct browser writes, provide an authenticated RLS-scoped evidence preview, add a model-ready cited-analysis pipeline, and place transactional monthly request/token reservations in front of every provider attempt. The Strategy AI page begins with one project and one real question, exposes the derived full-text search, returns stable evidence identities, lets the strategist remove sources from the answer scope, and shows activation readiness without exposing private configuration. The server revalidates that final scope, requires classified claims with valid citations, rejects malformed output, records usage conservatively, and can persist a validated response idempotently. Five fixed evaluation scenarios and deterministic contract scoring are ready. Model generation remains explicitly unavailable until the model/key/budget settings and controlled live evaluation checkpoint are completed. Monitor configuration, transparent source coverage, connector reliability, run diagnostics, run locking and recovery, complete-history analytics, cursor-paged conversations, direct supporting-record retrieval, cloud-synced connector settings, trusted scheduling, explicit retention opt-in, protected-evidence previews, bounded enforcement, and retention audit records are implemented. Phase 3 was delivered through these verified increments:
+Phases 0 through 5 are complete. Phase 6 is in progress. Its current increments secure strategy persistence against direct browser writes, provide an authenticated RLS-scoped evidence preview, prepare an inspectable ChatGPT prompt from the strategist's exact source selection, validate pasted structured responses, and persist accepted citations idempotently. The Strategy AI page begins with one project, one thinking task, and one real question; exposes the derived full-text search; returns stable evidence identities; and lets the strategist remove sources before anything is copied. The server revalidates that final scope, requires classified claims with valid citations, rejects malformed or out-of-scope output, and stores fixed manual-handoff provenance. Five evaluation scenarios and deterministic contract scoring are ready. No paid API activation remains in the default path; the next checkpoint is a short real-use copy, ChatGPT, paste, citation, and usefulness review. Monitor configuration, transparent source coverage, connector reliability, run diagnostics, run locking and recovery, complete-history analytics, cursor-paged conversations, direct supporting-record retrieval, cloud-synced connector settings, trusted scheduling, explicit retention opt-in, protected-evidence previews, bounded enforcement, and retention audit records are implemented. Phase 3 was delivered through these verified increments:
 
 1. Create a project evidence inbox over the shared evidence reference contract, with search, core filters, provenance, and a common detail drawer. **Completed.**
 2. Add persistent review states through an additive migration and explicit single-item review actions. **Completed.**

@@ -27,6 +27,15 @@ export interface StrategyAnalysisRequest {
   clientRequestId: string;
 }
 
+export interface StrategyImportAnalysisRequest {
+  action: "import-analysis";
+  projectId: string;
+  question: string;
+  evidenceIdentities: string[];
+  clientRequestId: string;
+  structuredResponse: StrategyStructuredResponse;
+}
+
 export interface StrategyEvidencePreviewItem {
   identity: string;
   id: string;
@@ -153,6 +162,34 @@ export function validateStrategyAnalysisRequest(value: unknown): StrategyAnalysi
   if (evidenceIdentities.some((identity) => !evidenceIdentityPattern.test(identity))) throw new Error("The evidence scope contains an invalid source identity.");
 
   return { action: "analyze", projectId, question, evidenceIdentities, clientRequestId };
+}
+
+export function validateStrategyImportAnalysisRequest(value: unknown): StrategyImportAnalysisRequest {
+  const candidate = record(value);
+  const projectId = text(candidate.projectId);
+  const question = text(candidate.question);
+  const clientRequestId = text(candidate.clientRequestId);
+  const rawIdentities = Array.isArray(candidate.evidenceIdentities) ? candidate.evidenceIdentities : [];
+  const evidenceIdentities = [...new Set(rawIdentities.map(text).filter(Boolean))];
+
+  if (candidate.action !== "import-analysis") throw new Error("The Strategy AI action is not supported.");
+  if (!uuidPattern.test(projectId)) throw new Error("Choose a valid project before importing analysis.");
+  if (!uuidPattern.test(clientRequestId)) throw new Error("The analysis request identifier is invalid.");
+  if (question.length < 3) throw new Error("Enter a strategic question before importing analysis.");
+  if (question.length > STRATEGY_QUESTION_LIMIT) throw new Error(`Keep the strategic question under ${STRATEGY_QUESTION_LIMIT.toLocaleString()} characters.`);
+  if (!evidenceIdentities.length) throw new Error("Select at least one evidence source before importing analysis.");
+  if (evidenceIdentities.length > STRATEGY_EVIDENCE_LIMIT) throw new Error(`Select no more than ${STRATEGY_EVIDENCE_LIMIT} evidence sources.`);
+  if (rawIdentities.length !== evidenceIdentities.length) throw new Error("The evidence scope contains duplicate or empty identities.");
+  if (evidenceIdentities.some((identity) => !evidenceIdentityPattern.test(identity))) throw new Error("The evidence scope contains an invalid source identity.");
+
+  return {
+    action: "import-analysis",
+    projectId,
+    question,
+    evidenceIdentities,
+    clientRequestId,
+    structuredResponse: validateStrategyStructuredResponse(candidate.structuredResponse, evidenceIdentities),
+  };
 }
 
 export function strategyBudgetConfiguration(value: {

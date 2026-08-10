@@ -1,4 +1,4 @@
-import { BookOpenText, ExternalLink, FileSearch, LoaderCircle, MessageSquareText, Sparkles } from "lucide-react";
+import { BookOpenText, ClipboardList, ExternalLink, FileSearch, MessageSquareText, Sparkles } from "lucide-react";
 import { Badge, Button } from "@/components/ui/primitives";
 import type { StrategyEvidencePreview } from "@/lib/strategy-ai/types";
 
@@ -12,25 +12,21 @@ export function StrategyEvidenceScope({
   preview,
   selected,
   onToggle,
-  onAnalyze,
-  analysisStatus,
-  analysisError,
+  onPrepareHandoff,
 }: {
   preview: StrategyEvidencePreview | null;
   selected: Set<string>;
   onToggle: (identity: string) => void;
-  onAnalyze: () => void;
-  analysisStatus: "idle" | "loading" | "error";
-  analysisError: string;
+  onPrepareHandoff: () => void;
 }) {
   if (!preview) {
     return (
       <aside className="strategy-scope strategy-scope--empty">
         <FileSearch size={22} />
         <p className="eyebrow">Evidence scope</p>
-        <h2>See the sources before Sift thinks with them.</h2>
+        <h2>See the sources before ChatGPT sees them.</h2>
         <p>Enter one question and Sift will retrieve only evidence your signed-in account can access inside the chosen project.</p>
-        <div className="strategy-scope__guardrail"><Sparkles size={15} /><span>No AI conclusion is generated during this preview.</span></div>
+        <div className="strategy-scope__guardrail"><Sparkles size={15} /><span>Nothing is sent automatically. You decide what to copy.</span></div>
       </aside>
     );
   }
@@ -64,14 +60,13 @@ export function StrategyEvidenceScope({
       )}
       <div className="strategy-scope__footer">
         <div><MessageSquareText size={15} /><span>Irrelevant and archived sources are excluded automatically.</span></div>
-        {analysisError ? <p className="strategy-scope__error" role="alert">{analysisError}</p> : null}
         <Button
-          variant={preview.analysis.available ? "dark" : "secondary"}
-          disabled={!preview.analysis.available || !selected.size || analysisStatus === "loading"}
-          title={preview.analysis.reason || (!selected.size ? "Select at least one source" : "Generate analysis from this exact evidence scope")}
-          onClick={onAnalyze}
+          variant="dark"
+          disabled={!selected.size}
+          title={!selected.size ? "Select at least one source" : "Prepare a visible prompt from this exact evidence scope"}
+          onClick={onPrepareHandoff}
         >
-          {analysisStatus === "loading" ? <><LoaderCircle className="spin" size={15} />Generating cited analysis…</> : preview.analysis.available ? "Generate cited analysis" : "Model activation pending"}
+          <ClipboardList size={15} />Prepare ChatGPT handoff
         </Button>
       </div>
     </aside>

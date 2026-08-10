@@ -4,13 +4,21 @@ import Link from "next/link";
 import { ArrowRight, LoaderCircle, Plus, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { StrategyActivationReadiness } from "@/components/strategy/strategy-activation-readiness";
 import { StrategyAnalysisPanel } from "@/components/strategy/strategy-analysis-result";
+import { StrategyChatGptHandoff } from "@/components/strategy/strategy-chatgpt-handoff";
 import { StrategyEvidenceScope } from "@/components/strategy/strategy-evidence-scope";
 import { Badge, Button, Card, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
-import { generateStrategyAnalysis, previewStrategyEvidence } from "@/lib/strategy-ai/repository";
+import {
+  buildStrategyChatGptPrompt,
+  parseStrategyChatGptResponse,
+  STRATEGY_HANDOFF_TASKS,
+  type StrategyHandoffTask,
+} from "@/lib/strategy-ai/handoff";
+import { importChatGptStrategyAnalysis, previewStrategyEvidence } from "@/lib/strategy-ai/repository";
 import type { StrategyAnalysisResult, StrategyEvidencePreview } from "@/lib/strategy-ai/types";
+
+type HandoffStatus = "idle" | "saving" | "saved" | "error";
 
 export function StrategyPage() {
   const { projects, activeProjectId, setActiveProjectId, setProjectDialogOpen, openCaptureDialog } = useApp();
@@ -20,14 +28,28 @@ export function StrategyPage() {
     : cloudProjects[0]?.id || "";
   const [projectId, setProjectId] = useState(initialProjectId);
   const [question, setQuestion] = useState("");
+  const [task, setTask] = useState<StrategyHandoffTask>("analyse");
   const [preview, setPreview] = useState<StrategyEvidencePreview | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [analysis, setAnalysis] = useState<StrategyAnalysisResult | null>(null);
-  const [analysisStatus, setAnalysisStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [analysisError, setAnalysisError] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
+  const [handoffPrompt, setHandoffPrompt] = useState("");
+  const [handoffResponse, setHandoffResponse] = useState("");
+  const [handoffRequestId, setHandoffRequestId] = useState("");
+  const [handoffStatus, setHandoffStatus] = useState<HandoffStatus>("idle");
+  const [handoffError, setHandoffError] = useState("");
+  const [copied, setCopied] = useState(false);
   const resolvedProjectId = cloudProjects.some((project) => project.id === projectId) ? projectId : initialProjectId;
+
+  function clearHandoff() {
+    setHandoffPrompt("");
+    setHandoffResponse("");
+    setHandoffRequestId("");
+    setHandoffStatus("idle");
+    setHandoffError("");
+    setCopied(false);
+  }
 
   async function prepareEvidence(event: FormEvent) {
     event.preventDefault();
@@ -36,8 +58,7 @@ export function StrategyPage() {
     setStatus("loading");
     setError("");
     setAnalysis(null);
-    setAnalysisError("");
-    setAnalysisStatus("idle");
+    clearHandoff();
     try {
       const result = await previewStrategyEvidence(project, question.trim());
       setPreview(result);
@@ -54,19 +75,36 @@ export function StrategyPage() {
 
   function reset() {
     setQuestion("");
+    setTask("analyse");
     setPreview(null);
     setSelected(new Set());
     setAnalysis(null);
-    setAnalysisStatus("idle");
-    setAnalysisError("");
     setStatus("idle");
     setError("");
+    clearHandoff();
+  }
+
+  function changeQuestion(value: string) {
+    setQuestion(value);
+    if (preview) {
+      setPreview(null);
+      setSelected(new Set());
+      setAnalysis(null);
+      clearHandoff();
+    }
+  }
+
+  function changeProject(value: string) {
+    setProjectId(value);
+    setPreview(null);
+    setSelected(new Set());
+    setAnalysis(null);
+    clearHandoff();
   }
 
   function toggleEvidence(identity: string) {
     setAnalysis(null);
-    setAnalysisStatus("idle");
-    setAnalysisError("");
+    clearHandoff();
     setSelected((current) => {
       const next = new Set(current);
       if (next.has(identity)) next.delete(identity);
@@ -75,26 +113,67 @@ export function StrategyPage() {
     });
   }
 
-  async function generateAnalysis() {
+  function prepareHandoff() {
     const project = cloudProjects.find((item) => item.id === resolvedProjectId);
-    if (!project || !preview || !selected.size || !preview.analysis.available) return;
-    setAnalysisStatus("loading");
-    setAnalysisError("");
+    if (!project || !preview || !selected.size) return;
+    const selectedEvidence = preview.evidence.filter((item) => selected.has(item.identity));
+    setAnalysis(null);
+    setHandoffPrompt(buildStrategyChatGptPrompt({
+      projectName: project.name,
+      question: question.trim(),
+      task,
+      evidence: selectedEvidence,
+    }));
+    setHandoffResponse("");
+    setHandoffRequestId(crypto.randomUUID());
+    setHandoffStatus("idle");
+    setHandoffError("");
+    setCopied(false);
+    requestAnimationFrame(() => document.getElementById("strategy-handoff-heading")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  async function copyHandoffPrompt() {
+    if (!handoffPrompt) return;
+    setHandoffError("");
+    try {
+      await copyText(handoffPrompt);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+      setHandoffError("Sift could not access the clipboard. Open the prompt preview and copy the text manually.");
+    }
+  }
+
+  async function saveImportedAnalysis() {
+    const project = cloudProjects.find((item) => item.id === resolvedProjectId);
+    if (!project || !preview || !selected.size || !handoffRequestId) return;
+    const orderedEvidenceIdentities = preview.evidence
+      .filter((item) => selected.has(item.identity))
+      .map((item) => item.identity);
+    setHandoffStatus("saving");
+    setHandoffError("");
     setAnalysis(null);
     try {
-      const result = await generateStrategyAnalysis(project, question.trim(), [...selected], crypto.randomUUID());
+      const parsed = parseStrategyChatGptResponse(handoffResponse, orderedEvidenceIdentities);
+      const result = await importChatGptStrategyAnalysis(
+        project,
+        question.trim(),
+        orderedEvidenceIdentities,
+        handoffRequestId,
+        parsed,
+      );
       setAnalysis(result);
-      setAnalysisStatus("idle");
+      setHandoffStatus("saved");
       requestAnimationFrame(() => document.getElementById("strategy-analysis-heading")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch (requestError) {
-      setAnalysisError(requestError instanceof Error ? requestError.message : "Cited analysis could not be generated.");
-      setAnalysisStatus("error");
+      setHandoffError(requestError instanceof Error ? requestError.message : "The ChatGPT response could not be validated and saved.");
+      setHandoffStatus("error");
     }
   }
 
   return (
     <div className="page strategy-page">
-      <PageIntro eyebrow="Strategy AI · Phase 6" title="Start with the evidence, then ask for direction." description="Prepare an inspectable source scope, then generate an answer whose facts, interpretations, hypotheses, and recommendations remain visibly distinct.">
+      <PageIntro eyebrow="Strategy AI · ChatGPT handoff" title="Start with the evidence, then think with ChatGPT." description="Select the evidence yourself, use your existing ChatGPT account, and bring the answer back for citation checks and durable storage.">
         <Button variant="dark" onClick={reset}><Plus size={16} />New question</Button>
       </PageIntro>
 
@@ -105,24 +184,56 @@ export function StrategyPage() {
           <Card className="strategy-question-card">
             <div className="strategy-question-card__head">
               <span className="ai-orb"><ShieldCheck size={18} /></span>
-              <div><Badge>Workspace-backed analysis</Badge><h2>Prepare a research-backed question</h2><p>Retrieval stays deterministic. Generation can use only the sources you deliberately leave selected.</p></div>
+              <div><Badge>Workspace-backed prompt</Badge><h2>Prepare a research-backed question</h2><p>Retrieval stays deterministic. Only the sources you deliberately leave selected will appear in the prompt.</p></div>
             </div>
             <form onSubmit={prepareEvidence}>
-              <label><span>Project</span><select value={resolvedProjectId} onChange={(event) => { setProjectId(event.target.value); setPreview(null); setSelected(new Set()); setAnalysis(null); }}>{cloudProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><small>The project is the authorization and evidence boundary.</small></label>
-              <label><span>Strategic question</span><textarea rows={5} maxLength={1000} value={question} onChange={(event) => { setQuestion(event.target.value); setAnalysis(null); }} placeholder="What is changing, why might it matter, and what evidence supports or challenges that interpretation?" /><small>Write the real question you want to investigate. Sift derives a transparent full-text evidence search from it.</small></label>
+              <div className="strategy-question-options">
+                <label><span>Project</span><select value={resolvedProjectId} onChange={(event) => changeProject(event.target.value)}>{cloudProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><small>The project is the authorization and evidence boundary.</small></label>
+                <label><span>Thinking task</span><select value={task} onChange={(event) => { setTask(event.target.value as StrategyHandoffTask); clearHandoff(); setAnalysis(null); }}>{STRATEGY_HANDOFF_TASKS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><small>This tells ChatGPT what kind of strategic thinking to prioritize.</small></label>
+              </div>
+              <label><span>Strategic question</span><textarea rows={5} maxLength={1000} value={question} onChange={(event) => changeQuestion(event.target.value)} placeholder="What is changing, why might it matter, and what evidence supports or challenges that interpretation?" /><small>Write the real question you want to investigate. Sift derives a transparent full-text evidence search from it.</small></label>
               {error ? <div className="strategy-question-card__error" role="alert">{error}</div> : null}
-              <div className="strategy-question-card__actions"><Button variant="dark" disabled={status === "loading" || question.trim().length < 3}>{status === "loading" ? <><LoaderCircle className="spin" size={16} />Searching evidence…</> : <><Search size={16} />Find relevant evidence</>}</Button><span>Evidence retrieval does not call OpenAI.</span></div>
+              <div className="strategy-question-card__actions"><Button variant="dark" disabled={status === "loading" || question.trim().length < 3}>{status === "loading" ? <><LoaderCircle className="spin" size={16} />Searching evidence…</> : <><Search size={16} />Find relevant evidence</>}</Button><span>This search stays inside your Sift workspace.</span></div>
             </form>
-            {preview ? <div className="strategy-preview-result"><strong>{preview.evidence.length} candidate source{preview.evidence.length === 1 ? "" : "s"} found</strong><span>{preview.evidence.length > 0 ? "Review the right-hand evidence scope and remove anything that should not influence the future answer." : "No source will influence an answer until eligible workspace evidence matches this question."}</span></div> : null}
+            {preview ? <div className="strategy-preview-result"><strong>{preview.evidence.length} candidate source{preview.evidence.length === 1 ? "" : "s"} found</strong><span>{preview.evidence.length > 0 ? "Review the evidence scope and remove anything that should not influence the ChatGPT answer." : "No source will enter a prompt until eligible workspace evidence matches this question."}</span></div> : null}
           </Card>
-          <StrategyEvidenceScope preview={preview} selected={selected} onToggle={toggleEvidence} onAnalyze={generateAnalysis} analysisStatus={analysisStatus} analysisError={analysisError} />
+          <StrategyEvidenceScope preview={preview} selected={selected} onToggle={toggleEvidence} onPrepareHandoff={prepareHandoff} />
         </div>
       )}
 
+      {handoffPrompt ? (
+        <StrategyChatGptHandoff
+          prompt={handoffPrompt}
+          sourceCount={selected.size}
+          response={handoffResponse}
+          copied={copied}
+          status={handoffStatus}
+          error={handoffError}
+          onCopy={copyHandoffPrompt}
+          onResponseChange={(value) => { setHandoffResponse(value); setHandoffStatus("idle"); setHandoffError(""); setAnalysis(null); }}
+          onSave={saveImportedAnalysis}
+        />
+      ) : null}
+
       {analysis ? <StrategyAnalysisPanel result={analysis} /> : null}
 
-      <div className="strategy-foundation-note"><Sparkles size={17} /><div><strong>Structured citation pipeline ready</strong><span>Sift now rejects uncited claims, unknown evidence IDs, malformed output, and changed source scopes before anything is saved. Live generation remains unavailable until a model and server-side key are deliberately activated.</span></div><Link href="/evidence">Review all evidence <ArrowRight size={13} /></Link></div>
-      <StrategyActivationReadiness preview={preview} />
+      <div className="strategy-foundation-note"><Sparkles size={17} /><div><strong>Your ChatGPT subscription stays separate</strong><span>Sift does not request an API key or share your ChatGPT login. You control the copy-and-paste boundary, and Sift validates citations again before saving.</span></div><Link href="/evidence">Review all evidence <ArrowRight size={13} /></Link></div>
     </div>
   );
+}
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("Clipboard unavailable");
 }

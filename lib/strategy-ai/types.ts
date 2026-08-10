@@ -96,6 +96,7 @@ export interface StrategyCitation {
 
 export interface StrategyAnalysisResult {
   mode: "workspace_backed";
+  origin: "openai_api" | "chatgpt_manual";
   project: { id: string; name: string };
   question: string;
   conversationId: string;
@@ -106,5 +107,5 @@ export interface StrategyAnalysisResult {
   model: string;
   requestId: string;
   usage: Record<string, number>;
-  budget: StrategyBudgetStatus;
+  budget?: StrategyBudgetStatus;
 }

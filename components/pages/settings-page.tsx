@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CircleDashed, Database, KeyRound, Plug, Radio, ShieldCheck } from "lucide-react";
+import { CircleDashed, Database, KeyRound, MessageSquareText, Plug, Radio, ShieldCheck } from "lucide-react";
 import { Badge, Button, Card, PageIntro, SectionHeader } from "@/components/ui/primitives";
 import { isRadarConnectorBackendConfigured } from "@/lib/radar/connector-service";
 
@@ -37,7 +37,7 @@ export function SettingsPage() {
           </section>
           <section>
             <SectionHeader eyebrow="Services" title="Production readiness" />
-            <div className="service-grid"><Card><Database size={19} /><div><strong>Supabase</strong><span>Private cloud workspace and RLS active</span></div><Badge>Connected</Badge></Card><Card><KeyRound size={19} /><div><strong>Strategy AI</strong><span>Citation and usage guardrails ready; model activation pending</span></div><Badge>Model pending</Badge></Card><Card><ShieldCheck size={19} /><div><strong>GitHub Pages</strong><span>Static deployment workflow prepared</span></div><Badge>Ready</Badge></Card></div>
+            <div className="service-grid"><Card><Database size={19} /><div><strong>Supabase</strong><span>Private cloud workspace and RLS active</span></div><Badge>Connected</Badge></Card><Card><MessageSquareText size={19} /><div><strong>Strategy AI</strong><span>Manual ChatGPT handoff with citation validation; no API key required</span></div><Badge>Ready</Badge></Card><Card><ShieldCheck size={19} /><div><strong>GitHub Pages</strong><span>Static deployment workflow prepared</span></div><Badge>Ready</Badge></Card></div>
           </section>
         </div>
       </div>

@@ -81,6 +81,23 @@ test("Strategy AI generation revalidates citations and persists only through the
   assert.match(migration, /claim cites evidence outside the authorized source scope/i);
 });
 
+test("manual ChatGPT imports are authenticated, revalidated, and cannot choose their own provenance", async () => {
+  const [handler, shared, repository] = await Promise.all([
+    read("supabase/functions/strategy-ai/index.ts"),
+    read("supabase/functions/_shared/strategy-ai.ts"),
+    read("lib/strategy-ai/repository.ts"),
+  ]);
+
+  assert.match(handler, /body\?\.action === "import-analysis"/);
+  assert.match(handler, /const MANUAL_CHATGPT_MODEL = "ChatGPT manual handoff"/);
+  assert.match(handler, /context\.supabase\.rpc\("resolve_strategy_evidence"/);
+  assert.match(handler, /context\.supabaseAdmin\.rpc\("persist_strategy_analysis"/);
+  assert.match(shared, /validateStrategyImportAnalysisRequest/);
+  assert.match(shared, /validateStrategyStructuredResponse\(candidate\.structuredResponse, evidenceIdentities\)/);
+  assert.match(repository, /action: "import-analysis"/);
+  assert.doesNotMatch(repository, /p_model|MANUAL_CHATGPT_MODEL|service_role/i);
+});
+
 test("Strategy AI reserves monthly request and token allowances through service-only database functions", async () => {
   const [handler, migration, environment] = await Promise.all([
     read("supabase/functions/strategy-ai/index.ts"),

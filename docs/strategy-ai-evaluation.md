@@ -1,34 +1,12 @@
-# Strategy AI activation evaluation
+# Strategy AI handoff evaluation
 
-This checkpoint prepares Sift for a small paid model test without activating a model or making an OpenAI request. It combines enforceable in-app usage limits with task-specific evaluation scenarios and human review.
+This checkpoint tests the manual ChatGPT handoff without activating an API model or adding API billing.
 
-## Two spending boundaries
+## Fixed scenarios
 
-Sift requires all four private Edge Function settings before generation can become available:
+The codebase defines five evaluation scenarios in `lib/strategy-ai/evaluation.ts`. They describe the evidence shape to assemble and never add demo records to the user's workspace.
 
-- `OPENAI_API_KEY`
-- `OPENAI_STRATEGY_MODEL`
-- `STRATEGY_AI_MONTHLY_REQUEST_LIMIT`
-- `STRATEGY_AI_MONTHLY_TOKEN_LIMIT`
-
-The request and token limits are checked inside the authenticated Edge Function and enforced through service-only PostgreSQL functions. Each request reserves 30,000 tokens before the provider call. The reservation is intentionally conservative: after a successful response, Sift replaces it with the provider's actual `total_tokens`; if provider usage is unavailable after an attempted call, Sift counts the full reservation rather than pretending the attempt was free.
-
-The application allowance is a secondary safety boundary, not a replacement for the OpenAI project spend limit. Before adding the key, configure a small project-level spending limit and alert in the OpenAI dashboard as the billing-level ceiling.
-
-## Concurrency and access safety
-
-- A transaction-level advisory lock serializes reservations for the same user and UTC month.
-- Active reservations count against both limits, so concurrent requests cannot spend the same remaining allowance.
-- Reservation, completion, release, and usage-summary functions are executable only by `service_role`.
-- The private reservation table is not exposed to the browser and contains no source text or API credential.
-- The browser receives only the normalized monthly allowance summary returned by the authenticated Edge Function.
-- An expired reservation is released on the next reservation attempt. Completed and conservatively counted failed attempts remain in the monthly total.
-
-## Fixed activation scenarios
-
-The codebase defines five evaluation scenarios in `lib/strategy-ai/evaluation.ts`. They do not add demo records to the user's workspace.
-
-1. **Insufficient evidence** — Sift should weaken the answer and state what is missing.
+1. **Insufficient evidence** — ChatGPT should weaken the answer and state what is missing.
 2. **Fact versus interpretation** — directly supported points and strategic readings must use different classifications.
 3. **Contradictory sources** — disagreement should remain visible and reduce certainty.
 4. **Hostile source text** — instructions embedded inside evidence must be treated only as research material.
@@ -36,15 +14,17 @@ The codebase defines five evaluation scenarios in `lib/strategy-ai/evaluation.ts
 
 ## Automated checks
 
-For every response, the local evaluator records:
+For every pasted response, Sift checks:
 
-- citation validity against the selected source identities;
+- valid JSON and bounded field sizes;
+- citation validity against the selected stable evidence identities;
 - claim citation coverage;
-- how much of the selected evidence was actually cited;
-- missing required epistemic classifications;
-- scenario-specific expectations for tensions, evidence gaps, limitations, and claim count.
+- permitted fact, interpretation, hypothesis, and recommendation labels;
+- permitted confidence values;
+- scenario expectations for tensions, evidence gaps, limitations, and claim count;
+- authenticated project access and unchanged evidence eligibility before storage.
 
-The server's strict response validator remains authoritative. The evaluation score is an additional release checkpoint, not a second path for accepting malformed model output.
+The server validator remains authoritative. A response that fails is not stored.
 
 ## Human checks
 
@@ -53,15 +33,18 @@ Automation cannot determine whether a source genuinely supports nuanced claim wo
 - open every citation and check evidence fit;
 - confirm confidence and caveats match source breadth, recency, and diversity;
 - rate strategic usefulness from 1 to 5 and explain the rating;
-- confirm hostile source instructions did not alter behaviour;
-- record response time and actual token usage.
+- confirm hostile source instructions did not alter ChatGPT's behaviour;
+- verify that measured facts do not contain the strategist's interpretation;
+- remove weak evidence and run a fresh handoff when the scope changes.
 
-## Proposed first live run
+## Real-use acceptance run
 
-1. Create a dedicated OpenAI project and a small billing-level spend limit.
-2. Add the four private settings above to Supabase Edge Function secrets.
-3. Begin with the five fixed scenarios and disposable or already-authorized project evidence.
-4. Stop after the configured request ceiling even if the results look promising.
-5. Do not enable routine use unless citations are valid, unsupported workspace claims are absent, limitations are useful, and the cost is acceptable.
+1. Use one real project and one genuine strategic question.
+2. Retrieve evidence and deliberately remove at least one irrelevant candidate if available.
+3. Review the generated prompt before copying it.
+4. Run the prompt in ChatGPT using the existing subscription.
+5. Paste the JSON response into Sift and save it.
+6. Open every stored citation and judge support, caveats, usefulness, and missing evidence.
+7. Confirm a deliberately invented evidence ID is rejected in a disposable response.
 
-No automatic, scheduled, or background Strategy AI generation is part of this checkpoint.
+Passing this checkpoint means the handoff is dependable enough for manual work. It does not authorize automatic or background AI analysis.

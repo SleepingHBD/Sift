@@ -21,7 +21,7 @@ Next.js static client
        └─ Edge Functions for secure AI and connector execution
 ```
 
-GitHub Pages cannot protect an OpenAI or connector secret. Radar calls an authenticated Supabase Edge Function for RSS, manual URL, and YouTube collection. Future scheduled jobs and Strategy AI calls belong in the same private runtime. The browser never receives a private API key.
+GitHub Pages cannot protect connector or model secrets. Radar calls authenticated Supabase Edge Functions for RSS, manual URL, and YouTube collection. Strategy AI's default path requires no model secret: its authenticated function retrieves authorized evidence and validates a response the strategist manually brings back from ChatGPT. The browser never receives a private API key or service-role credential.
 
 ## Data ownership
 
@@ -122,6 +122,7 @@ The schema uses generated `tsvector` columns and GIN indexes. A later embedding 
 - Supabase Auth owns identity.
 - Project-scoped tables use Row Level Security and `can_access_project`.
 - Only public client keys enter the browser.
-- OpenAI keys, connector tokens, scheduled jobs, and ingestion stay server-side.
+- Connector tokens, optional future model keys, scheduled jobs, and ingestion stay server-side.
+- Selected Strategy AI evidence leaves Sift only when the strategist deliberately copies the visible ChatGPT handoff prompt.
 - Radar runs require a platform-verified user JWT and pass through atomic per-user quotas before connector work begins.
 - AI messages store structured claims and citations for inspectable provenance.

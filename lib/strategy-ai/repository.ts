@@ -58,6 +58,38 @@ export async function generateStrategyAnalysis(
   return data;
 }
 
+export async function importChatGptStrategyAnalysis(
+  project: Project,
+  question: string,
+  evidenceIdentities: string[],
+  clientRequestId: string,
+  structuredResponse: StrategyStructuredResponse,
+): Promise<StrategyAnalysisResult> {
+  if (!project.cloudId) throw new Error("Choose a project that is available in your cloud workspace.");
+  const client = createBrowserSupabaseClient();
+  if (!client) throw new Error("Supabase is not configured for this build.");
+  const { data: sessionData } = await client.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Sign in with GitHub before saving a workspace-backed analysis.");
+
+  client.functions.setAuth(accessToken);
+  const functionName = process.env.NEXT_PUBLIC_STRATEGY_AI_FUNCTION_NAME || "strategy-ai";
+  const { data, error } = await client.functions.invoke(functionName, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: {
+      action: "import-analysis",
+      projectId: project.cloudId,
+      question,
+      evidenceIdentities,
+      clientRequestId,
+      structuredResponse,
+    },
+  });
+  if (error) throw new Error(await readFunctionError(error));
+  if (!isStrategyAnalysisResult(data)) throw new Error("Sift could not verify the imported ChatGPT analysis.");
+  return data;
+}
+
 async function readFunctionError(error: { message: string; context?: unknown }) {
   const response = error.context;
   if (response instanceof Response) {
@@ -105,6 +137,7 @@ function isStrategyAnalysisResult(value: unknown): value is StrategyAnalysisResu
   if (!value || typeof value !== "object") return false;
   const result = value as Partial<StrategyAnalysisResult>;
   return result.mode === "workspace_backed"
+    && (result.origin === "openai_api" || result.origin === "chatgpt_manual")
     && Boolean(result.project && typeof result.project.id === "string" && typeof result.project.name === "string")
     && typeof result.question === "string"
     && typeof result.conversationId === "string"
@@ -117,7 +150,7 @@ function isStrategyAnalysisResult(value: unknown): value is StrategyAnalysisResu
     && Array.isArray(result.sources)
     && result.sources.every(isStrategyEvidencePreviewItem)
     && Boolean(result.usage && typeof result.usage === "object")
-    && isStrategyBudgetStatus(result.budget);
+    && (result.budget === undefined || isStrategyBudgetStatus(result.budget));
 }
 
 function isStrategyBudgetStatus(value: unknown): value is StrategyBudgetStatus {

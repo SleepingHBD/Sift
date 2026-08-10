@@ -1,65 +1,70 @@
 # Evidence-grounded Strategy AI
 
-Phase 6 begins with the evidence boundary, not model output. Sift now has a complete model-ready structured-analysis path, but live generation remains deliberately unconfigured until a model and server-side key are explicitly chosen.
+Phase 6 uses a deliberate ChatGPT handoff instead of a paid model API. Sift retrieves and scopes private workspace evidence, prepares a visible citation-ready prompt, and validates the response when the strategist brings it back. Sift never receives the user's ChatGPT password, session, subscription credential, or API key.
 
 ## Current workflow
 
 1. Open **Strategy AI**.
 2. Choose one cloud-backed project. The project is both the research scope and authorization boundary.
-3. Enter the real strategic question you want to investigate.
-4. Select **Find relevant evidence**.
-5. Inspect the transparent full-text search terms and every candidate source returned from the authorized project.
-6. Remove any candidate that should not influence the future answer.
-7. Open original links when available to confirm the underlying source.
-8. After model activation, generate a structured answer whose claims link back to the selected source cards.
+3. Choose a thinking task: evidence analysis, tensions, insights, or opportunities.
+4. Enter the real strategic question.
+5. Select **Find relevant evidence**.
+6. Inspect the transparent full-text search and every candidate source returned from the authorized project.
+7. Remove any candidate that should not influence the answer and open original links when useful.
+8. Select **Prepare ChatGPT handoff**.
+9. Review the complete prompt, then copy it and open ChatGPT.
+10. Paste the prompt into ChatGPT using the user's existing account.
+11. Copy ChatGPT's JSON response back into Sift.
+12. Select **Validate and save analysis**.
+13. Review every stored claim, epistemic label, caveat, and evidence citation.
 
-Evidence marked `irrelevant` or `archived` is excluded from the preview. A preview separates original source text, the interpretation recorded when the source entered Sift, and later strategist notes. These layers must not be silently blended into one factual claim.
+Evidence marked `irrelevant` or `archived` is excluded. The handoff preserves original source text, the interpretation recorded when the source entered Sift, and later strategist notes as separate fields.
 
-## Security boundary
+## Deliberate data boundary
 
-- `strategy-ai` is a JWT-protected Supabase Edge Function.
+- Evidence stays in Sift until the strategist deliberately copies the prepared prompt.
+- Nothing is sent to ChatGPT automatically.
+- The prompt preview shows exactly which selected evidence will leave Sift.
+- The interface warns against copying passwords, API keys, credentials, or material the strategist does not want processed in ChatGPT.
+- Sift cannot verify which ChatGPT model produced the pasted response, so it records the provenance as `ChatGPT manual handoff` rather than claiming an exact model.
+- No OpenAI API key, additional model billing, or ChatGPT credential is required by Sift's default workflow.
+
+## Supabase security boundary
+
+- `strategy-ai` remains a JWT-protected Supabase Edge Function.
 - Project access is checked with the caller's authenticated, RLS-scoped Supabase client.
-- Evidence preview reuses the existing `search_evidence_page` PostgreSQL full-text function; no service-role retrieval is used.
-- Analysis re-resolves every selected stable identity under the caller's RLS context before any model request is allowed.
-- The browser never receives a model credential or service-role key.
-- Direct authenticated insert, update, and delete access to `ai_conversations` and `ai_messages` is revoked. Messages, citations, model identifiers, and usage records are written only through an atomic service-only database function after validation.
-- Existing AI tables are reused rather than creating a duplicate conversation store.
-- A client request ID blocks duplicate provider attempts, while atomic persistence prevents duplicate conversation records; changed or missing source scopes are rejected before generation.
-
-Model activation requires four private Edge Function settings: `OPENAI_API_KEY`, `OPENAI_STRATEGY_MODEL`, `STRATEGY_AI_MONTHLY_REQUEST_LIMIT`, and `STRATEGY_AI_MONTHLY_TOKEN_LIMIT`. They must never be placed in a `NEXT_PUBLIC_` variable, GitHub Pages bundle, database row, or repository file. No default model or allowance is silently selected.
-
-Sift reserves a conservative token allowance transactionally before any provider request, replaces it with actual reported usage after success, and counts the full reservation when a provider attempt cannot report usage. The browser cannot alter these limits or write usage records.
+- Evidence retrieval reuses the existing `search_evidence_page` PostgreSQL full-text function; no service-role retrieval is used.
+- Before an imported response can be stored, the function re-resolves every selected stable identity under the caller's RLS context.
+- Client and server validators reject malformed output, unknown citations, duplicate citations, and citations outside the selected evidence scope.
+- Direct authenticated insert, update, and delete access to `ai_conversations` and `ai_messages` remains revoked.
+- Validated messages and citations are written atomically through the existing service-only persistence function after authentication, project access, evidence scope, and response structure have all been checked.
+- The client cannot choose stored provider provenance or bypass the citation contract.
 
 ## Response contract
 
 - Each claim is classified as `measured_fact`, `interpretation`, `hypothesis`, or `recommendation`.
-- Every claim and tension must cite one or more stable identities from the strategist-selected evidence scope.
-- Confidence is limited to `high`, `medium`, or `low`, and every claim carries a caveat.
-- The response also separates tensions, evidence gaps, suggested next questions, and limitations.
-- Unknown, duplicate, missing, inaccessible, or changed evidence identities cause the response to be rejected rather than stored.
-- Source content and notes are treated as untrusted research material, not executable model instructions.
-- The provider request uses a strict JSON schema, a bounded evidence scope, a 45-second timeout, no automatic retry, and `store: false`.
+- Every claim and tension must cite one or more exact stable identities from the strategist-selected evidence scope.
+- Confidence is limited to `high`, `medium`, or `low`, and every claim carries a caveat field.
+- The response separately records tensions, evidence gaps, suggested next questions, and limitations.
+- A response may contain no claims when the evidence is insufficient, but it must explain the gap.
+- Source content and notes are explicitly presented to ChatGPT as untrusted research material, not instructions.
 
 ## Current limitations
 
-- Retrieval is lexical full-text search; semantic/vector retrieval remains deferred until retrieval evaluation proves it useful.
-- The preview does not call OpenAI.
-- The deployed environment currently has no activated model configuration, so the analysis action is intentionally disabled and labelled honestly.
-- The structured path is model-ready, but it is not considered production-ready until a real evaluation set passes citation-validity, unsupported-claim, usefulness, and cost checks.
-- General brainstorming is not yet implemented and cannot be mistaken for workspace-backed analysis.
-- No live model evaluation has run. The five activation scenarios and automated contract scorer are ready, but evidence fit, usefulness, and cost still need human review.
+- The handoff requires copy and paste; Sift cannot run ChatGPT automatically through the user's subscription.
+- A successful structural validation proves that citations use selected IDs. It does not prove that the cited source semantically supports every word of a claim; the strategist must still review evidence fit.
+- Retrieval is lexical full-text search. Semantic/vector retrieval remains deferred until evaluation proves it useful.
+- ChatGPT can return prose or malformed JSON despite the prompt. Sift reports the problem and saves nothing until the response meets the contract.
+- Automatic, scheduled, and background AI analysis remains unavailable.
+- General brainstorming is not stored as workspace-backed analysis.
 
-## Foundation verification
+## Verification
 
-- The Phase 6 migration is applied to the linked Supabase project and the JWT-protected `strategy-ai` Edge Function is active.
-- An unauthenticated function request returns `401`.
-- An authenticated production-build preview returns `200`, reports the intentionally missing model and budget configuration honestly, and creates no usage reservation.
-- A rollback-only database test confirmed RLS-scoped identity resolution, service-only atomic persistence, and direct-write denial for authenticated browser clients.
-- Authenticated browser checks confirmed the honest empty state, a newly captured matched project source, exact source selection, and the intentionally disabled analysis action.
-- The temporary browser-test source was deleted after verification and its remaining database count was confirmed as zero.
-- Deterministic fixtures test request validation, strict provider formatting, prompt-injection boundaries, citation rejection, response parsing, and usage normalization without making a paid model call.
-- The final quality gate covers 157 automated tests, TypeScript checking, ESLint, and the Next.js production build.
+- Deterministic tests cover prompt construction, exact source identities, separation of evidence layers, fenced JSON parsing, malformed output, and invented citations.
+- Shared server tests cover bounded import requests, citation validation, project-scoped evidence revalidation, fixed manual provenance, and service-only persistence.
+- Existing direct-write denial, RLS, and idempotency controls remain intact.
+- See [strategy-ai-evaluation.md](strategy-ai-evaluation.md) for the short real-use acceptance checkpoint.
 
-## Next activation checkpoint
+## Next checkpoint
 
-Choose one structured-output-capable model, create a small OpenAI project spend limit, add all four server secrets, run the fixed evaluation set, inspect every citation, and confirm stored usage before making generation generally available. Automatic or scheduled AI analysis remains out of scope until manual requests are reliable and affordable. See [strategy-ai-evaluation.md](strategy-ai-evaluation.md) for the exact checkpoint.
+Run the fixed evidence scenarios through the manual handoff, inspect every citation, and record whether ChatGPT's response is useful enough for real strategy work. No spending or model activation checkpoint is required.
