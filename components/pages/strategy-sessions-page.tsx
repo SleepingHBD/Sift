@@ -2,7 +2,6 @@
 
 import {
   ArrowLeft,
-  ArrowRight,
   BookOpen,
   CheckCircle2,
   FileSearch,
@@ -60,15 +59,13 @@ export function StrategySessionsPage() {
   const {
     projects,
     activeProjectId,
-    setActiveProjectId,
     setProjectDialogOpen,
     openCaptureDialog,
   } = useApp();
   const cloudProjects = useMemo(() => projects.filter((project) => project.cloudId), [projects]);
-  const initialProjectId = cloudProjects.some((project) => project.id === activeProjectId)
+  const resolvedProjectClientId = cloudProjects.some((project) => project.id === activeProjectId)
     ? activeProjectId
     : cloudProjects[0]?.id ?? "";
-  const [projectClientId, setProjectClientId] = useState(initialProjectId);
   const [sessions, setSessions] = useState<StrategySessionSummary[]>([]);
   const [sessionId, setSessionId] = useState("");
   const [session, setSession] = useState<StrategySessionDetail | null>(null);
@@ -76,15 +73,13 @@ export function StrategySessionsPage() {
   const [draft, setDraft] = useState("");
   const [startingNew, setStartingNew] = useState(false);
   const [reviewMode, setReviewMode] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [selectedPieceSource, setSelectedPieceSource] = useState<StrategyPieceSourceRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
 
-  const resolvedProjectClientId = cloudProjects.some((project) => project.id === projectClientId)
-    ? projectClientId
-    : initialProjectId;
   const project = cloudProjects.find((item) => item.id === resolvedProjectClientId);
   const cloudProjectId = project?.cloudId ?? "";
 
@@ -95,7 +90,9 @@ export function StrategySessionsPage() {
       const rows = await listStrategySessions(projectId);
       setSessions(rows);
       setSessionId((current) => rows.some((item) => item.id === current) ? current : rows[0]?.id ?? "");
-      if (!rows.length) {
+      if (rows.length) {
+        setStartingNew(false);
+      } else {
         setSession(null);
         setStartingNew(true);
       }
@@ -111,7 +108,17 @@ export function StrategySessionsPage() {
   useEffect(() => {
     if (!cloudProjectId) return;
     let active = true;
-    queueMicrotask(() => { if (active) void loadProjectSessions(cloudProjectId); });
+    queueMicrotask(() => {
+      if (!active) return;
+      setSessionId("");
+      setSession(null);
+      setStartingNew(false);
+      setReviewMode(false);
+      setMemoryOpen(false);
+      setHandoffOpen(false);
+      setError("");
+      void loadProjectSessions(cloudProjectId);
+    });
     return () => { active = false; };
   }, [cloudProjectId, loadProjectSessions]);
 
@@ -133,17 +140,6 @@ export function StrategySessionsPage() {
     });
     return () => { active = false; };
   }, [cloudProjectId, sessionId, startingNew]);
-
-  function changeProject(value: string) {
-    setProjectClientId(value);
-    setSessionId("");
-    setSession(null);
-    setStartingNew(false);
-    setReviewMode(false);
-    setHandoffOpen(false);
-    setError("");
-    setActiveProjectId(value);
-  }
 
   async function startConversation(event: FormEvent) {
     event.preventDefault();
@@ -189,6 +185,7 @@ export function StrategySessionsPage() {
     setDraft("");
     setError("");
     setReviewMode(false);
+    setMemoryOpen(false);
     setHandoffOpen(false);
   }
 
@@ -243,15 +240,26 @@ export function StrategySessionsPage() {
 
   return (
     <div className="page strategy-conversation-page">
-      <PageIntro eyebrow="Notebook" title="Write it down. Connect it later." description="Keep thoughts, questions, and sources together without completing the whole strategy at once.">
-        <Button onClick={() => setReviewMode(true)}><BookOpen size={15} />Review argument</Button>
-        <Button variant="dark" onClick={beginAnotherConversation}><Plus size={15} />New page</Button>
-      </PageIntro>
+      <header className="notebook-workspace-header">
+        <div>
+          <p className="eyebrow">Notebook</p>
+          <h1>{project?.name}</h1>
+          <p>{project?.description || "A quiet place for unfinished thoughts, useful sources, and the connections that emerge between them."}</p>
+        </div>
+        <div className="notebook-workspace-header__actions">
+          <Button aria-expanded={memoryOpen} onClick={() => setMemoryOpen((current) => !current)}><BookOpen size={15} />{memoryOpen ? "Hide memory" : "Notebook memory"}</Button>
+          <Button variant="dark" onClick={beginAnotherConversation}><Plus size={15} />New page</Button>
+        </div>
+      </header>
 
-      <section className="strategy-conversation-toolbar" aria-label="Strategy conversation selection">
-        <label><span>Notebook</span><select value={resolvedProjectClientId} onChange={(event) => changeProject(event.target.value)}>{cloudProjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <ArrowRight size={15} />
-        <label><span>Page</span><select value={startingNew ? "" : sessionId} disabled={!sessions.length || startingNew} onChange={(event) => { setStartingNew(false); setSessionId(event.target.value); }}>{startingNew ? <option value="">Starting a new page</option> : sessions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+      <section className="notebook-page-switcher" aria-label="Notebook page selection">
+        <label>
+          <span>Page</span>
+          <select value={startingNew ? "" : sessionId} disabled={!sessions.length || startingNew} onChange={(event) => { setStartingNew(false); setSessionId(event.target.value); }}>
+            {startingNew ? <option value="">Starting a new page</option> : sessions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+          </select>
+        </label>
+        <span>{sessions.length ? `${sessions.length} saved ${sessions.length === 1 ? "page" : "pages"}` : "Your first page"}</span>
       </section>
 
       {error ? <div className="strategy-conversation-error" role="alert"><strong>This notebook needs attention.</strong><span>{error}</span></div> : null}
@@ -271,7 +279,7 @@ export function StrategySessionsPage() {
       ) : loading && !session ? (
         <div className="strategy-conversation-loading"><LoaderCircle className="spin" size={21} /><span>Loading your conversation…</span></div>
       ) : session ? (
-        <div className="strategy-conversation-layout">
+        <div className={`strategy-conversation-layout${memoryOpen ? " strategy-conversation-layout--memory-open" : ""}`}>
           <main className="strategy-conversation-thread">
             <header>
               <div><p className="eyebrow">Current page</p><h2>{session.title}</h2></div>
@@ -279,10 +287,6 @@ export function StrategySessionsPage() {
             </header>
 
             <div className="strategy-conversation-timeline" aria-label="Strategy conversation">
-              <article className="strategy-turn strategy-turn--sift">
-                <span className="strategy-turn__avatar">S</span>
-                <div><strong>Sift</strong><p>We can develop this gradually. You do not need to identify the pattern, tension, or insight yet.</p></div>
-              </article>
               {session.turns.map((turn) => (
                 <article className={`strategy-turn strategy-turn--${turn.role}`} key={turn.id}>
                   <span className="strategy-turn__avatar">{turn.role === "user" ? "You" : "S"}</span>
@@ -291,29 +295,31 @@ export function StrategySessionsPage() {
               ))}
               <article className="strategy-turn strategy-turn--sift strategy-turn--next">
                 <span className="strategy-turn__avatar">S</span>
-                <div><strong>One useful next step</strong><p>{nextPrompt(session)}</p><div className="strategy-turn__actions"><Button size="sm" onClick={() => openCaptureDialog("url")}><FileSearch size={14} />Add evidence</Button><Button size="sm" onClick={() => setHandoffOpen(true)}><Sparkles size={14} />Think with ChatGPT</Button></div></div>
+                <div><strong>One useful next step</strong><p>{nextPrompt(session)}</p></div>
               </article>
             </div>
 
             <form className="strategy-conversation-composer" onSubmit={sendTurn}>
               <textarea rows={4} maxLength={10000} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Write what you noticed, wondered, disagreed with, or are not sure about…" aria-label="Continue strategy conversation" />
-              <div><span>This saves your thinking. It does not turn it into a formal insight automatically.</span><Button variant="dark" disabled={sending || !draft.trim()}>{sending ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />}Save thought</Button></div>
+              <div className="strategy-conversation-composer__footer">
+                <div className="strategy-conversation-composer__tools">
+                  <Button type="button" size="sm" onClick={() => openCaptureDialog("url")}><FileSearch size={14} />Add source</Button>
+                  <Button type="button" size="sm" onClick={() => setHandoffOpen(true)}><Sparkles size={14} />Think with ChatGPT</Button>
+                </div>
+                <Button variant="dark" disabled={sending || !draft.trim()}>{sending ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />}Save thought</Button>
+              </div>
+              <span className="strategy-conversation-composer__note">This saves your thinking. It does not turn it into a formal insight automatically.</span>
             </form>
           </main>
 
-          <aside className="strategy-conversation-memory">
+          {memoryOpen ? <aside className="strategy-conversation-memory">
             <header><p className="eyebrow">Strategy so far</p><h2>Nothing is due.</h2><p>Keep collecting pieces. Structure appears only when it becomes useful.</p></header>
-            <dl>
-              <div><dt>Notebook entries</dt><dd>{session.turns.length} saved</dd></div>
-              <div><dt>Original evidence</dt><dd>{sourceCount} linked</dd></div>
-              <div><dt>Working pieces</dt><dd>{session.pieces.filter((piece) => piece.status === "active").length} active</dd></div>
-              <div><dt>Formal claims</dt><dd>{session.stages.length} of 6</dd></div>
-            </dl>
+            <p className="strategy-conversation-memory__summary">{session.turns.length} {session.turns.length === 1 ? "entry" : "entries"} · {sourceCount} {sourceCount === 1 ? "source" : "sources"} · {session.pieces.filter((piece) => piece.status === "active").length} working {session.pieces.filter((piece) => piece.status === "active").length === 1 ? "piece" : "pieces"}</p>
             {session.pieces.length ? <div className="strategy-conversation-memory__pieces"><div className="strategy-conversation-memory__pieces-head"><p className="drawer-section-label">Working pieces</p><span>Suggestions, not conclusions</span></div>{session.pieces.map((piece) => <article className={piece.status === "dismissed" ? "is-dismissed" : ""} key={piece.id}><div><Badge>{strategyPieceLabels[piece.kind]}</Badge>{piece.confidence ? <small>{piece.confidence} confidence</small> : null}</div><p>{piece.content}</p>{piece.whyItMatters ? <span>{piece.whyItMatters}</span> : null}<footer>{piece.sources.map((source, index) => <button key={source.id} type="button" onClick={() => setSelectedPieceSource(source)}>Source {index + 1}</button>)}<button type="button" onClick={() => void changePieceStatus(piece, piece.status === "dismissed" ? "active" : "dismissed")}>{piece.status === "dismissed" ? "Restore" : <><X size={11} />Dismiss</>}</button></footer></article>)}</div> : null}
             {session.stages.length ? <div className="strategy-conversation-memory__argument"><p className="drawer-section-label">Current argument</p>{session.stages.map((stage) => <button key={stage.id} type="button" onClick={() => setReviewMode(true)}><CheckCircle2 size={13} /><span><strong>{stageDefinition(stage.kind).label}</strong><small>{stage.content}</small></span></button>)}</div> : <div className="strategy-conversation-memory__empty"><Sparkles size={19} /><strong>Your argument can emerge later.</strong><span>For now, continue the conversation or add evidence whenever you find it.</span></div>}
             <Button onClick={() => setReviewMode(true)}><BookOpen size={14} />Open Review argument</Button>
             <p className="strategy-conversation-memory__boundary">Working pieces stay separate from your formal argument until you deliberately shape them later.</p>
-          </aside>
+          </aside> : null}
         </div>
       ) : null}
       {handoffOpen && session && project ? <StrategySessionHandoff project={project} session={session} onClose={() => setHandoffOpen(false)} onSaved={reloadCurrentSession} /> : null}

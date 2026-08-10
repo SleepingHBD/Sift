@@ -26,6 +26,15 @@ test("the formal pipeline is preserved as a secondary review layer", () => {
   assert.doesNotMatch(page, /href="\/strategy-ai"/);
 });
 
+test("the notebook keeps writing primary and reveals structure only on request", () => {
+  assert.match(page, /Notebook memory/);
+  assert.match(page, /memoryOpen \? <aside className="strategy-conversation-memory">/);
+  assert.match(page, /strategy-conversation-composer__tools/);
+  assert.match(page, /Add source/);
+  assert.doesNotMatch(page, /setActiveProjectId/);
+  assert.doesNotMatch(page, /<span>Notebook<\/span><select/);
+});
+
 test("conversation persistence is project-scoped and append-only for browser users", () => {
   assert.match(migration, /create table public\.strategy_session_turns/);
   assert.match(migration, /alter table public\.strategy_session_turns enable row level security/);
