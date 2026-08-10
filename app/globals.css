@@ -2288,6 +2288,9 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .strategy-question-card textarea { padding: 13px; resize: vertical; font-size: 15px; line-height: 1.55; }
 .strategy-question-card select:focus, .strategy-question-card textarea:focus { border-color: var(--text-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acid) 28%, transparent); }
 .strategy-question-card small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.strategy-question-template { display: grid; grid-template-columns: minmax(0,1fr) minmax(220px,280px); align-items: center; gap: 18px; padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: color-mix(in srgb, var(--acid) 4%, var(--bg-elevated)); }
+.strategy-question-template > div { display: flex; align-items: flex-start; gap: 10px; }.strategy-question-template > div > svg { flex: 0 0 auto; margin-top: 2px; color: var(--acid-dark); }.strategy-question-template > div > span { display: grid; gap: 3px; }.strategy-question-template strong { font-size: 13px; }.strategy-question-template small { display: block; }
+.strategy-question-template select { min-width: 0; background: var(--card); font-weight: 700; }
 .strategy-question-card__actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 3px; }
 .strategy-question-card__actions > span { color: var(--muted); font-size: 11px; }
 .strategy-question-card__error { padding: 11px 13px; border: 1px solid color-mix(in srgb, var(--negative) 35%, var(--border)); border-radius: 10px; background: color-mix(in srgb, var(--negative) 7%, var(--card)); color: var(--negative); font-size: 13px; }
@@ -2395,7 +2398,7 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 
 @media (max-width: 650px) {
   .strategy-question-card__head { grid-template-columns: 1fr; }.strategy-question-card__head .ai-orb { width: 38px; height: 38px; }
-  .strategy-question-options { grid-template-columns: 1fr; }
+  .strategy-question-options, .strategy-question-template { grid-template-columns: 1fr; }
   .strategy-question-card__actions, .strategy-scope__footer { align-items: stretch; flex-direction: column; }.strategy-question-card__actions .ui-button, .strategy-scope__footer .ui-button { width: 100%; }
   .strategy-scope--empty { padding: 28px 22px; }.strategy-scope__head { align-items: flex-start; flex-direction: column; }
   .strategy-source label { grid-template-columns: 18px 22px minmax(0,1fr); padding-inline: 14px; }.strategy-source > a { margin-left: 63px; }

@@ -15,6 +15,7 @@ import {
   STRATEGY_HANDOFF_TASKS,
   type StrategyHandoffTask,
 } from "@/lib/strategy-ai/handoff";
+import { STRATEGY_QUESTION_TEMPLATES } from "@/lib/strategy-ai/question-templates";
 import { importChatGptStrategyAnalysis, previewStrategyEvidence } from "@/lib/strategy-ai/repository";
 import type { StrategyAnalysisResult, StrategyEvidencePreview } from "@/lib/strategy-ai/types";
 
@@ -110,6 +111,15 @@ export function StrategyPage() {
     clearHandoff();
   }
 
+  function applyQuestionTemplate(templateId: string) {
+    const template = STRATEGY_QUESTION_TEMPLATES.find((item) => item.id === templateId);
+    if (!template) return;
+    changeQuestion(template.question);
+    setTask(template.task);
+    setAnalysis(null);
+    clearHandoff();
+  }
+
   function toggleEvidence(identity: string) {
     setAnalysis(null);
     clearHandoff();
@@ -200,6 +210,13 @@ export function StrategyPage() {
                 <label><span>Thinking task</span><select value={task} onChange={(event) => { setTask(event.target.value as StrategyHandoffTask); clearHandoff(); setAnalysis(null); }}>{STRATEGY_HANDOFF_TASKS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><small>This tells ChatGPT what kind of strategic thinking to prioritize.</small></label>
               </div>
               <label><span>Strategic question</span><textarea rows={5} maxLength={1000} value={question} onChange={(event) => changeQuestion(event.target.value)} placeholder="What is changing, why might it matter, and what evidence supports or challenges that interpretation?" /><small>Write naturally. Sift finds partial matches across your evidence and also shows other eligible project sources when the textual match is weak.</small></label>
+              <div className="strategy-question-template">
+                <div><Sparkles size={16} /><span><strong>Need a starting point?</strong><small>Choose a template, then replace anything inside [brackets]. Choosing one replaces the current draft.</small></span></div>
+                <select aria-label="Strategic question template" defaultValue="" onChange={(event) => { applyQuestionTemplate(event.target.value); event.currentTarget.value = ""; }}>
+                  <option value="">Choose a question template…</option>
+                  {STRATEGY_QUESTION_TEMPLATES.map((template) => <option key={template.id} value={template.id}>{template.label}</option>)}
+                </select>
+              </div>
               {error ? <div className="strategy-question-card__error" role="alert">{error}</div> : null}
               <div className="strategy-question-card__actions"><Button variant="dark" disabled={status === "loading" || question.trim().length < 3}>{status === "loading" ? <><LoaderCircle className="spin" size={16} />Searching evidence…</> : <><Search size={16} />Find relevant evidence</>}</Button><span>This search stays inside your Sift workspace.</span></div>
             </form>

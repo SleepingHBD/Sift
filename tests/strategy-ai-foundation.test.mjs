@@ -16,9 +16,26 @@ import {
   validateStrategyStructuredResponse,
 } from "../supabase/functions/_shared/strategy-ai.ts";
 import { scoreStrategyEvaluation, STRATEGY_EVALUATION_CASES } from "../lib/strategy-ai/evaluation.ts";
+import { STRATEGY_QUESTION_TEMPLATES } from "../lib/strategy-ai/question-templates.ts";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const evidenceIdentity = "research:22222222-2222-4222-8222-222222222222";
+
+test("Strategy AI provides editable question templates for the core strategist tasks", () => {
+  assert.deepEqual(STRATEGY_QUESTION_TEMPLATES.map((template) => template.id), [
+    "understand-change",
+    "audience-motivation",
+    "find-tension",
+    "develop-insight",
+    "find-opportunity",
+    "test-hypothesis",
+    "creative-direction",
+  ]);
+  assert.ok(STRATEGY_QUESTION_TEMPLATES.every((template) => template.question.includes("[") && template.question.includes("]")));
+  assert.equal(STRATEGY_QUESTION_TEMPLATES.find((template) => template.id === "find-tension")?.task, "tensions");
+  assert.equal(STRATEGY_QUESTION_TEMPLATES.find((template) => template.id === "develop-insight")?.task, "insights");
+  assert.equal(STRATEGY_QUESTION_TEMPLATES.find((template) => template.id === "find-opportunity")?.task, "opportunities");
+});
 
 test("Strategy AI evidence preview validates and bounds the authenticated request", () => {
   const request = validateStrategyEvidencePreviewRequest({
