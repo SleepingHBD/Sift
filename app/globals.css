@@ -2613,7 +2613,13 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .strategy-conversation-thread > header h2 { margin: 4px 0 0; font-size: 25px; letter-spacing: -.035em; }
 .strategy-conversation-title-line { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .strategy-conversation-title-line h2 { overflow-wrap: anywhere; }
-.strategy-conversation-title-line .ui-button { flex: 0 0 auto; margin-top: 4px; }
+.strategy-conversation-title-line .ui-button { flex: 0 0 auto; }
+.notebook-page-actions { position: relative; flex: 0 0 auto; margin-top: 4px; }
+.notebook-page-actions__menu { position: absolute; z-index: 12; top: calc(100% + 6px); right: 0; width: 170px; display: grid; padding: 5px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); box-shadow: var(--shadow-md); }
+.notebook-page-actions__menu button { min-height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 9px; border: 0; border-radius: 7px; background: transparent; color: var(--text); font-size: 12px; font-weight: 700; text-align: left; cursor: pointer; }
+.notebook-page-actions__menu button:hover,.notebook-page-actions__menu button:focus-visible { outline: 0; background: var(--subtle); }
+.notebook-page-actions__menu button.is-danger { color: #b94232; }
+.notebook-page-actions__menu button.is-danger:hover,.notebook-page-actions__menu button.is-danger:focus-visible { background: color-mix(in srgb,var(--coral) 12%,var(--subtle)); }
 .strategy-conversation-title-edit { flex: 1; display: flex; align-items: flex-end; gap: 9px; padding: 11px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-elevated); }
 .strategy-conversation-title-edit label { flex: 1; display: grid; gap: 6px; }
 .strategy-conversation-title-edit input { padding: 0 12px; border-color: var(--border-strong); background: var(--card); }
@@ -2682,6 +2688,16 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
 .notebook-source-picker__panel > footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 24px; border-top: 1px solid var(--border); background: var(--subtle); }
 .notebook-source-picker__panel > footer span { color: var(--muted); font-size: 10px; }
 .notebook-entry-delete-dialog__preview { display: -webkit-box; max-height: 115px; margin: 0; padding: 12px 13px; overflow: hidden; border-left: 3px solid var(--border-strong); border-radius: 0 9px 9px 0; background: var(--subtle); color: var(--text-soft); font-size: 12px; line-height: 1.55; white-space: pre-wrap; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
+.notebook-page-delete-dialog__counts { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); margin: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.notebook-page-delete-dialog__counts > div { min-width: 0; display: grid; gap: 4px; padding: 11px; border-right: 1px solid var(--border); }
+.notebook-page-delete-dialog__counts > div:last-child { border-right: 0; }
+.notebook-page-delete-dialog__counts dt { color: var(--faint); font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.notebook-page-delete-dialog__counts dd { margin: 0; font-size: 19px; font-weight: 800; }
+.notebook-page-delete-dialog__preserved { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 10px; padding: 12px 13px; border-radius: 10px; background: color-mix(in srgb,var(--acid) 10%,var(--bg-elevated)); color: var(--text-soft); }
+.notebook-page-delete-dialog__preserved svg { margin-top: 1px; color: var(--acid-dark); }
+.notebook-page-delete-dialog__preserved div { display: grid; gap: 3px; }
+.notebook-page-delete-dialog__preserved strong { color: var(--text); font-size: 12px; }
+.notebook-page-delete-dialog__preserved span { font-size: 11px; line-height: 1.5; }
 .strategy-conversation-memory { position: sticky; top: 83px; display: grid; gap: 16px; padding: 21px; border: 1px solid var(--border); border-radius: 18px; background: var(--card); box-shadow: var(--shadow-sm); }
 .strategy-conversation-memory > header h2 { margin: 5px 0 5px; font-size: 22px; letter-spacing: -.035em; }
 .strategy-conversation-memory > header > p:last-child { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
@@ -2751,6 +2767,8 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
   .strategy-conversation-start form > div .ui-button { width: 100%; }
   .strategy-conversation-thread > header { align-items: flex-start; flex-direction: column; padding: 20px; }
   .strategy-conversation-title-line { align-items: flex-start; flex-direction: column; }
+  .notebook-page-actions { margin-top: 2px; }
+  .notebook-page-actions__menu { right: auto; left: 0; }
   .strategy-conversation-title-edit { width: 100%; align-items: stretch; flex-direction: column; }
   .strategy-conversation-title-edit > div { justify-content: flex-end; }
   .strategy-conversation-timeline { padding: 22px 18px 12px; }
@@ -2768,6 +2786,9 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); background: var(--subtl
   .notebook-source-picker__filters,.notebook-source-picker__results { padding-inline: 18px; }
   .notebook-source-picker__panel > footer { padding-inline: 18px; }
   .notebook-source-picker__result { grid-template-columns: 30px minmax(0,1fr) auto; }
+  .notebook-page-delete-dialog__counts { grid-template-columns: 1fr 1fr; }
+  .notebook-page-delete-dialog__counts > div:nth-child(2) { border-right: 0; }
+  .notebook-page-delete-dialog__counts > div:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
   .strategy-session-handoff > aside { width: 100%; }.strategy-session-handoff > aside > header,.strategy-session-handoff__body { padding-inline: 18px; }.strategy-session-handoff > aside > nav { padding-inline: 18px; }.strategy-session-handoff__focus { grid-template-columns: 1fr; }.strategy-session-handoff__copy { grid-template-columns: 36px minmax(0,1fr); }.strategy-session-handoff__copy > span { width: 36px; height: 36px; }.strategy-session-handoff__copy > div:last-child { grid-column: 1 / -1; }.strategy-session-handoff__save { align-items: stretch; flex-direction: column; }.strategy-session-handoff__save .ui-button { width: 100%; }
 }
 /* End Strategy Sessions. */

@@ -9,6 +9,7 @@ import {
   Link2,
   LoaderCircle,
   MessageCircle,
+  MoreHorizontal,
   Pencil,
   Plus,
   Send,
@@ -24,12 +25,14 @@ import { InsightBuilderPage } from "@/components/pages/insight-builder-page";
 import { StrategySourceDrawer } from "@/components/strategy-pipeline/source-drawer";
 import { NotebookSourcePicker } from "@/components/strategy/notebook-source-picker";
 import { NotebookEntryDeleteDialog } from "@/components/strategy/notebook-entry-delete-dialog";
+import { NotebookPageDeleteDialog } from "@/components/strategy/notebook-page-delete-dialog";
 import { StrategySessionHandoff } from "@/components/strategy/strategy-session-handoff";
 import { Badge, Button, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
 import {
   addStrategyConversationTurn,
   createStrategySession,
+  deleteNotebookPage,
   deleteStrategyConversationTurn,
   listStrategySessions,
   loadStrategySession,
@@ -107,6 +110,8 @@ export function StrategySessionsPage() {
   const [deleteCandidate, setDeleteCandidate] = useState<StrategySessionTurnRecord | null>(null);
   const [renamingPage, setRenamingPage] = useState(false);
   const [renameTitle, setRenameTitle] = useState("");
+  const [pageActionsOpen, setPageActionsOpen] = useState(false);
+  const [pageDeleteOpen, setPageDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -153,6 +158,8 @@ export function StrategySessionsPage() {
       setDeleteCandidate(null);
       setRenamingPage(false);
       setRenameTitle("");
+      setPageActionsOpen(false);
+      setPageDeleteOpen(false);
       setError("");
       void loadProjectSessions(cloudProjectId);
     });
@@ -230,6 +237,8 @@ export function StrategySessionsPage() {
     setHandoffOpen(false);
     setRenamingPage(false);
     setRenameTitle("");
+    setPageActionsOpen(false);
+    setPageDeleteOpen(false);
   }
 
   function openSavedConversation(nextSessionId: string) {
@@ -246,6 +255,8 @@ export function StrategySessionsPage() {
     setHandoffOpen(false);
     setRenamingPage(false);
     setRenameTitle("");
+    setPageActionsOpen(false);
+    setPageDeleteOpen(false);
     if (nextSessionId !== sessionId) {
       setSession(null);
       setSessionId(nextSessionId);
@@ -289,8 +300,40 @@ export function StrategySessionsPage() {
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
   }
 
+  async function deleteCurrentPage() {
+    if (!session) throw new Error("This notebook page is no longer open.");
+    const deletedIndex = sessions.findIndex((item) => item.id === session.id);
+    await deleteNotebookPage(session.id, session.projectId);
+    const remaining = sessions.filter((item) => item.id !== session.id);
+    const fallbackIndex = Math.min(Math.max(deletedIndex, 0), Math.max(remaining.length - 1, 0));
+    const fallback = remaining[fallbackIndex] ?? remaining[0];
+
+    setSessions(remaining);
+    setSession(null);
+    setDraft("");
+    setPendingSources([]);
+    setSelectedSource(null);
+    setSourcePickerOpen(false);
+    setHandoffOpen(false);
+    setMemoryOpen(false);
+    setRenamingPage(false);
+    setRenameTitle("");
+    setPageActionsOpen(false);
+    setError("");
+
+    if (fallback) {
+      setSessionId(fallback.id);
+      setStartingNew(false);
+    } else {
+      setSessionId("");
+      setNewPageTitle("");
+      setStartingNew(true);
+    }
+  }
+
   function beginRenamePage() {
     if (!session) return;
+    setPageActionsOpen(false);
     setRenameTitle(session.title);
     setRenamingPage(true);
     setError("");
@@ -383,6 +426,11 @@ export function StrategySessionsPage() {
     ...(session?.stages.flatMap((stage) => stage.sources.map((source) => `${source.source.kind}:${source.source.id}`)) ?? []),
     ...(session?.pieces.flatMap((piece) => piece.sources.map((source) => `${source.source.kind}:${source.source.id}`)) ?? []),
   ]).size;
+  const pageSourceLinkCount = session
+    ? session.turns.reduce((count, turn) => count + turn.sources.length, 0)
+      + session.pieces.reduce((count, piece) => count + piece.sources.length, 0)
+      + session.stages.reduce((count, stage) => count + stage.sources.length, 0)
+    : 0;
   const detectedUrl = findNotebookUrl(draft);
   const detectedUrlAttached = Boolean(detectedUrl && pendingSources.some((source) => source.originalUrl === detectedUrl || source.canonicalUrl === detectedUrl));
 
@@ -430,7 +478,7 @@ export function StrategySessionsPage() {
         <div className={`strategy-conversation-layout${memoryOpen ? " strategy-conversation-layout--memory-open" : ""}`}>
           <main className="strategy-conversation-thread">
             <header>
-              {renamingPage ? <form className="strategy-conversation-title-edit" onSubmit={savePageName}><label><span>Page name</span><input maxLength={200} value={renameTitle} onChange={(event) => setRenameTitle(event.target.value)} aria-label="Rename notebook page" /></label><div><Button type="button" size="sm" disabled={renaming} onClick={cancelRenamePage}>Cancel</Button><Button variant="dark" size="sm" disabled={renaming || !renameTitle.trim()}>{renaming ? <LoaderCircle className="spin" size={14} /> : null}Save name</Button></div></form> : <div><p className="eyebrow">Current page</p><div className="strategy-conversation-title-line"><h2>{session.title}</h2><Button size="sm" onClick={beginRenamePage}><Pencil size={13} />Rename</Button></div></div>}
+              {renamingPage ? <form className="strategy-conversation-title-edit" onSubmit={savePageName}><label><span>Page name</span><input maxLength={200} value={renameTitle} onChange={(event) => setRenameTitle(event.target.value)} aria-label="Rename notebook page" /></label><div><Button type="button" size="sm" disabled={renaming} onClick={cancelRenamePage}>Cancel</Button><Button variant="dark" size="sm" disabled={renaming || !renameTitle.trim()}>{renaming ? <LoaderCircle className="spin" size={14} /> : null}Save name</Button></div></form> : <div><p className="eyebrow">Current page</p><div className="strategy-conversation-title-line"><h2>{session.title}</h2><div className="notebook-page-actions"><Button size="sm" aria-label="Page actions" aria-expanded={pageActionsOpen} onClick={() => setPageActionsOpen((current) => !current)}><MoreHorizontal size={14} />Actions</Button>{pageActionsOpen ? <div className="notebook-page-actions__menu" role="menu"><button type="button" role="menuitem" onClick={beginRenamePage}><Pencil size={14} />Rename page</button>{session.createdBy === user?.id ? <button type="button" role="menuitem" className="is-danger" onClick={() => { setPageActionsOpen(false); setPageDeleteOpen(true); }}><Trash2 size={14} />Delete page</button> : null}</div> : null}</div></div></div>}
               <Badge>{session.turns.length} {session.turns.length === 1 ? "thought" : "thoughts"}</Badge>
             </header>
 
@@ -477,6 +525,7 @@ export function StrategySessionsPage() {
       {handoffOpen && session && project ? <StrategySessionHandoff project={project} session={session} onClose={() => setHandoffOpen(false)} onSaved={reloadCurrentSession} /> : null}
       {sourcePickerOpen && session ? <NotebookSourcePicker projectId={session.projectId} selected={pendingSources} onToggle={togglePendingSource} onClose={() => setSourcePickerOpen(false)} /> : null}
       {deleteCandidate && session ? <NotebookEntryDeleteDialog turn={deleteCandidate} protectedByWorkingPiece={session.pieces.some((piece) => piece.sourceTurnId === deleteCandidate.id)} onClose={() => setDeleteCandidate(null)} onConfirm={() => deleteNotebookEntry(deleteCandidate)} /> : null}
+      {pageDeleteOpen && session ? <NotebookPageDeleteDialog page={session} sourceLinkCount={pageSourceLinkCount} onClose={() => setPageDeleteOpen(false)} onConfirm={deleteCurrentPage} /> : null}
       <StrategySourceDrawer source={selectedSource} onClose={() => setSelectedSource(null)} />
     </div>
   );

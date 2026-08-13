@@ -17,6 +17,7 @@ export type StrategyPieceStatus = "active" | "dismissed" | "shaped";
 export interface StrategySessionSummary {
   id: string;
   projectId: string;
+  createdBy: string;
   title: string;
   status: "active" | "complete" | "archived";
   origin: StrategySessionOrigin;

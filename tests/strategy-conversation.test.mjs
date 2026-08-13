@@ -11,6 +11,8 @@ const handoffMigration = readFileSync(new URL("../supabase/migrations/2026081013
 const universalCaptureMigration = readFileSync(new URL("../supabase/migrations/20260810153551_phase_7_notebook_turn_sources.sql", import.meta.url), "utf8");
 const deletionMigration = readFileSync(new URL("../supabase/migrations/20260810160514_guard_notebook_entry_deletion.sql", import.meta.url), "utf8");
 const deletionDialog = readFileSync(new URL("../components/strategy/notebook-entry-delete-dialog.tsx", import.meta.url), "utf8");
+const pageDeletionMigration = readFileSync(new URL("../supabase/migrations/20260813183323_guard_notebook_page_deletion.sql", import.meta.url), "utf8");
+const pageDeletionDialog = readFileSync(new URL("../components/strategy/notebook-page-delete-dialog.tsx", import.meta.url), "utf8");
 const handoffPanel = readFileSync(new URL("../components/strategy/strategy-session-handoff.tsx", import.meta.url), "utf8");
 const strategyFunction = readFileSync(new URL("../supabase/functions/strategy-ai/index.ts", import.meta.url), "utf8");
 
@@ -31,6 +33,37 @@ test("notebook page names are explicit and remain editable", () => {
   assert.match(repository, /\.update\(\{ title: cleanTitle \}\)/);
   assert.match(repository, /\.eq\("id", sessionId\)/);
   assert.match(repository, /\.eq\("project_id", projectId\)/);
+});
+
+test("a notebook page can be permanently deleted only by its creator", () => {
+  assert.match(pageDeletionMigration, /drop policy if exists "permanent accounts delete accessible strategy sessions"/);
+  assert.match(pageDeletionMigration, /create policy "permanent accounts delete their own strategy sessions"/);
+  assert.match(pageDeletionMigration, /created_by = \(select auth\.uid\(\)\)/);
+  assert.match(pageDeletionMigration, /private\.accessible_project_ids/);
+  assert.match(pageDeletionMigration, /create or replace function public\.delete_notebook_page/);
+  assert.match(pageDeletionMigration, /security invoker/);
+  assert.match(pageDeletionMigration, /is_anonymous/);
+  assert.match(pageDeletionMigration, /session\.created_by = caller_id/);
+  assert.match(pageDeletionMigration, /revoke all on function public\.delete_notebook_page\(uuid, uuid\)/);
+  assert.match(pageDeletionMigration, /grant execute on function public\.delete_notebook_page\(uuid, uuid\)\s+to authenticated, service_role/);
+  assert.match(repository, /export async function deleteNotebookPage/);
+  assert.match(repository, /rpc\("delete_notebook_page"/);
+});
+
+test("page deletion is explicit, explains its scope, and preserves original evidence", () => {
+  assert.match(page, /aria-label="Page actions"/);
+  assert.match(page, />Rename page</);
+  assert.match(page, />Delete page</);
+  assert.match(page, /session\.createdBy === user\?\.id/);
+  assert.match(page, /<NotebookPageDeleteDialog/);
+  assert.match(page, /const fallback = remaining\[fallbackIndex\] \?\? remaining\[0\]/);
+  assert.match(page, /setStartingNew\(true\)/);
+  assert.match(pageDeletionDialog, /This permanently removes the whole notebook page/);
+  assert.match(pageDeletionDialog, /Research, Inspiration, and Radar records in your Library are not deleted/);
+  assert.match(pageDeletionDialog, /Thoughts/);
+  assert.match(pageDeletionDialog, /Source links/);
+  assert.match(pageDeletionDialog, /Working pieces/);
+  assert.match(pageDeletionDialog, /Strategy steps/);
 });
 
 test("the formal pipeline is preserved as a secondary review layer", () => {

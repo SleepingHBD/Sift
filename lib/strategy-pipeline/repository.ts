@@ -42,7 +42,7 @@ type AlternativeRow = Database["public"]["Tables"]["strategy_stage_alternatives"
 type DependencyRow = Database["public"]["Tables"]["strategy_stage_dependencies"]["Row"];
 type RevisionRow = Database["public"]["Tables"]["strategy_stage_revisions"]["Row"];
 
-const sessionSelect = "id,project_id,title,status,origin,created_at,updated_at";
+const sessionSelect = "id,project_id,created_by,title,status,origin,created_at,updated_at";
 const stageSelect = "id,session_id,project_id,stage,content,claim_type,position,status,confidence,research_gaps,approval_note,approved_at,approved_by,created_at,updated_at";
 const sourceSelect = "id,stage_id,project_id,evidence_type,evidence_id,relationship,excerpt,rationale,created_at";
 const inputSelect = "id,session_id,project_id,input_type,input_id,role,rationale,created_at";
@@ -60,10 +60,11 @@ function requireClient() {
   return client;
 }
 
-function sessionFromRow(row: Pick<SessionRow, "id" | "project_id" | "title" | "status" | "origin" | "created_at" | "updated_at">): StrategySessionSummary {
+function sessionFromRow(row: Pick<SessionRow, "id" | "project_id" | "created_by" | "title" | "status" | "origin" | "created_at" | "updated_at">): StrategySessionSummary {
   return {
     id: row.id,
     projectId: row.project_id,
+    createdBy: row.created_by,
     title: row.title,
     status: row.status as StrategySessionSummary["status"],
     origin: row.origin as StrategySessionOrigin,
@@ -257,6 +258,19 @@ export async function deleteStrategyConversationTurn(
     p_project_id: projectId,
   });
   if (error || !data) throw new Error(`This notebook entry could not be deleted: ${error?.message ?? "No deleted entry was returned."}`);
+  return data;
+}
+
+export async function deleteNotebookPage(
+  sessionId: string,
+  projectId: string,
+): Promise<string> {
+  const client = requireClient();
+  const { data, error } = await client.rpc("delete_notebook_page", {
+    p_session_id: sessionId,
+    p_project_id: projectId,
+  });
+  if (error || !data) throw new Error(`This notebook page could not be deleted: ${error?.message ?? "No deleted page was returned."}`);
   return data;
 }
 
