@@ -29,6 +29,7 @@ import { MonitorDialog } from "@/components/radar/monitor-dialog";
 import { RadarImportNotice } from "@/components/radar/radar-import-notice";
 import { RadarSentimentChart, RadarSourceChart, RadarVolumeChart } from "@/components/radar/radar-charts";
 import { RadarEvidenceView } from "@/components/radar/radar-evidence-view";
+import { RadarSignalsView } from "@/components/radar/radar-signals-view";
 import { RunDiagnostics } from "@/components/radar/run-diagnostics";
 import { SourceDrawer } from "@/components/radar/source-drawer";
 import { SpikeDrawer } from "@/components/radar/spike-drawer";
@@ -47,7 +48,7 @@ import type { DateRangeKey, MonitorRun, MonitoringQuery, RadarMention, RadarMoni
 import { radarMentionToEvidenceReference } from "@/lib/evidence/reference";
 import { formatNumber } from "@/lib/utils";
 
-type RadarView = "overview" | "topics" | "mentions" | "evidence";
+type RadarView = "overview" | "signals" | "topics" | "mentions" | "evidence";
 
 const rangeLabels: { id: DateRangeKey; label: string }[] = [
   { id: "24h", label: "24 Hours" },
@@ -57,11 +58,11 @@ const rangeLabels: { id: DateRangeKey; label: string }[] = [
   { id: "custom", label: "Custom" },
 ];
 
-export function RadarPage() {
+export function RadarPage({ initialView = "overview" }: { initialView?: RadarView }) {
   const { removeSavedIds, projects, researchItems, inspirationItems } = useApp();
   const { monitors, addMonitor, editMonitor, removeMonitor, mentionsByMonitor, registerCloudMentions, runs, connectorSettings, schedulerStatus, saveConnectorSettings, completeMonitorRun, recordMonitorRun, savedIds, toggleSaved, evidenceLinks, addEvidenceLink, removeEvidenceLink, notes, saveNote, importantIds, toggleImportant, annotationError, clearAnnotationError, cloudStatus, cloudError, retryCloud, historyTruncated, pendingLocalRadar, pendingLocalAnnotations, importPendingRadar } = useRadarState(projects, researchItems, inspirationItems, removeSavedIds);
   const [activeMonitorId, setActiveMonitorId] = useState("");
-  const [activeView, setActiveView] = useState<RadarView>("overview");
+  const [activeView, setActiveView] = useState<RadarView>(initialView);
   const [dateRange, setDateRange] = useState<DateRangeKey>("30d");
   const [customDates, setCustomDates] = useState(() => defaultCustomDates());
   const [activeTopic, setActiveTopic] = useState("");
@@ -192,6 +193,7 @@ export function RadarPage() {
 
   const views: { id: RadarView; label: string; icon: typeof LayoutDashboard; count?: number }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
+    { id: "signals", label: "Signals", icon: TrendingUp },
     { id: "topics", label: "Topics", icon: Shapes, count: monitorTopics.length },
     { id: "mentions", label: "Mentions", icon: MessageSquareText, count: monitorSummary?.metrics.totalMentions ?? analytics.currentMentions.length },
     { id: "evidence", label: "Evidence", icon: Bookmark, count: evidenceCount },
@@ -375,6 +377,28 @@ export function RadarPage() {
     }
   }
 
+  if (activeView === "signals") {
+    return (
+      <div className="page radar-page-v3">
+        <PageIntro
+          eyebrow="Radar / Trend intelligence"
+          title="Follow what might be changing."
+          description="Listening shows what was collected. Signals are the patterns and hypotheses you are deliberately watching across projects."
+        >
+          <Button onClick={openSourceDrawer}><Settings2 size={15} />Sources</Button>
+          <Button variant="dark" onClick={openNewMonitor}><Plus size={16} />New monitor</Button>
+        </PageIntro>
+        <nav className="radar-view-tabs radar-view-tabs--signals" aria-label="Radar workspace views">
+          <button onClick={() => setActiveView("overview")}><LayoutDashboard size={14} /><span>Listening</span></button>
+          <button className="active" aria-current="page"><TrendingUp size={14} /><span>Signals</span></button>
+        </nav>
+        <RadarSignalsView />
+        <MonitorDialog key={editingMonitor?.id ?? "new-monitor"} open={monitorDialogOpen} monitor={editingMonitor} connectorSettings={connectorSettings} backendConfigured={backendConfigured} schedulerAvailable={schedulerStatus.available} onClose={closeMonitorDialog} onSave={saveMonitor} onManageSources={manageSourcesFromMonitor} />
+        <SourceDrawer open={sourceDrawerOpen} onClose={closeSourceDrawer} settings={connectorSettings} onSave={saveConnectorSettings} backendConfigured={backendConfigured} />
+      </div>
+    );
+  }
+
   if (cloudStatus === "loading") {
     return (
       <div className="page radar-page-v3">
@@ -405,6 +429,10 @@ export function RadarPage() {
           <Button variant="dark" onClick={openNewMonitor}><Plus size={16} />Create monitor</Button>
         </PageIntro>
         {pendingLocalRadar || pendingLocalAnnotations ? <RadarImportNotice payload={pendingLocalRadar} annotations={pendingLocalAnnotations} onImport={importPendingRadar} /> : null}
+        <nav className="radar-view-tabs radar-view-tabs--signals" aria-label="Radar workspace views">
+          <button className="active" aria-current="page"><LayoutDashboard size={14} /><span>Listening</span></button>
+          <button onClick={() => setActiveView("signals")}><TrendingUp size={14} /><span>Signals</span></button>
+        </nav>
         <EmptyState
           icon={Radio}
           eyebrow="Your listening workspace"
@@ -463,17 +491,23 @@ export function RadarPage() {
       {runNotice ? <div className={`radar-run-notice radar-run-notice--${runNotice.tone}`} role="status"><span>{runNotice.message}</span><button onClick={() => setRunNotice(null)} aria-label="Dismiss run status">×</button></div> : null}
 
       {activeMonitor.dataMode === "empty" ? (
-        <Card className="radar-empty-monitor">
-          <span className="radar-empty-monitor__signal"><Radio size={28} /></span>
-          <Badge>No data</Badge>
-          <h2>{activeMonitor.lastRunAt ? "No conversations matched this monitor." : "Nothing on the radar yet."}</h2>
-          <p>{activeMonitor.lastRunAt ? "The source run completed without matching records. Review the query or source selection and try again." : "Connect a permitted source to begin collecting conversations for this monitor."}</p>
-          <div>
-            <Button variant="dark" disabled={!canRun} title={runDisabledReason} onClick={runMonitor}>{runState === "running" ? <RefreshCw className="spin" size={14} /> : <Play size={14} />}{runState === "running" ? "Collecting" : "Run monitor"}</Button>
-            <Button onClick={openSourceDrawer}><Settings2 size={14} />Configure sources</Button>
-          </div>
-          <small>{!backendConfigured ? "Deploy the secure connector function and add the public Supabase environment values to enable collection." : !runnableSources.length ? "Add an RSS feed, a public URL, or enable YouTube in Sources." : `${runnableSources.length} source${runnableSources.length === 1 ? " is" : "s are"} ready for this monitor.`}</small>
-        </Card>
+        <>
+          <nav className="radar-view-tabs radar-view-tabs--signals" aria-label="Radar workspace views">
+            <button className="active" aria-current="page"><LayoutDashboard size={14} /><span>Listening</span></button>
+            <button onClick={() => setActiveView("signals")}><TrendingUp size={14} /><span>Signals</span></button>
+          </nav>
+          <Card className="radar-empty-monitor">
+            <span className="radar-empty-monitor__signal"><Radio size={28} /></span>
+            <Badge>No data</Badge>
+            <h2>{activeMonitor.lastRunAt ? "No conversations matched this monitor." : "Nothing on the radar yet."}</h2>
+            <p>{activeMonitor.lastRunAt ? "The source run completed without matching records. Review the query or source selection and try again." : "Connect a permitted source to begin collecting conversations for this monitor."}</p>
+            <div>
+              <Button variant="dark" disabled={!canRun} title={runDisabledReason} onClick={runMonitor}>{runState === "running" ? <RefreshCw className="spin" size={14} /> : <Play size={14} />}{runState === "running" ? "Collecting" : "Run monitor"}</Button>
+              <Button onClick={openSourceDrawer}><Settings2 size={14} />Configure sources</Button>
+            </div>
+            <small>{!backendConfigured ? "Deploy the secure connector function and add the public Supabase environment values to enable collection." : !runnableSources.length ? "Add an RSS feed, a public URL, or enable YouTube in Sources." : `${runnableSources.length} source${runnableSources.length === 1 ? " is" : "s are"} ready for this monitor.`}</small>
+          </Card>
+        </>
       ) : (
         <>
           <nav className="radar-view-tabs" aria-label="Radar workspace views">

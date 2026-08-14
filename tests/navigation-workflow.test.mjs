@@ -11,6 +11,9 @@ const strategyPage = readFileSync(new URL("../components/pages/strategy-page.tsx
 const insightBuilderPage = readFileSync(new URL("../components/pages/insight-builder-page.tsx", import.meta.url), "utf8");
 const strategySessionsPage = readFileSync(new URL("../components/pages/strategy-sessions-page.tsx", import.meta.url), "utf8");
 const homePage = readFileSync(new URL("../components/pages/home-page.tsx", import.meta.url), "utf8");
+const radarPage = readFileSync(new URL("../components/pages/radar-page.tsx", import.meta.url), "utf8");
+const radarSignalsView = readFileSync(new URL("../components/radar/radar-signals-view.tsx", import.meta.url), "utf8");
+const trendsPage = readFileSync(new URL("../components/pages/trends-page.tsx", import.meta.url), "utf8");
 const projectDialog = readFileSync(new URL("../components/workspace/project-dialog.tsx", import.meta.url), "utf8");
 const dynamicRoute = readFileSync(new URL("../app/[section]/page.tsx", import.meta.url), "utf8");
 
@@ -29,6 +32,17 @@ test("legacy research navigation opens the filtered Evidence experience", () => 
   assert.match(appView, /section === "research"/);
   assert.match(appView, /activeSection="evidence"><EvidencePage initialKind="research"/);
   assert.equal(existsSync(new URL("../components/pages/research-page.tsx", import.meta.url)), false);
+});
+
+test("legacy Trends navigation opens the Signals view inside Radar", () => {
+  assert.match(trendsPage, /<RadarPage initialView="signals"/);
+  assert.match(appView, /activeSection="radar"><TrendsPage/);
+  assert.match(radarPage, /type RadarView = "overview" \| "signals"/);
+  assert.match(radarPage, /label: "Signals"/);
+  assert.match(radarPage, /<RadarSignalsView \/>/);
+  assert.match(radarSignalsView, /listCloudSignals\(projectIds\)/);
+  assert.match(radarSignalsView, /Candidate → Watching → Promoted trend/);
+  assert.doesNotMatch(radarSignalsView, /<PageIntro/);
 });
 
 test("Evidence retains research capture, import, filtering, and migration entry points", () => {
