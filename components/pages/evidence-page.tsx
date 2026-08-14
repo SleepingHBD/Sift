@@ -9,6 +9,7 @@ import { EvidenceCsvImportDialog } from "@/components/evidence/evidence-csv-impo
 import { EvidenceDeleteDialog } from "@/components/evidence/evidence-delete-dialog";
 import { EvidenceDetailDrawer } from "@/components/evidence/evidence-detail-drawer";
 import { EvidenceSavedViews } from "@/components/evidence/evidence-saved-views";
+import { InspirationCaptureDialog } from "@/components/evidence/inspiration-capture-dialog";
 import { SendToNotebookDialog } from "@/components/strategy/send-to-notebook-dialog";
 import { Badge, Button, Card, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
@@ -62,6 +63,12 @@ import type { EvidenceReviewStatus } from "@/lib/types";
 
 const emptyStats: EvidenceInboxStats = { total: 0, unreviewed: 0, reviewed: 0, kinds: 0 };
 const emptyRelationships: EvidenceRelationshipSummary = { items: [], blockingCount: 0, removableCount: 0 };
+const libraryKinds: ReadonlyArray<{ id: EvidenceInboxKindFilter; label: string }> = [
+  { id: "all", label: "Everything" },
+  { id: "mention", label: "Radar" },
+  { id: "research", label: "Research & notes" },
+  { id: "inspiration", label: "Inspiration" },
+];
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -121,6 +128,8 @@ export function EvidencePage({ initialKind = "all" }: { initialKind?: EvidenceIn
     clearWorkspaceError,
     setProjectDialogOpen,
     openCaptureDialog,
+    pendingInspirationImports,
+    importPendingInspiration,
     pendingResearchImports,
     importPendingResearch,
   } = useApp();
@@ -166,6 +175,7 @@ export function EvidencePage({ initialKind = "all" }: { initialKind?: EvidenceIn
   const [bulkPending, setBulkPending] = useState("");
   const [bulkNotice, setBulkNotice] = useState<EvidenceBulkFeedback | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [inspirationCaptureOpen, setInspirationCaptureOpen] = useState(false);
   const searchRequestVersion = useRef(0);
 
   useEffect(() => {
@@ -589,13 +599,14 @@ export function EvidencePage({ initialKind = "all" }: { initialKind?: EvidenceIn
 
   return (
     <div className="page evidence-inbox-page">
-      <PageIntro eyebrow="Evidence library" title="Collect it once. Use it everywhere." description="Capture research and source material, then review, organise, search, and cite it without moving between separate sections.">
-        {projects.length ? <><Button onClick={() => setCsvImportOpen(true)}><FileSpreadsheet size={16} />Import CSV</Button><Button variant="dark" onClick={() => openCaptureDialog("url")}><Plus size={16} />Capture evidence</Button></> : <Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={16} />Create project</Button>}
+      <PageIntro eyebrow="Library" title="Collect it once. Find it when it matters." description="Research, Radar conversations, notes, files, and inspiration live together here as sources you can revisit and use.">
+        {projects.length ? <><Button onClick={() => setCsvImportOpen(true)}><FileSpreadsheet size={16} />Import CSV</Button><Button variant="dark" onClick={() => openCaptureDialog("url")}><Plus size={16} />Capture source</Button></> : <Button variant="dark" onClick={() => setProjectDialogOpen(true)}><Plus size={16} />Create project</Button>}
       </PageIntro>
 
       {workspaceError ? <div className="workspace-sync-notice workspace-sync-notice--error" role="alert"><div><strong>Cloud workspace needs attention</strong><span>{workspaceError}</span></div><div><Button size="sm" onClick={retryWorkspace}>Try again</Button><button type="button" aria-label="Dismiss error" onClick={clearWorkspaceError}>×</button></div></div> : null}
 
       {pendingResearchImports.length ? <LibraryImportNotice kind="research" items={pendingResearchImports} onImport={importPendingResearch} /> : null}
+      {pendingInspirationImports.length ? <LibraryImportNotice kind="inspiration" items={pendingInspirationImports} onImport={importPendingInspiration} /> : null}
 
       {workspaceStatus === "loading" && !projects.length ? (
         <Card className="project-loading-state"><LoaderCircle className="spin" size={24} /><div><strong>Loading your private evidence…</strong><span>Project records are being retrieved from Supabase.</span></div></Card>
@@ -608,14 +619,14 @@ export function EvidencePage({ initialKind = "all" }: { initialKind?: EvidenceIn
       ) : evidenceStatus === "error" ? (
         <EmptyState icon={Cloud} title="Your evidence could not be searched." description={evidenceError || "The server-side evidence query did not complete."} actions={<Button variant="dark" onClick={() => setRetryVersion((current) => current + 1)}>Try again</Button>} />
       ) : statsStatus === "ready" && stats.total === 0 && projectFilter === "all" ? (
-        <EmptyState icon={Inbox} title="Your evidence library is empty." description="Capture research, import a spreadsheet, save inspiration, or run a permitted Radar monitor. Each source will appear here with its original provenance and review status." actions={<><Button variant="dark" onClick={() => openCaptureDialog("url")}><Plus size={15} />Capture evidence</Button><Button onClick={() => setCsvImportOpen(true)}><FileSpreadsheet size={15} />Import CSV</Button><Link className="ui-button ui-button--secondary ui-button--md" href="/radar">Open Radar <ArrowRight size={14} /></Link></>} />
+        <EmptyState icon={Inbox} title="Your library is empty." description="Capture a source, save inspiration, or run a permitted Radar monitor. Everything you collect will stay searchable here with its original provenance." actions={<><Button variant="dark" onClick={() => openCaptureDialog("url")}><Plus size={15} />Capture source</Button><Button onClick={() => setInspirationCaptureOpen(true)}>Save inspiration</Button><Link className="ui-button ui-button--secondary ui-button--md" href="/radar">Open Radar <ArrowRight size={14} /></Link></>} />
       ) : (
         <>
           <section className="evidence-inbox-summary" aria-label="Evidence inbox summary">
-            <div><span>Evidence</span><strong>{stats.total.toLocaleString()}</strong></div>
+            <div><span>Sources</span><strong>{stats.total.toLocaleString()}</strong></div>
             <div><span>Needs review</span><strong>{stats.unreviewed.toLocaleString()}</strong></div>
             <div><span>Reviewed</span><strong>{reviewedPercent}%</strong></div>
-            <div><span>Evidence types</span><strong>{stats.kinds}</strong></div>
+            <div><span>Source types</span><strong>{stats.kinds}</strong></div>
           </section>
 
           <section className="evidence-review-progress" aria-label={`${reviewedPercent}% of evidence reviewed`}>
@@ -624,8 +635,26 @@ export function EvidencePage({ initialKind = "all" }: { initialKind?: EvidenceIn
           </section>
 
           <div className="evidence-inbox-view-tabs" role="tablist" aria-label="Evidence views">
-            {([['all', 'All evidence'], ['needs-review', 'Needs review'], ['recent', 'Recently added']] as const).map(([id, label]) => <button type="button" role="tab" aria-selected={view === id} className={view === id ? "active" : ""} onClick={() => setView(id)} key={id}>{label}{id === "needs-review" ? <span>{stats.unreviewed}</span> : null}</button>)}
+            {([['all', 'All sources'], ['needs-review', 'Needs review'], ['recent', 'Recently added']] as const).map(([id, label]) => <button type="button" role="tab" aria-selected={view === id} className={view === id ? "active" : ""} onClick={() => setView(id)} key={id}>{label}{id === "needs-review" ? <span>{stats.unreviewed}</span> : null}</button>)}
             {evidenceStatus === "loading" || statsStatus === "loading" ? <span className="evidence-inbox-view-tabs__sync"><LoaderCircle className="spin" size={13} />Refreshing evidence…</span> : null}
+          </div>
+
+          <div className="library-kind-filter" aria-label="Browse Library by source type">
+            <div>
+              <span>Show</span>
+              {libraryKinds.map((kind) => (
+                <button
+                  type="button"
+                  className={kindFilter === kind.id ? "active" : ""}
+                  aria-pressed={kindFilter === kind.id}
+                  onClick={() => setKindFilter(kind.id)}
+                  key={kind.id}
+                >
+                  {kind.label}
+                </button>
+              ))}
+            </div>
+            {kindFilter === "inspiration" ? <Button size="sm" onClick={() => setInspirationCaptureOpen(true)}><Plus size={14} />Save inspiration</Button> : null}
           </div>
 
           <EvidenceSavedViews
@@ -644,9 +673,8 @@ export function EvidencePage({ initialKind = "all" }: { initialKind?: EvidenceIn
           />
 
           <div className="evidence-inbox-toolbar">
-            <label className="evidence-inbox-search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search evidence, interpretations, notes, authors, topics, and tags" /></label>
+            <label className="evidence-inbox-search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search sources, notes, authors, topics, and tags" /></label>
             <select aria-label="Filter evidence by project" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}><option value="all">All projects</option>{projects.map((project) => <option key={project.id} value={projectEvidenceId(project)}>{project.name}</option>)}</select>
-            <select aria-label="Filter evidence by type" value={kindFilter} onChange={(event) => setKindFilter(event.target.value as EvidenceInboxKindFilter)}><option value="all">All evidence types</option><option value="mention">Radar conversations</option><option value="research">Research, notes & captures</option><option value="inspiration">Inspiration</option></select>
             <select aria-label="Sort evidence" value={sort} onChange={(event) => setSort(event.target.value as EvidenceInboxSort)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="recently-reviewed">Recently reviewed</option><option value="source">Source A–Z</option><option value="project">Source project A–Z</option></select>
             <select aria-label="Group evidence" value={group} onChange={(event) => setGroup(event.target.value as EvidenceInboxGroup)}><option value="none">No grouping</option><option value="project">Group by source project</option><option value="kind">Group by type</option><option value="status">Group by status</option></select>
             {filtersActive ? <button className="evidence-inbox-clear" type="button" onClick={clearFilters}><X size={14} />Clear</button> : null}
@@ -696,6 +724,7 @@ export function EvidencePage({ initialKind = "all" }: { initialKind?: EvidenceIn
       {deleteCandidate?.cloudId && deleteCandidate.kind !== "mention" ? <EvidenceDeleteDialog identity={{ kind: deleteCandidate.kind, itemId: deleteCandidate.cloudId, projectId: deleteCandidate.projectId }} title={deleteCandidate.title} libraryLabel={deleteCandidate.kind} onClose={() => setDeleteCandidate(null)} onConfirm={deleteEvidenceCandidate} /> : null}
       {notebookCandidate ? <SendToNotebookDialog evidence={notebookCandidate} onClose={() => setNotebookCandidate(null)} onAdded={() => setRelationshipRetryVersion((current) => current + 1)} /> : null}
       {csvImportOpen ? <EvidenceCsvImportDialog projects={projects} initialProjectId={projectFilter === "all" ? undefined : projects.find((project) => projectEvidenceId(project) === projectFilter)?.id} onClose={() => setCsvImportOpen(false)} onImported={() => { retryWorkspace(); setRetryVersion((current) => current + 1); }} /> : null}
+      {inspirationCaptureOpen ? <InspirationCaptureDialog initialProjectId={projectFilter === "all" ? undefined : projects.find((project) => projectEvidenceId(project) === projectFilter)?.id} onClose={() => setInspirationCaptureOpen(false)} /> : null}
     </div>
   );
 }

@@ -405,7 +405,7 @@ export function CaptureEvidenceDialog() {
             <span><Check size={22} /></span>
             <p className="eyebrow">Evidence captured</p>
             <h3>{success.title}</h3>
-            <p>Saved privately to <strong>{success.projectName}</strong> in the Evidence library.</p>
+            <p>Saved privately to <strong>{success.projectName}</strong> in the Library.</p>
           </div>
         ) : noProjects ? (
           <div className="capture-no-project">
@@ -554,7 +554,7 @@ export function CaptureEvidenceDialog() {
               </div>
             ) : null}
 
-            <p className="capture-privacy-note">{mode === "social" ? "Saved as strategist-captured evidence, never as connector-collected conversation. Optional screenshots use private Storage." : "Saved to your private Evidence library. Files use private Storage and short-lived links when opened."}</p>
+            <p className="capture-privacy-note">{mode === "social" ? "Saved as strategist-captured evidence, never as connector-collected conversation. Optional screenshots use private Storage." : "Saved to your private Library. Files use private Storage and short-lived links when opened."}</p>
             {duplicate ? (
               <div className="capture-decision capture-decision--warning" role="alert">
                 <AlertTriangle size={18} />
@@ -573,9 +573,9 @@ export function CaptureEvidenceDialog() {
 
         <footer className="capture-dialog__footer">
           {success ? (
-            <><Link className="ui-button ui-button--secondary ui-button--md" href="/evidence?kind=research" onClick={() => { clearDraft("url"); setCaptureDialogOpen(false); }}>View evidence</Link><Button type="button" onClick={() => resetCapture(mode)}>Capture another</Button><Button type="button" variant="dark" onClick={close}>Done</Button></>
+            <><Link className="ui-button ui-button--secondary ui-button--md" href="/evidence?kind=research" onClick={() => { clearDraft("url"); setCaptureDialogOpen(false); }}>View Library</Link><Button type="button" onClick={() => resetCapture(mode)}>Capture another</Button><Button type="button" variant="dark" onClick={close}>Done</Button></>
           ) : noProjects || workspaceStatus === "loading" ? <Button type="button" onClick={close}>Close</Button> : duplicate ? (
-            <><Button type="button" onClick={close}>Cancel</Button><Link className="ui-button ui-button--secondary ui-button--md" href="/evidence?kind=research" onClick={() => setCaptureDialogOpen(false)}>View evidence</Link><Button type="button" variant="dark" disabled={saving} onClick={() => void saveCapture(pendingKeepOpen, { allowDuplicate: true })}>{saving ? <LoaderCircle className="spin" size={14} /> : null}Save another copy</Button></>
+            <><Button type="button" onClick={close}>Cancel</Button><Link className="ui-button ui-button--secondary ui-button--md" href="/evidence?kind=research" onClick={() => setCaptureDialogOpen(false)}>View Library</Link><Button type="button" variant="dark" disabled={saving} onClick={() => void saveCapture(pendingKeepOpen, { allowDuplicate: true })}>{saving ? <LoaderCircle className="spin" size={14} /> : null}Save another copy</Button></>
           ) : inspectionError ? (
             <><Button type="button" onClick={close}>Cancel</Button><Button type="button" disabled={saving} onClick={() => void saveCapture(pendingKeepOpen)}><RotateCw size={14} />Try again</Button><Button type="button" variant="dark" disabled={saving} onClick={() => void saveCapture(pendingKeepOpen, { skipInspection: true })}>{saving ? <LoaderCircle className="spin" size={14} /> : null}{mode === "social" ? "Save manual capture" : "Save link only"}</Button></>
           ) : (

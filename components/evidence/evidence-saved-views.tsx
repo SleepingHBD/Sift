@@ -27,8 +27,8 @@ function filterSummary(definition: EvidenceSavedViewDefinition, projects: Projec
   const project = definition.projectId
     ? projects.find((item) => (item.cloudId ?? item.id) === definition.projectId)?.name ?? "Unavailable project"
     : "All projects";
-  const kinds = { all: "All evidence types", mention: "Radar mentions", research: "Research & captures", inspiration: "Inspiration" };
-  const views = { all: "All evidence", "needs-review": "Needs review", recent: "Recently added" };
+  const kinds = { all: "All source types", mention: "Radar mentions", research: "Research & captures", inspiration: "Inspiration" };
+  const views = { all: "All sources", "needs-review": "Needs review", recent: "Recently added" };
   const sorts = { newest: "Newest first", oldest: "Oldest first", "recently-reviewed": "Recently reviewed", source: "Source A–Z", project: "Source project A–Z" };
   const groups = { none: "No grouping", project: "Grouped by project", kind: "Grouped by type", status: "Grouped by status" };
   return [
@@ -93,7 +93,7 @@ export function EvidenceSavedViews({
         <div className="radar-overlay" role="dialog" aria-modal="true" aria-labelledby="saved-view-dialog-title">
           <button className="radar-overlay__scrim" type="button" onClick={() => setEditor(null)} aria-label="Close saved view dialog" />
           <form className="workspace-dialog workspace-dialog--small saved-view-dialog" onSubmit={(event) => void submit(event)}>
-            <header><div><span className="workspace-dialog__icon"><Bookmark size={19} /></span><div><p className="eyebrow">Evidence shortcut</p><h2 id="saved-view-dialog-title">{editor.id ? "Update this saved view." : "Save this evidence view."}</h2><p>Sift will remember these filters privately for your account. Evidence records are not copied.</p></div></div><button type="button" onClick={() => setEditor(null)} aria-label="Close"><X size={18} /></button></header>
+            <header><div><span className="workspace-dialog__icon"><Bookmark size={19} /></span><div><p className="eyebrow">Library shortcut</p><h2 id="saved-view-dialog-title">{editor.id ? "Update this saved view." : "Save this Library view."}</h2><p>Sift will remember these filters privately for your account. Sources are not copied.</p></div></div><button type="button" onClick={() => setEditor(null)} aria-label="Close"><X size={18} /></button></header>
             <div className="workspace-dialog__body saved-view-dialog__body">
               <label><span>View name</span><input maxLength={80} required value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value })} placeholder="e.g. Unreviewed cultural signals" /></label>
               <div className="saved-view-dialog__summary"><strong>Current view includes</strong><ul>{summary.map((item) => <li key={item}>{item}</li>)}</ul></div>

@@ -50,12 +50,11 @@ GitHub Pages cannot protect connector or model secrets. Radar calls authenticate
 | --- | --- |
 | `/` | What should I investigate or add next? |
 | `/radar` | What is moving in monitored conversations? |
-| `/evidence` | What has been collected, what needs review, and where did it come from? |
-| `/trends` | Which evidence-backed signals are emerging? |
+| `/evidence` | What has been collected, what needs review, and what can support strategy? Research, Radar sources, notes, files, and Inspiration live together as filters. |
+| `/trends` | Compatibility route that opens Signals inside Radar. |
 | `/brands` | What brand context should constrain the work? |
 | `/competitors` | What does each brand own and where is the gap? |
-| `/inspiration` | What work is worth remembering and why? |
-| `/evidence` | What has been collected, what needs review, and what can support strategy? |
+| `/inspiration` | Compatibility route that opens the Inspiration-filtered view inside Library. |
 | `/research` | Compatibility route that opens the Research-filtered view inside Evidence. |
 | `/insight-builder` | What am I noticing, and how can I develop the thinking gradually? Strategy Sessions is the default Think workspace. |
 | `/strategy-ai` | Compatibility route for the standalone manual ChatGPT handoff. The primary handoff now opens inside an active Strategy Session. |

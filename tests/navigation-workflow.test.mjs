@@ -6,6 +6,9 @@ const sidebar = readFileSync(new URL("../components/shell/sidebar.tsx", import.m
 const appView = readFileSync(new URL("../components/app-view.tsx", import.meta.url), "utf8");
 const evidencePage = readFileSync(new URL("../components/pages/evidence-page.tsx", import.meta.url), "utf8");
 const captureDialog = readFileSync(new URL("../components/evidence/capture-evidence-dialog.tsx", import.meta.url), "utf8");
+const inspirationCaptureDialog = readFileSync(new URL("../components/evidence/inspiration-capture-dialog.tsx", import.meta.url), "utf8");
+const inspirationPage = readFileSync(new URL("../components/pages/inspiration-page.tsx", import.meta.url), "utf8");
+const globalSearch = readFileSync(new URL("../components/shell/global-search.tsx", import.meta.url), "utf8");
 const appProvider = readFileSync(new URL("../components/app-provider.tsx", import.meta.url), "utf8");
 const strategyPage = readFileSync(new URL("../components/pages/strategy-page.tsx", import.meta.url), "utf8");
 const insightBuilderPage = readFileSync(new URL("../components/pages/insight-builder-page.tsx", import.meta.url), "utf8");
@@ -34,6 +37,18 @@ test("legacy research navigation opens the filtered Evidence experience", () => 
   assert.equal(existsSync(new URL("../components/pages/research-page.tsx", import.meta.url)), false);
 });
 
+test("legacy Inspiration navigation opens the Inspiration shelf inside Library", () => {
+  assert.match(inspirationPage, /<EvidencePage initialKind="inspiration"/);
+  assert.match(appView, /section === "inspiration"/);
+  assert.match(appView, /activeSection="evidence"><InspirationPage/);
+  assert.match(evidencePage, /label: "Inspiration"/);
+  assert.match(evidencePage, /pendingInspirationImports/);
+  assert.match(evidencePage, /importPendingInspiration/);
+  assert.match(evidencePage, /<InspirationCaptureDialog/);
+  assert.match(inspirationCaptureDialog, /type: "Creative reference"/);
+  assert.match(globalSearch, /href: "\/inspiration"/);
+});
+
 test("legacy Trends navigation opens the Signals view inside Radar", () => {
   assert.match(trendsPage, /<RadarPage initialView="signals"/);
   assert.match(appView, /activeSection="radar"><TrendsPage/);
@@ -45,10 +60,10 @@ test("legacy Trends navigation opens the Signals view inside Radar", () => {
   assert.doesNotMatch(radarSignalsView, /<PageIntro/);
 });
 
-test("Evidence retains research capture, import, filtering, and migration entry points", () => {
-  assert.match(evidencePage, /Capture evidence/);
+test("Library retains research capture, import, filtering, and migration entry points", () => {
+  assert.match(evidencePage, /Capture source/);
   assert.match(evidencePage, /Import CSV/);
-  assert.match(evidencePage, /Research, notes & captures/);
+  assert.match(evidencePage, /Research & notes/);
   assert.match(evidencePage, /pendingResearchImports/);
   assert.match(evidencePage, /importPendingResearch/);
   assert.doesNotMatch(captureDialog, /href="\/research"/);
