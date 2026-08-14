@@ -13,6 +13,9 @@ export type StrategyTurnRole = "user" | "assistant";
 export type StrategyTurnOrigin = "strategist" | "chatgpt_manual" | "sift_guidance";
 export type StrategyPieceKind = "observation" | "question" | "interpretation" | "tension" | "hypothesis" | "opportunity";
 export type StrategyPieceStatus = "active" | "dismissed" | "shaped";
+export type StrategyConnectionRelationship = "related" | "reinforces" | "contradicts" | "opens_question";
+export type StrategyConnectionOrigin = "strategist" | "deterministic";
+export type StrategyConnectionStatus = "accepted" | "dismissed";
 
 export interface StrategySessionSummary {
   id: string;
@@ -175,11 +178,58 @@ export interface StrategySessionPieceRecord {
   updatedAt: string;
 }
 
+export interface StrategySessionConnectionRecord {
+  id: string;
+  projectId: string;
+  sessionId: string;
+  sourceTurnId: string;
+  targetTurnId: string;
+  relationship: StrategyConnectionRelationship;
+  origin: StrategyConnectionOrigin;
+  status: StrategyConnectionStatus;
+  rationale: string | null;
+  factors: string[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StrategyConnectionSuggestion {
+  key: string;
+  sourceTurnId: string;
+  targetTurnId: string;
+  relationship: StrategyConnectionRelationship;
+  rationale: string;
+  factors: string[];
+  score: number;
+}
+
+export interface StrategyEmergingThread {
+  id: string;
+  label: string;
+  turnIds: string[];
+  connectionIds: string[];
+  latestAt: string;
+}
+
+export interface SaveStrategyConnectionInput {
+  sessionId: string;
+  projectId: string;
+  sourceTurnId: string;
+  targetTurnId: string;
+  relationship: StrategyConnectionRelationship;
+  origin: StrategyConnectionOrigin;
+  status: StrategyConnectionStatus;
+  rationale?: string;
+  factors?: string[];
+}
+
 export interface StrategySessionDetail extends StrategySessionSummary {
   stages: StrategyStageRecord[];
   inputs: StrategySessionInputRecord[];
   turns: StrategySessionTurnRecord[];
   pieces: StrategySessionPieceRecord[];
+  connections: StrategySessionConnectionRecord[];
 }
 
 export interface StrategyAiInputOption {

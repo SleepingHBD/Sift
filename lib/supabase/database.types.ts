@@ -2173,6 +2173,83 @@ export type Database = {
           },
         ]
       }
+      strategy_session_connections: {
+        Row: {
+          created_at: string
+          created_by: string
+          factors: string[]
+          id: string
+          origin: string
+          project_id: string
+          rationale: string | null
+          relationship: string
+          session_id: string
+          source_turn_id: string
+          status: string
+          target_turn_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          factors?: string[]
+          id?: string
+          origin?: string
+          project_id: string
+          rationale?: string | null
+          relationship?: string
+          session_id: string
+          source_turn_id: string
+          status?: string
+          target_turn_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          factors?: string[]
+          id?: string
+          origin?: string
+          project_id?: string
+          rationale?: string | null
+          relationship?: string
+          session_id?: string
+          source_turn_id?: string
+          status?: string
+          target_turn_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_session_connections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_session_connections_session_id_project_id_fkey"
+            columns: ["session_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_sessions"
+            referencedColumns: ["id", "project_id"]
+          },
+          {
+            foreignKeyName: "strategy_session_connections_source_turn_id_project_id_session_id_fkey"
+            columns: ["source_turn_id", "project_id", "session_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_session_turns"
+            referencedColumns: ["id", "project_id", "session_id"]
+          },
+          {
+            foreignKeyName: "strategy_session_connections_target_turn_id_project_id_session_id_fkey"
+            columns: ["target_turn_id", "project_id", "session_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_session_turns"
+            referencedColumns: ["id", "project_id", "session_id"]
+          },
+        ]
+      }
       strategy_session_inputs: {
         Row: {
           added_by: string
@@ -3399,6 +3476,28 @@ export type Database = {
       }
       delete_notebook_page: {
         Args: { p_project_id: string; p_session_id: string }
+        Returns: string
+      }
+      remove_strategy_session_connection: {
+        Args: {
+          p_connection_id: string
+          p_project_id: string
+          p_session_id: string
+        }
+        Returns: string
+      }
+      set_strategy_session_connection: {
+        Args: {
+          p_factors?: string[]
+          p_origin?: string
+          p_project_id: string
+          p_rationale?: string
+          p_relationship?: string
+          p_session_id: string
+          p_source_turn_id: string
+          p_status?: string
+          p_target_turn_id: string
+        }
         Returns: string
       }
       start_strategy_conversation: {

@@ -64,7 +64,7 @@ Brands and competitors become notebook context. Trends become a Radar view. Stra
 7. **Creative outputs:** develop cited territories and editable briefs inside the notebook only after the argument workflow is accepted.
 8. **Acceptance and cleanup:** verify persistence, RLS isolation, provenance, citations, responsive use, compatibility routes, and removal of obsolete presentation code.
 
-Implementation progress: steps 1-3 are complete. The next active step is **Connections and threads**.
+Implementation progress: steps 1-4 are complete. Notebook entries now support explicit manual relationships, inspectable deterministic suggestions that require acceptance, possible contradictions, and automatically derived emerging threads. The next active step is **Contextual intelligence**.
 
 Notebook-first success means a thought can be saved in seconds, a notebook can begin with only a name, most strategy work happens without leaving the notebook, unfinished thinking never requires classification, and any eventual output remains traceable to its original sources.
 
@@ -512,7 +512,7 @@ Answer strategic questions using the user's authorized workspace while keeping g
 
 ## Phase 7 - Notebook-first thinking and creative outputs
 
-Status: **In progress under the approved notebook-first direction.** Product pruning, the notebook foundation, and universal composer capture are implemented. A notebook entry can now combine free writing with newly captured links/files or existing Library and Radar evidence while preserving project-scoped citations. The trusted argument foundation, integrated manual ChatGPT handoff, and **Review argument** layer remain intact; no generated piece becomes approved strategy automatically. The next active step is **Connections and threads**. The audit is documented in [phase-7-audit.md](phase-7-audit.md).
+Status: **In progress under the approved notebook-first direction.** Product pruning, the notebook foundation, universal composer capture, and connections and threads are implemented. A notebook entry can combine free writing with newly captured links/files or existing Library and Radar evidence, connect gradually to other entries, and join transparent emerging threads while preserving project-scoped citations. The trusted argument foundation, integrated manual ChatGPT handoff, and **Review argument** layer remain intact; no generated piece or deterministic suggestion becomes accepted strategy automatically. The next active step is **Contextual intelligence**. The audit is documented in [phase-7-audit.md](phase-7-audit.md).
 
 ### Goal
 

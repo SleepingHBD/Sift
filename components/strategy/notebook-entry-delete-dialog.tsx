@@ -8,11 +8,13 @@ import type { StrategySessionTurnRecord } from "@/lib/strategy-pipeline/types";
 export function NotebookEntryDeleteDialog({
   turn,
   protectedByWorkingPiece,
+  connectionCount,
   onClose,
   onConfirm,
 }: {
   turn: StrategySessionTurnRecord;
   protectedByWorkingPiece: boolean;
+  connectionCount: number;
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }) {
@@ -43,10 +45,11 @@ export function NotebookEntryDeleteDialog({
         </header>
 
         <div className="workspace-dialog__body evidence-delete-dialog__body">
-          {protectedByWorkingPiece ? <div className="evidence-delete-dialog__state evidence-delete-dialog__state--blocked"><ShieldAlert size={21} /><div><strong>This entry is being used by your strategy.</strong><span>Dismiss or remove its downstream working piece before deleting the original notebook entry.</span></div></div> : <div className="evidence-delete-dialog__state evidence-delete-dialog__state--warning"><AlertTriangle size={20} /><div><strong>This permanently removes the entry from this notebook.</strong><span>Source links attached to this entry are detached. The original Research, Inspiration, or Radar evidence remains safely in your Library.</span></div></div>}
+          {protectedByWorkingPiece ? <div className="evidence-delete-dialog__state evidence-delete-dialog__state--blocked"><ShieldAlert size={21} /><div><strong>This entry is being used by your strategy.</strong><span>Dismiss or remove its downstream working piece before deleting the original notebook entry.</span></div></div> : <div className="evidence-delete-dialog__state evidence-delete-dialog__state--warning"><AlertTriangle size={20} /><div><strong>This permanently removes the entry from this notebook.</strong><span>Its source links and connections to other entries are detached. The original Research, Inspiration, or Radar evidence remains safely in your Library.</span></div></div>}
 
           <blockquote className="notebook-entry-delete-dialog__preview">{turn.metadata.capture_only === true ? "Source-only notebook entry" : turn.content}</blockquote>
           {turn.sources.length ? <p className="evidence-delete-dialog__footnote">{turn.sources.length} attached {turn.sources.length === 1 ? "source link will" : "source links will"} be removed from this entry. The sources themselves are not deleted.</p> : null}
+          {connectionCount ? <p className="evidence-delete-dialog__footnote">{connectionCount} notebook {connectionCount === 1 ? "connection will" : "connections will"} also be removed.</p> : null}
           {error ? <p className="form-error" role="alert">{error}</p> : null}
         </div>
 

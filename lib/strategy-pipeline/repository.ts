@@ -7,12 +7,14 @@ import type {
   CreateStrategyAlternativeInput,
   CreateStrategyDependencyInput,
   SaveStrategyStageInput,
+  SaveStrategyConnectionInput,
   StrategyAiInputOption,
   StrategyAlternativeStatus,
   StrategyConfidence,
   StrategyEvidenceSource,
   StrategyInputType,
   StrategySessionDetail,
+  StrategySessionConnectionRecord,
   StrategySessionInputRecord,
   StrategySessionOrigin,
   StrategySessionPieceRecord,
@@ -34,6 +36,7 @@ type SessionRow = Database["public"]["Tables"]["strategy_sessions"]["Row"];
 type StageRow = Database["public"]["Tables"]["strategy_stages"]["Row"];
 type StageSourceRow = Database["public"]["Tables"]["strategy_stage_sources"]["Row"];
 type SessionInputRow = Database["public"]["Tables"]["strategy_session_inputs"]["Row"];
+type SessionConnectionRow = Database["public"]["Tables"]["strategy_session_connections"]["Row"];
 type SessionTurnRow = Database["public"]["Tables"]["strategy_session_turns"]["Row"];
 type SessionTurnSourceRow = Database["public"]["Tables"]["strategy_session_turn_sources"]["Row"];
 type SessionPieceRow = Database["public"]["Tables"]["strategy_session_pieces"]["Row"];
@@ -46,6 +49,7 @@ const sessionSelect = "id,project_id,created_by,title,status,origin,created_at,u
 const stageSelect = "id,session_id,project_id,stage,content,claim_type,position,status,confidence,research_gaps,approval_note,approved_at,approved_by,created_at,updated_at";
 const sourceSelect = "id,stage_id,project_id,evidence_type,evidence_id,relationship,excerpt,rationale,created_at";
 const inputSelect = "id,session_id,project_id,input_type,input_id,role,rationale,created_at";
+const connectionSelect = "id,project_id,session_id,source_turn_id,target_turn_id,relationship,origin,status,rationale,factors,created_by,created_at,updated_at";
 const turnSelect = "id,project_id,session_id,role,origin,content,metadata,ai_message_id,created_by,created_at";
 const turnSourceSelect = "id,project_id,session_id,turn_id,evidence_type,evidence_id,relationship,excerpt,rationale,created_at";
 const pieceSelect = "id,project_id,session_id,source_turn_id,kind,origin,external_ref,content,why_it_matters,confidence,caveat,status,created_by,created_at,updated_at";
@@ -88,6 +92,24 @@ function turnFromRow(row: SessionTurnRow, sources: StrategyTurnSourceRecord[] = 
     createdBy: row.created_by,
     createdAt: row.created_at,
     sources,
+  };
+}
+
+function connectionFromRow(row: SessionConnectionRow): StrategySessionConnectionRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    sessionId: row.session_id,
+    sourceTurnId: row.source_turn_id,
+    targetTurnId: row.target_turn_id,
+    relationship: row.relationship as StrategySessionConnectionRecord["relationship"],
+    origin: row.origin as StrategySessionConnectionRecord["origin"],
+    status: row.status as StrategySessionConnectionRecord["status"],
+    rationale: row.rationale,
+    factors: row.factors,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -274,6 +296,46 @@ export async function deleteNotebookPage(
   return data;
 }
 
+export async function saveStrategySessionConnection(
+  input: SaveStrategyConnectionInput,
+): Promise<StrategySessionConnectionRecord> {
+  const client = requireClient();
+  const saved = await client.rpc("set_strategy_session_connection", {
+    p_session_id: input.sessionId,
+    p_project_id: input.projectId,
+    p_source_turn_id: input.sourceTurnId,
+    p_target_turn_id: input.targetTurnId,
+    p_relationship: input.relationship,
+    p_origin: input.origin,
+    p_status: input.status,
+    p_rationale: input.rationale?.trim() || undefined,
+    p_factors: input.factors ?? [],
+  });
+  if (saved.error || !saved.data) throw new Error(`This connection could not be saved: ${saved.error?.message ?? "No connection was returned."}`);
+  const result = await client.from("strategy_session_connections")
+    .select(connectionSelect)
+    .eq("id", saved.data)
+    .eq("project_id", input.projectId)
+    .single();
+  if (result.error || !result.data) throw new Error(`The connection was saved, but could not be reloaded: ${result.error?.message ?? "No connection was returned."}`);
+  return connectionFromRow(result.data as SessionConnectionRow);
+}
+
+export async function removeStrategySessionConnection(
+  connectionId: string,
+  sessionId: string,
+  projectId: string,
+): Promise<string> {
+  const client = requireClient();
+  const { data, error } = await client.rpc("remove_strategy_session_connection", {
+    p_connection_id: connectionId,
+    p_session_id: sessionId,
+    p_project_id: projectId,
+  });
+  if (error || !data) throw new Error(`This connection could not be removed: ${error?.message ?? "No connection was returned."}`);
+  return data;
+}
+
 type EvidenceLinkRow = Pick<StageSourceRow, "project_id" | "evidence_type" | "evidence_id" | "excerpt" | "created_at">;
 
 async function evidenceSources(projectId: string, rows: EvidenceLinkRow[]) {
@@ -404,18 +466,20 @@ async function inputRecords(projectId: string, rows: SessionInputRow[]): Promise
 
 export async function loadStrategySession(sessionId: string, projectId: string): Promise<StrategySessionDetail> {
   const client = requireClient();
-  const [sessionResult, stageResult, inputResult, turnResult, pieceResult] = await Promise.all([
+  const [sessionResult, stageResult, inputResult, turnResult, pieceResult, connectionResult] = await Promise.all([
     client.from("strategy_sessions").select(sessionSelect).eq("id", sessionId).eq("project_id", projectId).single(),
     client.from("strategy_stages").select(stageSelect).eq("session_id", sessionId).eq("project_id", projectId).order("position"),
     client.from("strategy_session_inputs").select(inputSelect).eq("session_id", sessionId).eq("project_id", projectId).order("created_at"),
     client.from("strategy_session_turns").select(turnSelect).eq("session_id", sessionId).eq("project_id", projectId).order("created_at", { ascending: true }).order("id", { ascending: true }),
     client.from("strategy_session_pieces").select(pieceSelect).eq("session_id", sessionId).eq("project_id", projectId).order("created_at", { ascending: true }).order("id", { ascending: true }),
+    client.from("strategy_session_connections").select(connectionSelect).eq("session_id", sessionId).eq("project_id", projectId).order("created_at", { ascending: true }).order("id", { ascending: true }),
   ]);
   if (sessionResult.error || !sessionResult.data) throw new Error(`Insight session could not be loaded: ${sessionResult.error?.message ?? "No record was returned."}`);
   if (stageResult.error) throw new Error(`Insight stages could not be loaded: ${stageResult.error.message}`);
   if (inputResult.error) throw new Error(`Starting points could not be loaded: ${inputResult.error.message}`);
   if (turnResult.error) throw new Error(`Strategy conversation could not be loaded: ${turnResult.error.message}`);
   if (pieceResult.error) throw new Error(`Strategy working pieces could not be loaded: ${pieceResult.error.message}`);
+  if (connectionResult.error) throw new Error(`Notebook connections could not be loaded: ${connectionResult.error.message}`);
   const stageRows = (stageResult.data ?? []) as StageRow[];
   const turnRows = (turnResult.data ?? []) as SessionTurnRow[];
   const turnIds = turnRows.map((row) => row.id);
@@ -546,6 +610,7 @@ export async function loadStrategySession(sessionId: string, projectId: string):
     inputs: await inputRecords(projectId, (inputResult.data ?? []) as SessionInputRow[]),
     turns: turnRows.map((row) => turnFromRow(row, sourcesByTurn.get(row.id) ?? [])),
     pieces,
+    connections: ((connectionResult.data ?? []) as SessionConnectionRow[]).map(connectionFromRow),
   };
 }
 

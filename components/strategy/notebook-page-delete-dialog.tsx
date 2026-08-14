@@ -43,13 +43,14 @@ export function NotebookPageDeleteDialog({
         </header>
 
         <div className="workspace-dialog__body evidence-delete-dialog__body">
-          <div className="evidence-delete-dialog__state evidence-delete-dialog__state--warning"><AlertTriangle size={20} /><div><strong>This permanently removes the whole notebook page.</strong><span>Its thoughts, attached source links, ChatGPT working pieces, and formal strategy steps will be deleted with it.</span></div></div>
+          <div className="evidence-delete-dialog__state evidence-delete-dialog__state--warning"><AlertTriangle size={20} /><div><strong>This permanently removes the whole notebook page.</strong><span>Its thoughts, attached source links, connections, ChatGPT working pieces, and formal strategy steps will be deleted with it.</span></div></div>
           <blockquote className="notebook-entry-delete-dialog__preview">{page.title}</blockquote>
           <dl className="notebook-page-delete-dialog__counts">
             <div><dt>Thoughts</dt><dd>{page.turns.length}</dd></div>
             <div><dt>Source links</dt><dd>{sourceLinkCount}</dd></div>
             <div><dt>Working pieces</dt><dd>{page.pieces.length}</dd></div>
             <div><dt>Strategy steps</dt><dd>{page.stages.length}</dd></div>
+            <div><dt>Connections</dt><dd>{page.connections.length}</dd></div>
           </dl>
           <div className="notebook-page-delete-dialog__preserved"><BookOpenText size={18} /><div><strong>Your original evidence remains safe.</strong><span>Research, Inspiration, and Radar records in your Library are not deleted—only their links to this page are removed.</span></div></div>
           {error ? <p className="form-error" role="alert">{error}</p> : null}

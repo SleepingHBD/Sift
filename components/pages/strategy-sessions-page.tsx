@@ -26,6 +26,8 @@ import { StrategySourceDrawer } from "@/components/strategy-pipeline/source-draw
 import { NotebookSourcePicker } from "@/components/strategy/notebook-source-picker";
 import { NotebookEntryDeleteDialog } from "@/components/strategy/notebook-entry-delete-dialog";
 import { NotebookPageDeleteDialog } from "@/components/strategy/notebook-page-delete-dialog";
+import { NotebookConnectionDialog } from "@/components/strategy/notebook-connection-dialog";
+import { NotebookConnectionsPanel } from "@/components/strategy/notebook-connections-panel";
 import { StrategySessionHandoff } from "@/components/strategy/strategy-session-handoff";
 import { Badge, Button, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
@@ -36,7 +38,9 @@ import {
   deleteStrategyConversationTurn,
   listStrategySessions,
   loadStrategySession,
+  removeStrategySessionConnection,
   renameStrategySession,
+  saveStrategySessionConnection,
   updateStrategyPieceStatus,
 } from "@/lib/strategy-pipeline/repository";
 import { strategyPieceLabels } from "@/lib/strategy-pipeline/conversation";
@@ -46,6 +50,9 @@ import { researchItemToEvidenceReference, type EvidenceReference } from "@/lib/e
 import type { ResearchItem } from "@/lib/types";
 import type {
   StrategySessionDetail,
+  SaveStrategyConnectionInput,
+  StrategyConnectionSuggestion,
+  StrategySessionConnectionRecord,
   StrategyPieceSourceRecord,
   StrategySessionPieceRecord,
   StrategySessionSummary,
@@ -108,6 +115,8 @@ export function StrategySessionsPage() {
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState<StrategyPieceSourceRecord | StrategyTurnSourceRecord | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<StrategySessionTurnRecord | null>(null);
+  const [connectionCandidate, setConnectionCandidate] = useState<StrategySessionTurnRecord | null>(null);
+  const [connectionBusy, setConnectionBusy] = useState("");
   const [renamingPage, setRenamingPage] = useState(false);
   const [renameTitle, setRenameTitle] = useState("");
   const [pageActionsOpen, setPageActionsOpen] = useState(false);
@@ -156,6 +165,8 @@ export function StrategySessionsPage() {
       setPendingSources([]);
       setSourcePickerOpen(false);
       setDeleteCandidate(null);
+      setConnectionCandidate(null);
+      setConnectionBusy("");
       setRenamingPage(false);
       setRenameTitle("");
       setPageActionsOpen(false);
@@ -231,6 +242,8 @@ export function StrategySessionsPage() {
     setPendingSources([]);
     setSourcePickerOpen(false);
     setDeleteCandidate(null);
+    setConnectionCandidate(null);
+    setConnectionBusy("");
     setError("");
     setReviewMode(false);
     setMemoryOpen(false);
@@ -249,6 +262,8 @@ export function StrategySessionsPage() {
     setPendingSources([]);
     setSourcePickerOpen(false);
     setDeleteCandidate(null);
+    setConnectionCandidate(null);
+    setConnectionBusy("");
     setError("");
     setReviewMode(false);
     setMemoryOpen(false);
@@ -313,6 +328,8 @@ export function StrategySessionsPage() {
     setDraft("");
     setPendingSources([]);
     setSelectedSource(null);
+    setConnectionCandidate(null);
+    setConnectionBusy("");
     setSourcePickerOpen(false);
     setHandoffOpen(false);
     setMemoryOpen(false);
@@ -400,6 +417,85 @@ export function StrategySessionsPage() {
     }
   }
 
+  function upsertConnection(connection: StrategySessionConnectionRecord) {
+    setSession((current) => current ? {
+      ...current,
+      connections: [...current.connections.filter((item) => item.id !== connection.id), connection],
+      updatedAt: connection.updatedAt,
+    } : current);
+  }
+
+  async function saveConnection(input: SaveStrategyConnectionInput) {
+    setError("");
+    const connection = await saveStrategySessionConnection(input);
+    upsertConnection(connection);
+  }
+
+  async function acceptConnectionSuggestion(suggestion: StrategyConnectionSuggestion) {
+    if (!session) return;
+    setConnectionBusy(suggestion.key);
+    setError("");
+    try {
+      await saveConnection({
+        sessionId: session.id,
+        projectId: session.projectId,
+        sourceTurnId: suggestion.sourceTurnId,
+        targetTurnId: suggestion.targetTurnId,
+        relationship: suggestion.relationship,
+        origin: "deterministic",
+        status: "accepted",
+        rationale: suggestion.rationale,
+        factors: suggestion.factors,
+      });
+    } catch (connectionError) {
+      setError(connectionError instanceof Error ? connectionError.message : "This suggested connection could not be saved.");
+    } finally {
+      setConnectionBusy("");
+    }
+  }
+
+  async function dismissConnectionSuggestion(suggestion: StrategyConnectionSuggestion) {
+    if (!session) return;
+    setConnectionBusy(suggestion.key);
+    setError("");
+    try {
+      await saveConnection({
+        sessionId: session.id,
+        projectId: session.projectId,
+        sourceTurnId: suggestion.sourceTurnId,
+        targetTurnId: suggestion.targetTurnId,
+        relationship: suggestion.relationship,
+        origin: "deterministic",
+        status: "dismissed",
+        rationale: suggestion.rationale,
+        factors: suggestion.factors,
+      });
+    } catch (connectionError) {
+      setError(connectionError instanceof Error ? connectionError.message : "This suggestion could not be dismissed.");
+    } finally {
+      setConnectionBusy("");
+    }
+  }
+
+  async function removeConnection(connection: StrategySessionConnectionRecord) {
+    if (!session) return;
+    setConnectionBusy(connection.id);
+    setError("");
+    try {
+      await removeStrategySessionConnection(connection.id, session.id, session.projectId);
+      setSession((current) => current ? {
+        ...current,
+        connections: connection.origin === "deterministic"
+          ? current.connections.map((item) => item.id === connection.id ? { ...item, status: "dismissed" } : item)
+          : current.connections.filter((item) => item.id !== connection.id),
+      } : current);
+    } catch (connectionError) {
+      setError(connectionError instanceof Error ? connectionError.message : "This connection could not be removed.");
+    } finally {
+      setConnectionBusy("");
+    }
+  }
+
   if (!cloudProjects.length) {
     return (
       <div className="page strategy-conversation-page">
@@ -483,12 +579,14 @@ export function StrategySessionsPage() {
             </header>
 
             <div className="strategy-conversation-timeline" aria-label="Strategy conversation">
-              {session.turns.map((turn) => (
-                <article className={`strategy-turn strategy-turn--${turn.role}`} key={turn.id}>
+              {session.turns.map((turn) => {
+                const connectionCount = session.connections.filter((connection) => connection.status === "accepted" && (connection.sourceTurnId === turn.id || connection.targetTurnId === turn.id)).length;
+                return (
+                <article className={`strategy-turn strategy-turn--${turn.role}`} id={`notebook-turn-${turn.id}`} key={turn.id}>
                   <span className="strategy-turn__avatar">{turn.role === "user" ? "You" : "S"}</span>
-                  <div><div className="strategy-turn__head"><strong>{turn.role === "user" ? "You" : turn.origin === "chatgpt_manual" ? "ChatGPT handoff" : "Sift"}</strong>{canDeleteNotebookTurn(turn, user?.id) ? <button type="button" className="strategy-turn__delete" onClick={() => setDeleteCandidate(turn)} aria-label="Delete notebook entry" title="Delete entry"><Trash2 size={13} /></button> : null}</div>{turn.metadata.capture_only !== true ? <p>{turn.content}</p> : <p className="strategy-turn__capture-label">Added to this page</p>}{turn.sources.length ? <div className="strategy-turn__sources">{turn.sources.map((source) => <button type="button" key={source.id} onClick={() => setSelectedSource(source)}><FileSearch size={14} /><span><strong>{source.source.title}</strong><small>{source.source.sourceLabel}</small></span></button>)}</div> : null}<time>{formatTurnTime(turn.createdAt)}</time></div>
+                  <div><div className="strategy-turn__head"><strong>{turn.role === "user" ? "You" : turn.origin === "chatgpt_manual" ? "ChatGPT handoff" : "Sift"}</strong><div className="strategy-turn__head-actions">{session.turns.length > 1 ? <button type="button" onClick={() => setConnectionCandidate(turn)} aria-label="Connect notebook entry" title="Connect this thought"><Link2 size={13} /></button> : null}{canDeleteNotebookTurn(turn, user?.id) ? <button type="button" className="strategy-turn__delete" onClick={() => setDeleteCandidate(turn)} aria-label="Delete notebook entry" title="Delete entry"><Trash2 size={13} /></button> : null}</div></div>{turn.metadata.capture_only !== true ? <p>{turn.content}</p> : <p className="strategy-turn__capture-label">Added to this page</p>}{turn.sources.length ? <div className="strategy-turn__sources">{turn.sources.map((source) => <button type="button" key={source.id} onClick={() => setSelectedSource(source)}><FileSearch size={14} /><span><strong>{source.source.title}</strong><small>{source.source.sourceLabel}</small></span></button>)}</div> : null}{connectionCount ? <button type="button" className="strategy-turn__connection-count" onClick={() => setMemoryOpen(true)}><Link2 size={11} />{connectionCount} {connectionCount === 1 ? "connection" : "connections"}</button> : null}<time>{formatTurnTime(turn.createdAt)}</time></div>
                 </article>
-              ))}
+              );})}
               <article className="strategy-turn strategy-turn--sift strategy-turn--next">
                 <span className="strategy-turn__avatar">S</span>
                 <div><strong>One useful next step</strong><p>{nextPrompt(session)}</p></div>
@@ -514,7 +612,8 @@ export function StrategySessionsPage() {
 
           {memoryOpen ? <aside className="strategy-conversation-memory">
             <header><p className="eyebrow">Strategy so far</p><h2>Nothing is due.</h2><p>Keep collecting pieces. Structure appears only when it becomes useful.</p></header>
-            <p className="strategy-conversation-memory__summary">{session.turns.length} {session.turns.length === 1 ? "entry" : "entries"} · {sourceCount} {sourceCount === 1 ? "source" : "sources"} · {session.pieces.filter((piece) => piece.status === "active").length} working {session.pieces.filter((piece) => piece.status === "active").length === 1 ? "piece" : "pieces"}</p>
+            <p className="strategy-conversation-memory__summary">{session.turns.length} {session.turns.length === 1 ? "entry" : "entries"} · {sourceCount} {sourceCount === 1 ? "source" : "sources"} · {session.connections.filter((connection) => connection.status === "accepted").length} {session.connections.filter((connection) => connection.status === "accepted").length === 1 ? "connection" : "connections"}</p>
+            <NotebookConnectionsPanel turns={session.turns} connections={session.connections} busyKey={connectionBusy} onAcceptSuggestion={acceptConnectionSuggestion} onDismissSuggestion={dismissConnectionSuggestion} onRemoveConnection={removeConnection} />
             {session.pieces.length ? <div className="strategy-conversation-memory__pieces"><div className="strategy-conversation-memory__pieces-head"><p className="drawer-section-label">Working pieces</p><span>Suggestions, not conclusions</span></div>{session.pieces.map((piece) => <article className={piece.status === "dismissed" ? "is-dismissed" : ""} key={piece.id}><div><Badge>{strategyPieceLabels[piece.kind]}</Badge>{piece.confidence ? <small>{piece.confidence} confidence</small> : null}</div><p>{piece.content}</p>{piece.whyItMatters ? <span>{piece.whyItMatters}</span> : null}<footer>{piece.sources.map((source, index) => <button key={source.id} type="button" onClick={() => setSelectedSource(source)}>Source {index + 1}</button>)}<button type="button" onClick={() => void changePieceStatus(piece, piece.status === "dismissed" ? "active" : "dismissed")}>{piece.status === "dismissed" ? "Restore" : <><X size={11} />Dismiss</>}</button></footer></article>)}</div> : null}
             {session.stages.length ? <div className="strategy-conversation-memory__argument"><p className="drawer-section-label">Current argument</p>{session.stages.map((stage) => <button key={stage.id} type="button" onClick={() => setReviewMode(true)}><CheckCircle2 size={13} /><span><strong>{stageDefinition(stage.kind).label}</strong><small>{stage.content}</small></span></button>)}</div> : <div className="strategy-conversation-memory__empty"><Sparkles size={19} /><strong>Your argument can emerge later.</strong><span>For now, continue the conversation or add evidence whenever you find it.</span></div>}
             <Button onClick={() => setReviewMode(true)}><BookOpen size={14} />Open Review argument</Button>
@@ -524,7 +623,8 @@ export function StrategySessionsPage() {
       ) : null}
       {handoffOpen && session && project ? <StrategySessionHandoff project={project} session={session} onClose={() => setHandoffOpen(false)} onSaved={reloadCurrentSession} /> : null}
       {sourcePickerOpen && session ? <NotebookSourcePicker projectId={session.projectId} selected={pendingSources} onToggle={togglePendingSource} onClose={() => setSourcePickerOpen(false)} /> : null}
-      {deleteCandidate && session ? <NotebookEntryDeleteDialog turn={deleteCandidate} protectedByWorkingPiece={session.pieces.some((piece) => piece.sourceTurnId === deleteCandidate.id)} onClose={() => setDeleteCandidate(null)} onConfirm={() => deleteNotebookEntry(deleteCandidate)} /> : null}
+      {connectionCandidate && session ? <NotebookConnectionDialog sourceTurn={connectionCandidate} turns={session.turns} onClose={() => setConnectionCandidate(null)} onConfirm={saveConnection} /> : null}
+      {deleteCandidate && session ? <NotebookEntryDeleteDialog turn={deleteCandidate} protectedByWorkingPiece={session.pieces.some((piece) => piece.sourceTurnId === deleteCandidate.id)} connectionCount={session.connections.filter((connection) => connection.sourceTurnId === deleteCandidate.id || connection.targetTurnId === deleteCandidate.id).length} onClose={() => setDeleteCandidate(null)} onConfirm={() => deleteNotebookEntry(deleteCandidate)} /> : null}
       {pageDeleteOpen && session ? <NotebookPageDeleteDialog page={session} sourceLinkCount={pageSourceLinkCount} onClose={() => setPageDeleteOpen(false)} onConfirm={deleteCurrentPage} /> : null}
       <StrategySourceDrawer source={selectedSource} onClose={() => setSelectedSource(null)} />
     </div>
