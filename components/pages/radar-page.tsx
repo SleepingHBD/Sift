@@ -34,6 +34,7 @@ import { SourceDrawer } from "@/components/radar/source-drawer";
 import { SpikeDrawer } from "@/components/radar/spike-drawer";
 import { StrategistPanel } from "@/components/radar/strategist-panel";
 import { TopicIntelligence } from "@/components/radar/topic-intelligence";
+import { SendToNotebookDialog } from "@/components/strategy/send-to-notebook-dialog";
 import { useMonitorAnalysis } from "@/components/radar/use-monitor-analysis";
 import { useMonitorSummary } from "@/components/radar/use-monitor-summary";
 import { useRadarState } from "@/components/radar/use-radar-state";
@@ -42,7 +43,8 @@ import { EmptyState } from "@/components/workspace/empty-state";
 import { deleteRadarMonitor, enrichConnectorMentions, getRunnableSources, isRadarConnectorBackendConfigured, RadarRunConflictError, runRadarConnectors } from "@/lib/radar/connector-service";
 import { buildRadarAnalytics } from "@/lib/radar/processing";
 import { getCloudRadarMentionsByIds } from "@/lib/radar/repository";
-import type { DateRangeKey, EvidenceDestination, MonitorRun, MonitoringQuery, RadarMention, RadarMonitorSummary, SourceBreakdown } from "@/lib/radar/types";
+import type { DateRangeKey, MonitorRun, MonitoringQuery, RadarMention, RadarMonitorSummary, SourceBreakdown } from "@/lib/radar/types";
+import { radarMentionToEvidenceReference } from "@/lib/evidence/reference";
 import { formatNumber } from "@/lib/utils";
 
 type RadarView = "overview" | "topics" | "mentions" | "evidence";
@@ -72,6 +74,7 @@ export function RadarPage() {
   const [selectedSpikeId, setSelectedSpikeId] = useState("");
   const [selectedMention, setSelectedMention] = useState<RadarMention | null>(null);
   const [evidenceMention, setEvidenceMention] = useState<RadarMention | null>(null);
+  const [notebookMention, setNotebookMention] = useState<RadarMention | null>(null);
   const [runState, setRunState] = useState<"idle" | "running">("idle");
   const [runNotice, setRunNotice] = useState<{ tone: "success" | "error"; message: string } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -144,7 +147,9 @@ export function RadarPage() {
     : [];
   const evidenceCount = new Set(allMentions.filter((mention) => savedIds.includes(mention.id) || importantIds.includes(mention.id) || evidenceLinks.some((link) => link.mentionId === mention.id)).map((mention) => mention.id)).size;
   const monitorProject = activeMonitor?.projectId ? projects.find((project) => project.id === activeMonitor.projectId) : undefined;
-  const projectLabel = monitorProject?.name ?? "Personal Radar";
+  const notebookEvidence = notebookMention && monitorProject?.cloudId
+    ? radarMentionToEvidenceReference(notebookMention, { cloudProjectId: monitorProject.cloudId, projectClientRef: monitorProject.id })
+    : null;
   const backendConfigured = isRadarConnectorBackendConfigured();
   const runnableSources = activeMonitor ? getRunnableSources(activeMonitor, connectorSettings) : [];
   const activeCloudRun = activeMonitor ? runs.some((run) => run.monitorId === activeMonitor.id && run.status === "running") : false;
@@ -255,8 +260,12 @@ export function RadarPage() {
     window.setTimeout(() => document.getElementById("mention-feed")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }
 
-  async function quickEvidenceLink(mention: RadarMention, destination: EvidenceDestination, label: string) {
-    await addEvidenceLink({ id: `evidence-${Date.now()}`, mentionId: mention.id, destination, destinationLabel: label, createdAt: new Date().toISOString() });
+  function sendMentionToNotebook(mention: RadarMention) {
+    if (!mention.cloudId || !monitorProject?.cloudId) {
+      setRunNotice({ tone: "error", message: "This conversation has not finished syncing to the cloud, so it cannot be cited in a notebook yet." });
+      return;
+    }
+    setNotebookMention(mention);
   }
 
   async function runMonitor() {
@@ -535,7 +544,7 @@ export function RadarPage() {
 
           {activeView === "mentions" ? (
             <div className="radar-view radar-view--mentions">
-              <MentionFeed mentions={baseAnalytics.currentMentions} monitor={activeMonitor} bounds={baseAnalytics.bounds} refreshKey={analyticsRefreshKey} topics={monitorTopics} sourceFilter={sourceFilter} topicFilter={activeTopic} keywordFilter={keywordFilter} projectLabel={projectLabel} savedIds={savedIds} importantIds={importantIds} onSourceFilter={setSourceFilter} onTopicFilter={setActiveTopic} onKeywordFilter={setKeywordFilter} onOpenMention={setSelectedMention} onToggleSaved={toggleSaved} onToggleImportant={toggleImportant} onUseEvidence={setEvidenceMention} onQuickLink={quickEvidenceLink} onMentionsLoaded={registerCloudMentions} />
+              <MentionFeed mentions={baseAnalytics.currentMentions} monitor={activeMonitor} bounds={baseAnalytics.bounds} refreshKey={analyticsRefreshKey} topics={monitorTopics} sourceFilter={sourceFilter} topicFilter={activeTopic} keywordFilter={keywordFilter} savedIds={savedIds} importantIds={importantIds} onSourceFilter={setSourceFilter} onTopicFilter={setActiveTopic} onKeywordFilter={setKeywordFilter} onOpenMention={setSelectedMention} onToggleSaved={toggleSaved} onToggleImportant={toggleImportant} onSendToNotebook={sendMentionToNotebook} onMentionsLoaded={registerCloudMentions} />
             </div>
           ) : null}
 
@@ -551,8 +560,9 @@ export function RadarPage() {
       <DeleteMonitorDialog open={deleteDialogOpen} monitor={activeMonitor} mentionCount={allMentions.length} deleting={deleteState === "deleting"} error={deleteError} onClose={() => { if (deleteState !== "deleting") { setDeleteDialogOpen(false); setDeleteError(""); } }} onConfirm={confirmDeleteMonitor} />
       <SourceDrawer open={sourceDrawerOpen} onClose={closeSourceDrawer} settings={connectorSettings} onSave={saveConnectorSettings} backendConfigured={backendConfigured} />
       <SpikeDrawer spike={selectedSpike} mentions={allMentions} supportingStatus={supportingStatus} supportingError={supportingError} onClose={() => setSelectedSpikeId("")} onOpenMention={(mention) => { setSelectedSpikeId(""); setSelectedMention(mention); }} />
-      <MentionDetailDrawer mention={selectedMention} related={relatedMentions} note={selectedMention ? notes[selectedMention.id] ?? "" : ""} links={selectedMention ? evidenceLinks.filter((link) => link.mentionId === selectedMention.id) : []} saved={Boolean(selectedMention && savedIds.includes(selectedMention.id))} important={Boolean(selectedMention && importantIds.includes(selectedMention.id))} onClose={() => setSelectedMention(null)} onSaveNote={(note) => selectedMention ? saveNote(selectedMention.id, note) : Promise.resolve()} onRemoveEvidence={removeEvidenceLink} onToggleSaved={() => { if (selectedMention) void toggleSaved(selectedMention.id); }} onToggleImportant={() => { if (selectedMention) void toggleImportant(selectedMention.id); }} onUseEvidence={() => selectedMention && setEvidenceMention(selectedMention)} onOpenRelated={setSelectedMention} onFilterKeyword={inspectKeyword} />
+      <MentionDetailDrawer mention={selectedMention} related={relatedMentions} note={selectedMention ? notes[selectedMention.id] ?? "" : ""} links={selectedMention ? evidenceLinks.filter((link) => link.mentionId === selectedMention.id) : []} saved={Boolean(selectedMention && savedIds.includes(selectedMention.id))} important={Boolean(selectedMention && importantIds.includes(selectedMention.id))} onClose={() => setSelectedMention(null)} onSaveNote={(note) => selectedMention ? saveNote(selectedMention.id, note) : Promise.resolve()} onRemoveEvidence={removeEvidenceLink} onToggleSaved={() => { if (selectedMention) void toggleSaved(selectedMention.id); }} onToggleImportant={() => { if (selectedMention) void toggleImportant(selectedMention.id); }} onUseEvidence={() => selectedMention && setEvidenceMention(selectedMention)} onSendToNotebook={() => { if (selectedMention) sendMentionToNotebook(selectedMention); }} onOpenRelated={setSelectedMention} onFilterKeyword={inspectKeyword} />
       <EvidenceDialog mention={evidenceMention} onClose={() => setEvidenceMention(null)} onSave={addEvidenceLink} />
+      {notebookEvidence ? <SendToNotebookDialog evidence={notebookEvidence} onClose={() => setNotebookMention(null)} /> : null}
     </div>
   );
 }

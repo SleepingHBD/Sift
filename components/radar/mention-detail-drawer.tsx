@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, ExternalLink, Flag, FlaskConical, Link2, MessageSquareText, Trash2, X } from "lucide-react";
+import { BookOpenText, Bookmark, ExternalLink, Flag, FlaskConical, Link2, MessageSquareText, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge, Button } from "@/components/ui/primitives";
 import type { RadarEvidenceLink, RadarMention } from "@/lib/radar/types";
@@ -19,11 +19,12 @@ interface MentionDetailDrawerProps {
   onToggleSaved: () => void;
   onToggleImportant: () => void;
   onUseEvidence: () => void;
+  onSendToNotebook: () => void;
   onOpenRelated: (mention: RadarMention) => void;
   onFilterKeyword: (keyword: string) => void;
 }
 
-export function MentionDetailDrawer({ mention, related, note, links, saved, important, onClose, onSaveNote, onRemoveEvidence, onToggleSaved, onToggleImportant, onUseEvidence, onOpenRelated, onFilterKeyword }: MentionDetailDrawerProps) {
+export function MentionDetailDrawer({ mention, related, note, links, saved, important, onClose, onSaveNote, onRemoveEvidence, onToggleSaved, onToggleImportant, onUseEvidence, onSendToNotebook, onOpenRelated, onFilterKeyword }: MentionDetailDrawerProps) {
   const [draftNote, setDraftNote] = useState(note);
   const [noteStatus, setNoteStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [noteError, setNoteError] = useState("");
@@ -61,9 +62,10 @@ export function MentionDetailDrawer({ mention, related, note, links, saved, impo
         </div>
         <div className="mention-detail__content"><FlaskConical size={15} /><p>{mention.content}</p></div>
         <div className="mention-detail__actions">
+          <Button variant="dark" onClick={onSendToNotebook}><BookOpenText size={14} />Send to Notebook</Button>
           <Button onClick={onToggleSaved} variant={saved ? "primary" : "secondary"}><Bookmark size={14} fill={saved ? "currentColor" : "none"} />{saved ? "Saved" : "Save"}</Button>
           <Button onClick={onToggleImportant}><Flag size={14} fill={important ? "currentColor" : "none"} />{important ? "Important" : "Mark important"}</Button>
-          <Button variant="dark" onClick={onUseEvidence}><Link2 size={14} />Use as evidence</Button>
+          <Button onClick={onUseEvidence}><Link2 size={14} />Other evidence links</Button>
           {mention.url ? <a className="ui-button ui-button--secondary ui-button--md" href={mention.url} target="_blank" rel="noreferrer">Open original <ExternalLink size={13} /></a> : <Button disabled title="No original source URL is available">Original unavailable</Button>}
         </div>
         <dl className="mention-detail__metrics">

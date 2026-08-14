@@ -28,6 +28,14 @@ export interface StrategySessionSummary {
   updatedAt: string;
 }
 
+export interface NotebookDestination extends StrategySessionSummary {
+  existingTurnId: string | null;
+}
+
+export type AddEvidenceToNotebookResult =
+  | { status: "added"; turn: StrategySessionTurnRecord }
+  | { status: "already_attached"; turnId: string };
+
 export interface StrategyEvidenceSource {
   id: string;
   projectId: string;

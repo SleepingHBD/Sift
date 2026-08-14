@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Check, CircleX, ExternalLink, FileText, Link2, LoaderCircle, Network, RotateCcw, Save, Shapes, ShieldAlert, Trash2, X } from "lucide-react";
+import { Archive, BookOpenText, Check, CircleX, ExternalLink, FileText, Link2, LoaderCircle, Network, RotateCcw, Save, Shapes, ShieldAlert, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PrivateEvidenceAsset } from "@/components/evidence/private-evidence-asset";
 import { Badge } from "@/components/ui/primitives";
@@ -42,6 +42,7 @@ export function EvidenceDetailDrawer({
   topicPending,
   topicError,
   onTopics,
+  onSendToNotebook,
   onDelete,
   onClose,
 }: {
@@ -64,6 +65,7 @@ export function EvidenceDetailDrawer({
   topicPending: boolean;
   topicError: string;
   onTopics: (mode: "add" | "remove", topics: string) => Promise<boolean>;
+  onSendToNotebook: () => void;
   onDelete: () => void;
   onClose: () => void;
 }) {
@@ -100,6 +102,11 @@ export function EvidenceDetailDrawer({
           <Badge>{captureMethodLabel(evidence.provenance.captureMethod)}</Badge>
           <Badge>{evidenceReviewLabel(evidence.reviewStatus)}</Badge>
         </div>
+
+        <section className="inbox-detail-drawer__notebook-action">
+          <div><BookOpenText size={17} /><span><strong>Useful for your thinking?</strong><small>Send this source to a notebook page and add a thought only if you have one.</small></span></div>
+          <button type="button" onClick={onSendToNotebook}><BookOpenText size={14} />Send to Notebook</button>
+        </section>
 
         <section className="inbox-detail-drawer__review" aria-labelledby="evidence-review-heading">
           <div><p className="drawer-section-label" id="evidence-review-heading">Review status</p>{reviewSaved ? <Badge>Saved to cloud</Badge> : null}</div>

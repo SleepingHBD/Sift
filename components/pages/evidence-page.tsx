@@ -9,6 +9,7 @@ import { EvidenceCsvImportDialog } from "@/components/evidence/evidence-csv-impo
 import { EvidenceDeleteDialog } from "@/components/evidence/evidence-delete-dialog";
 import { EvidenceDetailDrawer } from "@/components/evidence/evidence-detail-drawer";
 import { EvidenceSavedViews } from "@/components/evidence/evidence-saved-views";
+import { SendToNotebookDialog } from "@/components/strategy/send-to-notebook-dialog";
 import { Badge, Button, Card, PageIntro } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/workspace/empty-state";
 import { LibraryImportNotice } from "@/components/workspace/library-import-notice";
@@ -147,6 +148,7 @@ export function EvidencePage({ initialKind = "all" }: { initialKind?: EvidenceIn
   const [savedViewPending, setSavedViewPending] = useState("");
   const [savedViewNotice, setSavedViewNotice] = useState<{ tone: "success" | "error"; message: string } | null>(null);
   const [selectedKey, setSelectedKey] = useState("");
+  const [notebookCandidate, setNotebookCandidate] = useState<EvidenceReference | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<EvidenceReference | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [reviewPending, setReviewPending] = useState<EvidenceReviewStatus | null>(null);
@@ -690,8 +692,9 @@ export function EvidencePage({ initialKind = "all" }: { initialKind?: EvidenceIn
         </>
       )}
 
-      <EvidenceDetailDrawer key={selected ? evidenceKey(selected) : "empty-evidence"} evidence={selected} projectName={selected ? projectNames.get(selected.projectId) ?? "Project" : ""} associatedProjectNames={selected ? selected.associatedProjectIds.map((id) => projectNames.get(id)).filter((name): name is string => Boolean(name)) : []} assets={allAssets} relationships={relationships} relationshipStatus={relationshipStatus} relationshipError={relationshipError} onRetryRelationships={() => setRelationshipRetryVersion((current) => current + 1)} reviewPending={reviewPending} reviewError={reviewError} reviewSaved={reviewSaved} onReview={reviewEvidence} notePending={notePending} noteError={noteError} noteSaved={noteSaved} onSaveNote={saveEvidenceNote} topicPending={topicPending} topicError={topicError} onTopics={updateSelectedTopics} onDelete={() => { if (selected) setDeleteCandidate(selected); }} onClose={closeEvidence} />
+      <EvidenceDetailDrawer key={selected ? evidenceKey(selected) : "empty-evidence"} evidence={selected} projectName={selected ? projectNames.get(selected.projectId) ?? "Project" : ""} associatedProjectNames={selected ? selected.associatedProjectIds.map((id) => projectNames.get(id)).filter((name): name is string => Boolean(name)) : []} assets={allAssets} relationships={relationships} relationshipStatus={relationshipStatus} relationshipError={relationshipError} onRetryRelationships={() => setRelationshipRetryVersion((current) => current + 1)} reviewPending={reviewPending} reviewError={reviewError} reviewSaved={reviewSaved} onReview={reviewEvidence} notePending={notePending} noteError={noteError} noteSaved={noteSaved} onSaveNote={saveEvidenceNote} topicPending={topicPending} topicError={topicError} onTopics={updateSelectedTopics} onSendToNotebook={() => { if (selected) setNotebookCandidate(selected); }} onDelete={() => { if (selected) setDeleteCandidate(selected); }} onClose={closeEvidence} />
       {deleteCandidate?.cloudId && deleteCandidate.kind !== "mention" ? <EvidenceDeleteDialog identity={{ kind: deleteCandidate.kind, itemId: deleteCandidate.cloudId, projectId: deleteCandidate.projectId }} title={deleteCandidate.title} libraryLabel={deleteCandidate.kind} onClose={() => setDeleteCandidate(null)} onConfirm={deleteEvidenceCandidate} /> : null}
+      {notebookCandidate ? <SendToNotebookDialog evidence={notebookCandidate} onClose={() => setNotebookCandidate(null)} onAdded={() => setRelationshipRetryVersion((current) => current + 1)} /> : null}
       {csvImportOpen ? <EvidenceCsvImportDialog projects={projects} initialProjectId={projectFilter === "all" ? undefined : projects.find((project) => projectEvidenceId(project) === projectFilter)?.id} onClose={() => setCsvImportOpen(false)} onImported={() => { retryWorkspace(); setRetryVersion((current) => current + 1); }} /> : null}
     </div>
   );

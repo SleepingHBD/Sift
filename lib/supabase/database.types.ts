@@ -3253,6 +3253,22 @@ export type Database = {
           target_project_id: string
         }[]
       }
+      list_evidence_notebook_relationships: {
+        Args: {
+          p_item_id: string
+          p_kind: Database["public"]["Enums"]["item_kind"]
+          p_project_id: string
+        }
+        Returns: {
+          blocking: boolean
+          label: string
+          metadata: Json
+          relationship_id: string
+          relationship_type: string
+          target_id: string
+          target_project_id: string
+        }[]
+      }
       merge_signals: {
         Args: { p_source_signal_ids: string[]; p_target_signal_id: string }
         Returns: string

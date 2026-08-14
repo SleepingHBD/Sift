@@ -1,10 +1,10 @@
 "use client";
 
-import { Beaker, Bookmark, ChevronDown, ExternalLink, FileText, Flag, FolderKanban, Images, Link2, Search, SlidersHorizontal, X } from "lucide-react";
+import { BookOpenText, Bookmark, ChevronDown, ExternalLink, Flag, Search, SlidersHorizontal, X } from "lucide-react";
 import { Fragment, useDeferredValue, useMemo, useState } from "react";
 import { useRadarConversations } from "@/components/radar/use-radar-conversations";
 import { Badge, Button, Card, SectionHeader } from "@/components/ui/primitives";
-import type { DateBounds, EvidenceDestination, MonitoringQuery, RadarConversationSort, RadarMention, TopicIntelligence } from "@/lib/radar/types";
+import type { DateBounds, MonitoringQuery, RadarConversationSort, RadarMention, TopicIntelligence } from "@/lib/radar/types";
 import { formatNumber } from "@/lib/utils";
 
 function highlight(content: string, query: string) {
@@ -24,7 +24,6 @@ interface MentionFeedProps {
   sourceFilter: string;
   topicFilter: string;
   keywordFilter: string;
-  projectLabel: string;
   savedIds: string[];
   importantIds: string[];
   onSourceFilter: (source: string) => void;
@@ -33,12 +32,11 @@ interface MentionFeedProps {
   onOpenMention: (mention: RadarMention) => void;
   onToggleSaved: (mentionId: string) => void;
   onToggleImportant: (mentionId: string) => void;
-  onUseEvidence: (mention: RadarMention) => void;
-  onQuickLink: (mention: RadarMention, destination: EvidenceDestination, label: string) => Promise<void>;
+  onSendToNotebook: (mention: RadarMention) => void;
   onMentionsLoaded: (mentions: RadarMention[]) => void | Promise<void>;
 }
 
-export function MentionFeed({ mentions, monitor, bounds, refreshKey, topics, sourceFilter, topicFilter, keywordFilter, projectLabel, savedIds, importantIds, onSourceFilter, onTopicFilter, onKeywordFilter, onOpenMention, onToggleSaved, onToggleImportant, onUseEvidence, onQuickLink, onMentionsLoaded }: MentionFeedProps) {
+export function MentionFeed({ mentions, monitor, bounds, refreshKey, topics, sourceFilter, topicFilter, keywordFilter, savedIds, importantIds, onSourceFilter, onTopicFilter, onKeywordFilter, onOpenMention, onToggleSaved, onToggleImportant, onSendToNotebook, onMentionsLoaded }: MentionFeedProps) {
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [sentiment, setSentiment] = useState("all");
@@ -46,7 +44,6 @@ export function MentionFeed({ mentions, monitor, bounds, refreshKey, topics, sou
   const [sort, setSort] = useState<RadarConversationSort>("newest");
   const [visibleCount, setVisibleCount] = useState(12);
   const [showFilters, setShowFilters] = useState(false);
-  const [notice, setNotice] = useState("");
   const boundsStart = bounds.start.getTime();
   const boundsEnd = bounds.end.getTime();
   const conversationRequest = useMemo(() => monitor.cloudId ? {
@@ -86,16 +83,6 @@ export function MentionFeed({ mentions, monitor, bounds, refreshKey, topics, sou
   const displayed = usesCompleteHistory ? server.mentions : filtered.slice(0, visibleCount);
   const matchingCount = usesCompleteHistory ? server.total : filtered.length;
 
-  async function quickLink(mention: RadarMention, destination: EvidenceDestination, label: string) {
-    try {
-      await onQuickLink(mention, destination, label);
-      setNotice(`Added to ${label}. Original mention ID retained.`);
-      window.setTimeout(() => setNotice(""), 2200);
-    } catch {
-      setNotice("");
-    }
-  }
-
   function clearFilters() {
     setSearch("");
     onSourceFilter("all");
@@ -128,7 +115,6 @@ export function MentionFeed({ mentions, monitor, bounds, refreshKey, topics, sou
       ) : null}
 
       {sourceFilter !== "all" || topicFilter || keywordFilter ? <div className="active-filter-row">{sourceFilter !== "all" ? <button onClick={() => onSourceFilter("all")}>Source: {sourceFilter}<X size={12} /></button> : null}{topicFilter ? <button onClick={() => onTopicFilter("")}>Topic: {topicFilter}<X size={12} /></button> : null}{keywordFilter ? <button onClick={() => onKeywordFilter("")}>Keyword: {keywordFilter}<X size={12} /></button> : null}</div> : null}
-      {notice ? <div className="radar-toast"><Link2 size={14} />{notice}</div> : null}
       {server.status === "loading" ? <div className="radar-run-notice" role="status"><span>Loading complete conversation history from Supabase...</span></div> : null}
       {server.error ? <div className="radar-run-notice radar-run-notice--error" role="alert"><span>{server.error} Showing the conversations already loaded in this browser.</span></div> : null}
       {usesCompleteHistory ? <div className="conversation-history-status"><span>Complete database results</span><small>Stable pages keep this view accurate while new records arrive.</small></div> : null}
@@ -146,11 +132,8 @@ export function MentionFeed({ mentions, monitor, bounds, refreshKey, topics, sou
                 <div className="mention-card__footer">
                   <span><b>{formatNumber(mention.engagement)}</b> estimated engagement · {mention.relevance}% relevant</span>
                   <div className="mention-actions">
+                    <button className="evidence-action" title="Add to a notebook page" onClick={(event) => { event.stopPropagation(); onSendToNotebook(mention); }}><BookOpenText size={14} /><span>Notebook</span></button>
                     <button title={savedIds.includes(mention.id) ? "Remove saved mention" : "Save mention"} onClick={(event) => { event.stopPropagation(); onToggleSaved(mention.id); }}><Bookmark size={14} fill={savedIds.includes(mention.id) ? "currentColor" : "none"} /><span>{savedIds.includes(mention.id) ? "Saved" : "Save"}</span></button>
-                    <button title="Link to project evidence" onClick={(event) => { event.stopPropagation(); void quickLink(mention, "project", projectLabel); }}><FolderKanban size={14} /><span>Project</span></button>
-                    <button title="Add to the Radar research queue" onClick={(event) => { event.stopPropagation(); void quickLink(mention, "research", "Research queue"); }}><FileText size={14} /><span>Research</span></button>
-                    <button title="Add to the Radar inspiration queue" onClick={(event) => { event.stopPropagation(); void quickLink(mention, "inspiration", "Inspiration queue"); }}><Images size={14} /><span>Inspiration</span></button>
-                    <button className="evidence-action" title="Use as evidence" onClick={(event) => { event.stopPropagation(); onUseEvidence(mention); }}><Beaker size={14} /><span>Evidence</span></button>
                     <button title={importantIds.includes(mention.id) ? "Remove important marker" : "Mark important"} onClick={(event) => { event.stopPropagation(); onToggleImportant(mention.id); }}><Flag size={14} fill={importantIds.includes(mention.id) ? "currentColor" : "none"} /><span>{importantIds.includes(mention.id) ? "Important" : "Mark important"}</span></button>
                     {mention.url ? <a href={mention.url} target="_blank" rel="noreferrer" title="Open original" onClick={(event) => event.stopPropagation()}><ExternalLink size={14} /></a> : <button disabled title="No original source URL is available"><ExternalLink size={14} /></button>}
                   </div>

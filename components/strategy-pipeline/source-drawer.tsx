@@ -5,6 +5,10 @@ import { Badge, Button } from "@/components/ui/primitives";
 import { relationshipLabel } from "@/lib/strategy-pipeline/model";
 import type { StrategyPieceSourceRecord, StrategyStageSourceRecord, StrategyTurnSourceRecord } from "@/lib/strategy-pipeline/types";
 
+function sourceHome(kind: StrategyTurnSourceRecord["source"]["kind"]) {
+  return kind === "mention" ? "Radar" : "Library";
+}
+
 export function StrategySourceDrawer({ source, onClose }: { source: StrategyStageSourceRecord | StrategyPieceSourceRecord | StrategyTurnSourceRecord | null; onClose: () => void }) {
   if (!source) return null;
   return (
@@ -16,7 +20,7 @@ export function StrategySourceDrawer({ source, onClose }: { source: StrategyStag
           <button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </header>
         <div className="insight-source-drawer__body">
-          <div className="insight-source-drawer__badges"><Badge>{source.source.kind}</Badge><Badge>{relationshipLabel(source.relationship)}</Badge></div>
+          <div className="insight-source-drawer__badges"><Badge>From {sourceHome(source.source.kind)}</Badge><Badge>{source.source.kind}</Badge><Badge>{relationshipLabel(source.relationship)}</Badge></div>
           <dl>
             <div><dt>Source</dt><dd>{source.source.sourceLabel}</dd></div>
             {source.source.author ? <div><dt>Author</dt><dd>{source.source.author}</dd></div> : null}

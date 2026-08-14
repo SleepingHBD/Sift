@@ -20,7 +20,7 @@ export {
   type EvidenceRelationshipType,
 } from "@/lib/evidence/relationship-model";
 
-const relationshipTypes = new Set<EvidenceRelationshipType>(["signal", "strategy_stage", "insight", "brief", "project", "saved", "tag", "asset", "note", "trend"]);
+const relationshipTypes = new Set<EvidenceRelationshipType>(["signal", "strategy_stage", "notebook", "insight", "brief", "project", "saved", "tag", "asset", "note", "trend"]);
 
 function requireClient() {
   const client = createBrowserSupabaseClient();
@@ -43,13 +43,19 @@ function relationshipType(value: string): EvidenceRelationshipType {
 
 export async function listEvidenceRelationships(identity: EvidenceIdentity): Promise<EvidenceRelationshipSummary> {
   requireIdentity(identity);
-  const { data, error } = await requireClient().rpc("list_evidence_relationships", {
+  const client = requireClient();
+  const args = {
     p_kind: identity.kind,
     p_item_id: identity.itemId,
     p_project_id: identity.projectId,
-  });
-  if (error) throw new Error(`Evidence relationships could not be loaded: ${error.message}`, { cause: error });
-  return summarizeEvidenceRelationships((data ?? []).map((row) => ({
+  };
+  const [existing, notebook] = await Promise.all([
+    client.rpc("list_evidence_relationships", args),
+    client.rpc("list_evidence_notebook_relationships", args),
+  ]);
+  if (existing.error) throw new Error(`Evidence relationships could not be loaded: ${existing.error.message}`, { cause: existing.error });
+  if (notebook.error) throw new Error(`Notebook relationships could not be loaded: ${notebook.error.message}`, { cause: notebook.error });
+  return summarizeEvidenceRelationships([...(existing.data ?? []), ...(notebook.data ?? [])].map((row) => ({
     type: relationshipType(row.relationship_type),
     id: row.relationship_id,
     targetId: row.target_id ?? null,

@@ -1,6 +1,6 @@
 import type { EvidenceKind } from "./reference.ts";
 
-export type EvidenceRelationshipType = "signal" | "strategy_stage" | "insight" | "brief" | "project" | "saved" | "tag" | "asset" | "note" | "trend";
+export type EvidenceRelationshipType = "signal" | "strategy_stage" | "notebook" | "insight" | "brief" | "project" | "saved" | "tag" | "asset" | "note" | "trend";
 
 export interface EvidenceIdentity {
   kind: EvidenceKind;
@@ -41,6 +41,7 @@ export function relationshipTypeLabel(type: EvidenceRelationshipType) {
   switch (type) {
     case "signal": return "Signal evidence";
     case "strategy_stage": return "Insight Builder citation";
+    case "notebook": return "Notebook citation";
     case "insight": return "Insight";
     case "brief": return "Creative brief";
     case "project": return "Linked project";

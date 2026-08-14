@@ -3,9 +3,11 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import type { EvidenceReference } from "@/lib/evidence/reference";
 import { nextSessionOrigin } from "./model";
 import type {
+  AddEvidenceToNotebookResult,
   AttachStrategyEvidenceInput,
   CreateStrategyAlternativeInput,
   CreateStrategyDependencyInput,
+  NotebookDestination,
   SaveStrategyStageInput,
   SaveStrategyConnectionInput,
   StrategyAiInputOption,
@@ -191,6 +193,56 @@ export async function createStrategySession(projectId: string, title: string): P
   }).select(sessionSelect).single();
   if (error || !data) throw new Error(`Insight session could not be created: ${error?.message ?? "No record was returned."}`);
   return sessionFromRow(data as SessionRow);
+}
+
+export async function listNotebookDestinations(
+  projectId: string,
+  evidence: EvidenceReference,
+): Promise<NotebookDestination[]> {
+  if (!evidence.cloudId) throw new Error("Only evidence saved in this cloud workspace can be added to a notebook.");
+  if (evidence.projectId !== projectId) throw new Error("This source belongs to a different project.");
+  const client = requireClient();
+  const [sessions, links] = await Promise.all([
+    listStrategySessions(projectId),
+    client.from("strategy_session_turn_sources")
+      .select("session_id,turn_id")
+      .eq("project_id", projectId)
+      .eq("evidence_type", evidence.kind)
+      .eq("evidence_id", evidence.cloudId),
+  ]);
+  if (links.error) throw new Error(`Notebook source use could not be checked: ${links.error.message}`);
+  const existingBySession = new Map((links.data ?? []).map((link) => [link.session_id, link.turn_id]));
+  return sessions.map((session) => ({
+    ...session,
+    existingTurnId: existingBySession.get(session.id) ?? null,
+  }));
+}
+
+export async function addEvidenceToNotebook(
+  sessionId: string,
+  projectId: string,
+  evidence: EvidenceReference,
+  note: string,
+): Promise<AddEvidenceToNotebookResult> {
+  if (!evidence.cloudId) throw new Error("Only evidence saved in this cloud workspace can be added to a notebook.");
+  if (evidence.projectId !== projectId) throw new Error("This source belongs to a different project.");
+  const cleanNote = note.trim();
+  if (cleanNote.length > 10_000) throw new Error("Keep the notebook thought to 10,000 characters or fewer.");
+  const client = requireClient();
+  const existing = await client.from("strategy_session_turn_sources")
+    .select("turn_id")
+    .eq("project_id", projectId)
+    .eq("session_id", sessionId)
+    .eq("evidence_type", evidence.kind)
+    .eq("evidence_id", evidence.cloudId)
+    .limit(1)
+    .maybeSingle();
+  if (existing.error) throw new Error(`Notebook source use could not be checked: ${existing.error.message}`);
+  if (existing.data) return { status: "already_attached", turnId: existing.data.turn_id };
+  return {
+    status: "added",
+    turn: await addStrategyConversationTurn(sessionId, projectId, cleanNote, [evidence]),
+  };
 }
 
 export async function renameStrategySession(
